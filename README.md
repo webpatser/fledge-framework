@@ -97,7 +97,7 @@ composer config repositories.fledge path /path/to/fledge/packages/framework
 composer config repositories.fledge vcs https://github.com/webpatser/fledge
 
 # Replace Laravel's framework with Fledge
-composer require "laravel/framework:dev-fledge-13" -W
+composer require "laravel/framework:^13.3" -W
 ```
 
 ### From scratch
@@ -132,6 +132,20 @@ Fledge tracks Laravel's `13.x` branch. When Laravel releases a new version:
 5. Tag a matching Fledge release
 
 The goal is automated sync for clean merges (~70% of releases), with manual intervention only when upstream touches the same files Fledge modifies.
+
+### Versioning
+
+Fledge uses a **fourth version segment** to track its own releases on top of Laravel's version:
+
+| Laravel | Fledge | Meaning |
+|---------|--------|---------|
+| `v13.3.0` | `v13.3.0.1` | First Fledge release based on Laravel 13.3.0 |
+| `v13.3.0` | `v13.3.0.2` | Fledge-only fix on top of 13.3.0 |
+| `v13.4.0` | `v13.4.0.1` | Fledge synced to Laravel 13.4.0 |
+
+The first three segments always match the upstream Laravel version. The fourth is Fledge's own patch counter, starting at `.1` for each new Laravel release.
+
+In your `composer.json`, `"laravel/framework": "^13.3"` will pull in the latest Fledge release.
 
 ### Project Structure
 
