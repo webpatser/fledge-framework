@@ -250,6 +250,13 @@ class PendingRequest
     protected $truncateExceptionsAt = null;
 
     /**
+     * The persistent cURL share handle options.
+     *
+     * @var array|null
+     */
+    protected ?array $persistentCurlOptions = null;
+
+    /**
      * Create a new HTTP Client instance.
      *
      * @param  \Illuminate\Http\Client\Factory|null  $factory
@@ -678,6 +685,22 @@ class PendingRequest
             array_merge_recursive($this->options, Arr::only($options, $this->mergeableOptions)),
             $options
         );
+
+        return $this;
+    }
+
+    /**
+     * Enable persistent cURL connections for this request.
+     *
+     * PHP 8.5 feature: Shares DNS cache and connections across requests
+     * for improved performance.
+     *
+     * @param  array  $options  CURL_LOCK_DATA_* constants to share
+     * @return $this
+     */
+    public function withPersistentConnections(array $options = [CURL_LOCK_DATA_DNS, CURL_LOCK_DATA_CONNECT])
+    {
+        $this->persistentCurlOptions = $options;
 
         return $this;
     }

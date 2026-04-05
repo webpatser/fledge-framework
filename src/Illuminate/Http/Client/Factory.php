@@ -88,6 +88,20 @@ class Factory
     protected $allowedStrayRequestUrls = [];
 
     /**
+     * Whether to use persistent cURL connections globally.
+     *
+     * @var bool
+     */
+    protected bool $usePersistentConnections = false;
+
+    /**
+     * The persistent cURL options to use.
+     *
+     * @var array
+     */
+    protected array $persistentCurlOptions = [CURL_LOCK_DATA_DNS, CURL_LOCK_DATA_CONNECT];
+
+    /**
      * Create a new factory instance.
      *
      * @param  \Illuminate\Contracts\Events\Dispatcher|null  $dispatcher
@@ -108,6 +122,27 @@ class Factory
     public function globalMiddleware($middleware)
     {
         $this->globalMiddleware[] = $middleware;
+
+        return $this;
+    }
+
+    /**
+     * Enable persistent cURL connections for all requests.
+     *
+     * PHP 8.5 feature: Shares DNS cache and connections across requests
+     * for improved performance.
+     *
+     * @param  bool  $enable
+     * @param  array|null  $options  CURL_LOCK_DATA_* constants to share
+     * @return $this
+     */
+    public function persistentConnections(bool $enable = true, ?array $options = null): static
+    {
+        $this->usePersistentConnections = $enable;
+
+        if ($options !== null) {
+            $this->persistentCurlOptions = $options;
+        }
 
         return $this;
     }
@@ -516,7 +551,13 @@ class Factory
      */
     protected function newPendingRequest()
     {
-        return (new PendingRequest($this, $this->globalMiddleware))->withOptions(value($this->globalOptions));
+        $request = (new PendingRequest($this, $this->globalMiddleware))->withOptions(value($this->globalOptions));
+
+        if ($this->usePersistentConnections && PersistentCurlShareManager::isAvailable()) {
+            $request->withPersistentConnections($this->persistentCurlOptions);
+        }
+
+        return $request;
     }
 
     /**

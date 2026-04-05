@@ -12,10 +12,9 @@ use Illuminate\Support\Traits\Dumpable;
 use Illuminate\Support\Traits\Macroable;
 use Illuminate\Support\Traits\Tappable;
 use JsonSerializable;
-use League\Uri\Contracts\UriInterface;
-use League\Uri\Uri as LeagueUri;
 use SensitiveParameter;
 use Stringable;
+use Uri\Rfc3986\Uri as NativeUri;
 
 class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
 {
@@ -24,7 +23,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * The URI instance.
      */
-    protected UriInterface $uri;
+    protected NativeUri $uri;
 
     /**
      * The URL generator resolver.
@@ -34,15 +33,128 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Create a new parsed URI instance.
      */
-    public function __construct(UriInterface|Stringable|string $uri = '')
+    public function __construct(NativeUri|Stringable|string $uri = '')
     {
-        $this->uri = $uri instanceof UriInterface ? $uri : LeagueUri::new((string) $uri);
+        $this->uri = $uri instanceof NativeUri ? $uri : new NativeUri(static::normalizeForRfc3986((string) $uri));
+    }
+
+    /**
+     * Normalize a URI string for RFC 3986 compliance.
+     *
+     * RFC 3986 is stricter than what many applications expect. This method
+     * handles common cases that would otherwise be rejected:
+     * - Internationalized domain names (IDN) → converted to punycode
+     * - Unicode characters in path → percent-encoded
+     * - Unencoded brackets in query string → percent-encoded
+     */
+    protected static function normalizeForRfc3986(string $uri): string
+    {
+        if ($uri === '') {
+            return $uri;
+        }
+
+        $uri = static::encodeIdnHost($uri);
+        $uri = static::encodeUnicodePath($uri);
+        $uri = static::encodeQueryBrackets($uri);
+
+        return $uri;
+    }
+
+    /**
+     * Convert internationalized domain names (IDN) to ASCII punycode.
+     *
+     * Domains like "bébé.be" become "xn--bb-bjab.be" for RFC 3986 compliance.
+     */
+    protected static function encodeIdnHost(string $uri): string
+    {
+        if (! preg_match('~^([a-zA-Z][a-zA-Z0-9+.-]*://)([^/:?#]+)(.*)$~u', $uri, $matches)) {
+            return $uri;
+        }
+
+        [, $schemeAndSlashes, $host, $rest] = $matches;
+
+        if (! preg_match('/[^\x00-\x7F]/', $host)) {
+            return $uri;
+        }
+
+        if (function_exists('idn_to_ascii')) {
+            $asciiHost = idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
+            if ($asciiHost !== false) {
+                return $schemeAndSlashes.$asciiHost.$rest;
+            }
+        }
+
+        return $uri;
+    }
+
+    /**
+     * Percent-encode Unicode characters in the URI path.
+     *
+     * Characters like "汉字" become "%E6%B1%89%E5%AD%97" for RFC 3986 compliance.
+     */
+    protected static function encodeUnicodePath(string $uri): string
+    {
+        if (! preg_match('~^((?:[a-zA-Z][a-zA-Z0-9+.-]*://)?[^/?#]*)(/[^?#]*)?(.*)$~u', $uri, $matches)) {
+            return $uri;
+        }
+
+        [, $beforePath, $path, $queryAndFragment] = $matches;
+
+        if (empty($path)) {
+            return $uri;
+        }
+
+        if (! preg_match('/[^\x00-\x7F]/', $path)) {
+            return $uri;
+        }
+
+        $encodedPath = preg_replace_callback(
+            '/[^\x00-\x7F]+/u',
+            fn ($m) => rawurlencode($m[0]),
+            $path
+        );
+
+        return $beforePath.$encodedPath.$queryAndFragment;
+    }
+
+    /**
+     * Encode unencoded brackets in the query string portion of a URI.
+     *
+     * RFC 3986 requires brackets to be percent-encoded. PHP's native Uri\Rfc3986\Uri
+     * is strictly compliant and will reject URIs with unencoded brackets.
+     */
+    protected static function encodeQueryBrackets(string $uri): string
+    {
+        $queryStart = strpos($uri, '?');
+
+        if ($queryStart === false) {
+            return $uri;
+        }
+
+        $fragmentStart = strpos($uri, '#', $queryStart);
+        $beforeQuery = substr($uri, 0, $queryStart + 1);
+
+        if ($fragmentStart !== false) {
+            $query = substr($uri, $queryStart + 1, $fragmentStart - $queryStart - 1);
+            $fragment = substr($uri, $fragmentStart);
+        } else {
+            $query = substr($uri, $queryStart + 1);
+            $fragment = '';
+        }
+
+        $query = preg_replace_callback(
+            '/(?<!%5[BD])(\[|\])/',
+            fn ($m) => $m[1] === '[' ? '%5B' : '%5D',
+            $query
+        );
+
+        return $beforeQuery.$query.$fragment;
     }
 
     /**
      * Create a new URI instance.
      */
-    public static function of(UriInterface|Stringable|string $uri = ''): static
+    public static function of(NativeUri|Stringable|string $uri = ''): static
     {
         return new static($uri);
     }
@@ -120,7 +232,27 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
      */
     public function authority(): ?string
     {
-        return $this->uri->getAuthority();
+        $host = $this->uri->getHost();
+
+        if ($host === null) {
+            return null;
+        }
+
+        $authority = '';
+        $userInfo = $this->uri->getUserInfo();
+
+        if ($userInfo !== null) {
+            $authority = $userInfo.'@';
+        }
+
+        $authority .= $host;
+        $port = $this->uri->getPort();
+
+        if ($port !== null) {
+            $authority .= ':'.$port;
+        }
+
+        return $authority;
     }
 
     /**
@@ -210,6 +342,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Specify the scheme of the URI.
      */
+    #[\NoDiscard]
     public function withScheme(Stringable|string $scheme): static
     {
         return new static($this->uri->withScheme($scheme));
@@ -218,14 +351,26 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Specify the user and password for the URI.
      */
+    #[\NoDiscard]
     public function withUser(Stringable|string|null $user, #[SensitiveParameter] Stringable|string|null $password = null): static
     {
-        return new static($this->uri->withUserInfo($user, $password));
+        if ($user === null) {
+            return new static($this->uri->withUserInfo(null));
+        }
+
+        $userInfo = (string) $user;
+
+        if ($password !== null) {
+            $userInfo .= ':'.(string) $password;
+        }
+
+        return new static($this->uri->withUserInfo($userInfo));
     }
 
     /**
      * Specify the host of the URI.
      */
+    #[\NoDiscard]
     public function withHost(Stringable|string $host): static
     {
         return new static($this->uri->withHost($host));
@@ -234,6 +379,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Specify the port of the URI.
      */
+    #[\NoDiscard]
     public function withPort(?int $port): static
     {
         return new static($this->uri->withPort($port));
@@ -242,6 +388,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Specify the path of the URI.
      */
+    #[\NoDiscard]
     public function withPath(Stringable|string $path): static
     {
         return new static($this->uri->withPath(Str::start((string) $path, '/')));
@@ -250,6 +397,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Merge new query parameters into the URI.
      */
+    #[\NoDiscard]
     public function withQuery(array $query, bool $merge = true): static
     {
         foreach ($query as $key => $value) {
@@ -280,6 +428,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Merge new query parameters into the URI if they are not already in the query string.
      */
+    #[\NoDiscard]
     public function withQueryIfMissing(array $query): static
     {
         $currentQuery = $this->query();
@@ -296,6 +445,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Push a value onto the end of a query string parameter that is a list.
      */
+    #[\NoDiscard]
     public function pushOntoQuery(string $key, mixed $value): static
     {
         $currentValue = data_get($this->query()->all(), $key);
@@ -313,6 +463,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Remove the given query parameters from the URI.
      */
+    #[\NoDiscard]
     public function withoutQuery(array|string $keys): static
     {
         return $this->replaceQuery(Arr::except($this->query()->all(), $keys));
@@ -321,6 +472,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Specify new query parameters for the URI.
      */
+    #[\NoDiscard]
     public function replaceQuery(array $query): static
     {
         return $this->withQuery($query, merge: false);
@@ -329,6 +481,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Specify the fragment of the URI.
      */
+    #[\NoDiscard]
     public function withFragment(string $fragment): static
     {
         return new static($this->uri->withFragment($fragment));
@@ -449,7 +602,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     /**
      * Get the underlying URI instance.
      */
-    public function getUri(): UriInterface
+    public function getUri(): NativeUri
     {
         return $this->uri;
     }

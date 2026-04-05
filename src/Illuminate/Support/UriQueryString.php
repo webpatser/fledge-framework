@@ -4,7 +4,6 @@ namespace Illuminate\Support;
 
 use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Support\Traits\InteractsWithData;
-use League\Uri\QueryString;
 use Stringable;
 
 class UriQueryString implements Arrayable, Stringable
@@ -80,10 +79,88 @@ class UriQueryString implements Arrayable, Stringable
 
     /**
      * Convert the query string into an array.
+     *
+     * Uses a custom parser that preserves dots in keys (unlike parse_str which
+     * converts dots to underscores for historical PHP reasons).
      */
     public function toArray()
     {
-        return QueryString::extract($this->value());
+        return static::extractQueryString($this->value());
+    }
+
+    /**
+     * Extract query string parameters while preserving dots in keys.
+     *
+     * PHP's parse_str() converts dots to underscores in keys due to historical
+     * reasons. This method provides League\Uri\QueryString::extract() compatible
+     * behavior using PHP 8.5's native capabilities.
+     */
+    protected static function extractQueryString(string $query): array
+    {
+        if ($query === '') {
+            return [];
+        }
+
+        $pairs = explode('&', $query);
+        $result = [];
+
+        foreach ($pairs as $pair) {
+            if ($pair === '') {
+                continue;
+            }
+
+            $parts = explode('=', $pair, 2);
+            $key = rawurldecode($parts[0]);
+            $value = isset($parts[1]) ? rawurldecode($parts[1]) : '';
+
+            // Handle array notation in keys like key[0] or key[sub]
+            if (str_contains($key, '[')) {
+                preg_match('/^([^\[]+)(.*)$/', $key, $matches);
+                $baseKey = $matches[1];
+                $arrayPath = $matches[2];
+
+                preg_match_all('/\[([^\]]*)\]/', $arrayPath, $indexMatches);
+                $indices = $indexMatches[1];
+
+                $current = &$result;
+
+                if (! isset($current[$baseKey])) {
+                    $current[$baseKey] = [];
+                }
+                $current = &$current[$baseKey];
+
+                foreach ($indices as $i => $index) {
+                    $isLast = ($i === count($indices) - 1);
+
+                    if ($index === '') {
+                        if ($isLast) {
+                            $current[] = $value;
+                        } else {
+                            $current[] = [];
+                            end($current);
+                            $current = &$current[key($current)];
+                        }
+                    } else {
+                        if (is_numeric($index)) {
+                            $index = (int) $index;
+                        }
+
+                        if ($isLast) {
+                            $current[$index] = $value;
+                        } else {
+                            if (! isset($current[$index])) {
+                                $current[$index] = [];
+                            }
+                            $current = &$current[$index];
+                        }
+                    }
+                }
+            } else {
+                $result[$key] = $value;
+            }
+        }
+
+        return $result;
     }
 
     /**

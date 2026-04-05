@@ -13,6 +13,7 @@ interface Validator extends MessageProvider
      *
      * @throws \Illuminate\Validation\ValidationException
      */
+    #[\NoDiscard("Validated data should be used")]
     public function validate();
 
     /**
@@ -29,6 +30,7 @@ interface Validator extends MessageProvider
      *
      * @return bool
      */
+    #[\NoDiscard("Check if validation failed")]
     public function fails();
 
     /**

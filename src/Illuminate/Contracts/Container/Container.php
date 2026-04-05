@@ -186,6 +186,7 @@ interface Container extends ContainerInterface
      *
      * @throws \Illuminate\Contracts\Container\BindingResolutionException
      */
+    #[\NoDiscard]
     public function make($abstract, array $parameters = []);
 
     /**

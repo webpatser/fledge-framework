@@ -14,7 +14,7 @@
         "source": "https://github.com/laravel/framework"
     },
     "require": {
-        "php": "^8.3",
+        "php": "^8.5",
         "illuminate/contracts": "^13.0",
         "illuminate/macroable": "^13.0",
         "illuminate/support": "^13.0"

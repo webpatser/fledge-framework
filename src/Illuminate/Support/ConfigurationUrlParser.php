@@ -158,13 +158,12 @@ class ConfigurationUrlParser
             return $value;
         }
 
-        $parsedValue = json_decode($value, true);
-
-        if (json_last_error() === JSON_ERROR_NONE) {
-            return $parsedValue;
+        // PHP 8.3+: Use json_validate() for faster validation before decoding
+        if (! json_validate($value)) {
+            return $value;
         }
 
-        return $value;
+        return json_decode($value, true);
     }
 
     /**

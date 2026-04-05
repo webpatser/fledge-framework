@@ -14,7 +14,7 @@
         "source": "https://github.com/laravel/framework"
     },
     "require": {
-        "php": "^8.3",
+        "php": "^8.5",
         "ext-filter": "*",
         "ext-mbstring": "*",
         "brick/math": "^0.14.2 || ^0.15 || ^0.16 || ^0.17",

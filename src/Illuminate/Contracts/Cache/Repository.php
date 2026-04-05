@@ -16,6 +16,7 @@ interface Repository extends CacheInterface
      * @param  TCacheValue|(\Closure(): TCacheValue)  $default
      * @return (TCacheValue is null ? mixed : TCacheValue)
      */
+    #[\NoDiscard("Pulled value should be used")]
     public function pull($key, $default = null);
 
     /**
@@ -75,6 +76,7 @@ interface Repository extends CacheInterface
      * @param  \Closure(): TCacheValue  $callback
      * @return TCacheValue
      */
+    #[\NoDiscard]
     public function remember($key, $ttl, Closure $callback);
 
     /**
@@ -86,6 +88,7 @@ interface Repository extends CacheInterface
      * @param  \Closure(): TCacheValue  $callback
      * @return TCacheValue
      */
+    #[\NoDiscard]
     public function sear($key, Closure $callback);
 
     /**
@@ -97,6 +100,7 @@ interface Repository extends CacheInterface
      * @param  \Closure(): TCacheValue  $callback
      * @return TCacheValue
      */
+    #[\NoDiscard]
     public function rememberForever($key, Closure $callback);
 
     /**

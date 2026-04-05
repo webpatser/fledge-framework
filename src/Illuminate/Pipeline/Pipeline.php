@@ -73,6 +73,7 @@ class Pipeline implements PipelineContract
      * @param  mixed  $passable
      * @return $this
      */
+    #[\NoDiscard("Pipeline chain should be continued")]
     public function send($passable)
     {
         $this->passable = $passable;
@@ -86,6 +87,7 @@ class Pipeline implements PipelineContract
      * @param  mixed  $pipes
      * @return $this
      */
+    #[\NoDiscard("Pipeline chain should be continued")]
     public function through($pipes)
     {
         $this->pipes = is_array($pipes) ? $pipes : func_get_args();
@@ -99,6 +101,7 @@ class Pipeline implements PipelineContract
      * @param  mixed  $pipes
      * @return $this
      */
+    #[\NoDiscard("Pipeline chain should be continued")]
     public function pipe($pipes)
     {
         array_push($this->pipes, ...(is_array($pipes) ? $pipes : func_get_args()));
@@ -112,6 +115,7 @@ class Pipeline implements PipelineContract
      * @param  string  $method
      * @return $this
      */
+    #[\NoDiscard("Pipeline chain should be continued")]
     public function via($method)
     {
         $this->method = $method;
@@ -127,9 +131,10 @@ class Pipeline implements PipelineContract
      */
     public function then(Closure $destination)
     {
-        $pipeline = array_reduce(
-            array_reverse($this->pipes()), $this->carry(), $this->prepareDestination($destination)
-        );
+        // PHP 8.5: Using pipe operator for cleaner data flow
+        $pipeline = $this->pipes()
+            |> array_reverse(...)
+            |> (fn($pipes) => array_reduce($pipes, $this->carry(), $this->prepareDestination($destination)));
 
         try {
             return $this->withinTransaction !== false
