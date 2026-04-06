@@ -46,6 +46,13 @@ class Factory
     protected $globalOptions = [];
 
     /**
+     * The global Guzzle handler for all requests.
+     *
+     * @var callable|null
+     */
+    protected static $globalHandler = null;
+
+    /**
      * The stub callables that will handle requests.
      *
      * @var \Illuminate\Support\Collection
@@ -587,6 +594,27 @@ class Factory
      * @param  array  $parameters
      * @return mixed
      */
+    /**
+     * Set the global Guzzle handler for all HTTP requests.
+     *
+     * @param  callable|null  $handler
+     * @return void
+     */
+    public static function globalHandler(?callable $handler): void
+    {
+        static::$globalHandler = $handler;
+    }
+
+    /**
+     * Get the global Guzzle handler.
+     *
+     * @return callable|null
+     */
+    public static function getGlobalHandler(): ?callable
+    {
+        return static::$globalHandler;
+    }
+
     public function __call($method, $parameters)
     {
         if (static::hasMacro($method)) {
