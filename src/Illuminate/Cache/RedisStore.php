@@ -2,9 +2,12 @@
 
 namespace Illuminate\Cache;
 
+use Fiber;
+use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Contracts\Cache\CanFlushLocks;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Redis\Factory as Redis;
+use Illuminate\Redis\Connections\AmphpRedisConnection;
 use Illuminate\Redis\Connections\PhpRedisClusterConnection;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Redis\Connections\PredisClusterConnection;
@@ -13,12 +16,16 @@ use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 use RuntimeException;
 
+use function Amp\async;
+use function Amp\Future\await;
+
 class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
 {
     use RetrievesMultipleKeys {
         many as private manyAlias;
         putMany as private putManyAlias;
     }
+    use SuspendsFibers;
 
     /**
      * The Redis factory implementation.
@@ -104,9 +111,12 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
 
         $connection = $this->connection();
 
-        // PredisClusterConnection does not support reading multiple values if the keys hash differently...
+        // Cluster connections do not support mget across slots. Use Fibers for
+        // concurrent reads when available, otherwise fall back to sequential.
         if ($connection instanceof PredisClusterConnection) {
-            return $this->manyAlias($keys);
+            return $this->inFiber()
+                ? $this->manyConcurrent($keys, $connection)
+                : $this->manyAlias($keys);
         }
 
         $values = $connection->mget(array_map(function ($key) {
@@ -118,6 +128,24 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
         }
 
         return $results;
+    }
+
+    /**
+     * Retrieve multiple items concurrently using Fibers.
+     */
+    protected function manyConcurrent(array $keys, $connection): array
+    {
+        $futures = [];
+
+        foreach ($keys as $key) {
+            $futures[$key] = async(function () use ($key, $connection) {
+                $value = $connection->get($this->prefix.$key);
+
+                return ! is_null($value) ? $this->connectionAwareUnserialize($value, $connection) : null;
+            });
+        }
+
+        return await($futures);
     }
 
     /**
@@ -148,10 +176,13 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
     {
         $connection = $this->connection();
 
-        // Cluster connections do not support writing multiple values if the keys hash differently...
+        // Cluster connections do not support writing multiple values if the keys
+        // hash differently. Use Fibers for concurrent writes when available.
         if ($connection instanceof PhpRedisClusterConnection ||
             $connection instanceof PredisClusterConnection) {
-            return $this->putManyAlias($values, $seconds);
+            return $this->inFiber()
+                ? $this->putManyConcurrent($values, $seconds, $connection)
+                : $this->putManyAlias($values, $seconds);
         }
 
         $serializedValues = [];
@@ -175,6 +206,26 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
         $connection->exec();
 
         return $manyResult ?: false;
+    }
+
+    /**
+     * Store multiple items concurrently using Fibers.
+     */
+    protected function putManyConcurrent(array $values, int $seconds, $connection): bool
+    {
+        $futures = [];
+
+        foreach ($values as $key => $value) {
+            $futures[$key] = async(function () use ($key, $value, $seconds, $connection) {
+                return (bool) $connection->setex(
+                    $this->prefix.$key, (int) max(1, $seconds), $this->connectionAwareSerialize($value, $connection)
+                );
+            });
+        }
+
+        $results = await($futures);
+
+        return ! in_array(false, $results, true);
     }
 
     /**
@@ -356,6 +407,7 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
         // Connections can have a global prefix...
         $connectionPrefix = match (true) {
             $connection instanceof PhpRedisConnection => $connection->_prefix(''),
+            $connection instanceof AmphpRedisConnection => $connection->getPrefix(),
             $connection instanceof PredisConnection => $connection->getOptions()->prefix ?: '',
             default => '',
         };

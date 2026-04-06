@@ -1,5 +1,31 @@
 # Fledge Changelog
 
+## v13.3.0.3 - 2026-04-06
+
+### Added
+- **amphp/redis as default Redis driver** — all Redis I/O is now non-blocking by default
+  - New `AmphpRedisConnection` wrapping `Amp\Redis\RedisClient` with full phpredis API compatibility
+  - New `AmphpRedisConnector` building connections from standard Laravel Redis config
+  - New `AmphpRedisPipeline` for concurrent command dispatch
+  - Registered as `amphp` driver in `RedisManager`, set as default (`REDIS_CLIENT=amphp`)
+  - Every Redis command uses Fiber-based suspension via the Revolt event loop
+  - EVALSHA caching with automatic NOSCRIPT fallback (faster Lua script execution)
+  - Falls back to phpredis/predis for Redis Cluster (`REDIS_CLIENT=phpredis`)
+- **Fiber-aware cache layer** — cache internals use Fibers for concurrent I/O
+  - `Lock::block()` suspends the Fiber instead of `Sleep::usleep()`, allowing other Fibers to run
+  - `FailoverStore` tries all stores concurrently for read operations, returns first success
+  - `RedisStore::many()`/`putMany()` run concurrent reads/writes on cluster connections
+  - `RedisTaggedCache::flushValues()` processes chunks concurrently
+  - `RedisTagSet::addEntry()` issues concurrent `ZADD` calls across multiple tags
+  - New `SuspendsFibers` trait with `Fiber::getCurrent()` detection for safe fallback
+- **Redis as required cache dependency** — `illuminate/redis` moved from `suggest` to `require` in the cache package
+- Added `amphp/redis` as a framework dependency (moved from `require-dev`)
+
+### Changed
+- Default `REDIS_CLIENT` changed from `phpredis` to `amphp` in `config/database.php`
+- Cache package now requires `amphp/amp`, `revolt/event-loop`, and `illuminate/redis`
+- `RedisStore` and `RedisTaggedCache` updated with `AmphpRedisConnection` support in `instanceof` checks
+
 ## v13.3.0.2 - 2026-04-06
 
 ### Added

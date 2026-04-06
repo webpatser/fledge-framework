@@ -2,12 +2,18 @@
 
 namespace Illuminate\Cache;
 
+use Fiber;
+use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\LazyCollection;
 
+use function Amp\async;
+use function Amp\Future\await;
+
 class RedisTagSet extends TagSet
 {
+    use SuspendsFibers;
     /**
      * Add a reference entry to the tag set's underlying sorted set.
      *
@@ -20,12 +26,32 @@ class RedisTagSet extends TagSet
     {
         $ttl = is_null($ttl) ? -1 : Carbon::now()->addSeconds($ttl)->getTimestamp();
 
-        foreach ($this->tagIds() as $tagKey) {
-            if ($updateWhen) {
-                $this->store->connection()->zadd($this->store->getPrefix().$tagKey, $updateWhen, $ttl, $key);
-            } else {
-                $this->store->connection()->zadd($this->store->getPrefix().$tagKey, $ttl, $key);
+        $tagIds = $this->tagIds();
+
+        if ($this->inFiber() && count($tagIds) > 1) {
+            $futures = [];
+
+            foreach ($tagIds as $tagKey) {
+                $futures[] = async(fn () => $this->zaddEntry($tagKey, $ttl, $key, $updateWhen));
             }
+
+            await($futures);
+        } else {
+            foreach ($tagIds as $tagKey) {
+                $this->zaddEntry($tagKey, $ttl, $key, $updateWhen);
+            }
+        }
+    }
+
+    /**
+     * Add a single entry to the given tag's sorted set.
+     */
+    protected function zaddEntry(string $tagKey, int|float $ttl, string $key, $updateWhen): void
+    {
+        if ($updateWhen) {
+            $this->store->connection()->zadd($this->store->getPrefix().$tagKey, $updateWhen, $ttl, $key);
+        } else {
+            $this->store->connection()->zadd($this->store->getPrefix().$tagKey, $ttl, $key);
         }
     }
 

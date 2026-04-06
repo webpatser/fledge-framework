@@ -5,6 +5,7 @@ namespace Illuminate\Redis;
 use Closure;
 use Illuminate\Contracts\Redis\Factory;
 use Illuminate\Redis\Connections\Connection;
+use Illuminate\Redis\Connectors\AmphpRedisConnector;
 use Illuminate\Redis\Connectors\PhpRedisConnector;
 use Illuminate\Redis\Connectors\PredisConnector;
 use Illuminate\Support\Arr;
@@ -170,6 +171,7 @@ class RedisManager implements Factory
         }
 
         return match ($this->driver) {
+            'amphp' => new AmphpRedisConnector,
             'predis' => new PredisConnector,
             'phpredis' => new PhpRedisConnector,
             default => null,

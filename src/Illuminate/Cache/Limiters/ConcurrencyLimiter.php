@@ -2,12 +2,13 @@
 
 namespace Illuminate\Cache\Limiters;
 
-use Illuminate\Support\Sleep;
+use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Support\Str;
 use Throwable;
 
 class ConcurrencyLimiter
 {
+    use SuspendsFibers;
     /**
      * The cache store instance.
      *
@@ -74,7 +75,7 @@ class ConcurrencyLimiter
                 throw new LimiterTimeoutException;
             }
 
-            Sleep::usleep($sleep * 1000);
+            $this->suspendForMilliseconds($sleep);
         }
 
         if (is_callable($callback)) {

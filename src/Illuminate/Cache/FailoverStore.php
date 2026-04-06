@@ -2,14 +2,20 @@
 
 namespace Illuminate\Cache;
 
+use Fiber;
+use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Cache\Events\CacheFailedOver;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Events\Dispatcher;
 use RuntimeException;
 use Throwable;
 
+use function Amp\async;
+use function Amp\Future\awaitFirst;
+
 class FailoverStore extends TaggableStore implements LockProvider
 {
+    use SuspendsFibers;
     /**
      * The caches which failed on the last action.
      *
@@ -212,11 +218,62 @@ class FailoverStore extends TaggableStore implements LockProvider
     /**
      * Attempt the given method on all stores.
      *
+     * For read operations inside a Fiber context, all stores are tried concurrently
+     * and the first successful result is returned. Otherwise, stores are tried sequentially.
+     *
      * @return mixed
      *
      * @throws \Throwable
      */
     protected function attemptOnAllStores(string $method, array $arguments)
+    {
+        if ($this->isReadOperation($method) && $this->inFiber()) {
+            return $this->attemptConcurrently($method, $arguments);
+        }
+
+        return $this->attemptSequentially($method, $arguments);
+    }
+
+    /**
+     * Determine if the given method is a read operation.
+     */
+    protected function isReadOperation(string $method): bool
+    {
+        return in_array($method, ['get', 'many', 'getPrefix'], true);
+    }
+
+    /**
+     * Attempt the method on all stores concurrently, returning the first success.
+     *
+     * @return mixed
+     *
+     * @throws \Throwable
+     */
+    protected function attemptConcurrently(string $method, array $arguments)
+    {
+        $futures = [];
+
+        foreach ($this->stores as $store) {
+            $futures[] = async(fn () => $this->store($store)->{$method}(...$arguments));
+        }
+
+        try {
+            return awaitFirst($futures);
+        } catch (Throwable) {
+            // All concurrent attempts failed — fall through to sequential
+            // for proper event dispatch and error tracking.
+            return $this->attemptSequentially($method, $arguments);
+        }
+    }
+
+    /**
+     * Attempt the method on stores sequentially.
+     *
+     * @return mixed
+     *
+     * @throws \Throwable
+     */
+    protected function attemptSequentially(string $method, array $arguments)
     {
         [$lastException, $failedCaches] = [null, []];
 

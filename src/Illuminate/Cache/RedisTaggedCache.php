@@ -2,17 +2,23 @@
 
 namespace Illuminate\Cache;
 
+use Fiber;
+use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Cache\Events\CacheFlushed;
 use Illuminate\Cache\Events\CacheFlushing;
+use Illuminate\Redis\Connections\AmphpRedisConnection;
 use Illuminate\Redis\Connections\PhpRedisClusterConnection;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Redis\Connections\PredisClusterConnection;
 use Illuminate\Redis\Connections\PredisConnection;
 
+use function Amp\async;
+use function Amp\Future\await;
 use function Illuminate\Support\enum_value;
 
 class RedisTaggedCache extends TaggedCache
 {
+    use SuspendsFibers;
     /**
      * Store an item in the cache if the key does not exist.
      *
@@ -133,7 +139,9 @@ class RedisTaggedCache extends TaggedCache
 
         $redisPrefix = match (true) {
             $connection instanceof PhpRedisConnection => $connection->client()->getOption(\Redis::OPT_PREFIX),
+            $connection instanceof AmphpRedisConnection => $connection->getPrefix(),
             $connection instanceof PredisConnection => $connection->client()->getOptions()->prefix,
+            default => '',
         };
 
         $cachePrefix = $redisPrefix.$this->store->getPrefix();
@@ -205,16 +213,34 @@ class RedisTaggedCache extends TaggedCache
 
         $connection = $this->store->connection();
 
-        foreach ($entries as $cacheKeys) {
-            if ($connection instanceof PredisClusterConnection) {
-                $connection->pipeline(function ($connection) use ($cacheKeys) {
-                    foreach ($cacheKeys as $cacheKey) {
-                        $connection->del($cacheKey);
-                    }
-                });
-            } else {
-                $connection->del(...$cacheKeys);
+        if ($this->inFiber()) {
+            $futures = [];
+
+            foreach ($entries as $i => $cacheKeys) {
+                $futures[$i] = async(fn () => $this->deleteChunk($connection, $cacheKeys));
             }
+
+            await($futures);
+        } else {
+            foreach ($entries as $cacheKeys) {
+                $this->deleteChunk($connection, $cacheKeys);
+            }
+        }
+    }
+
+    /**
+     * Delete a chunk of cache keys from the given connection.
+     */
+    protected function deleteChunk($connection, $cacheKeys): void
+    {
+        if ($connection instanceof PredisClusterConnection) {
+            $connection->pipeline(function ($connection) use ($cacheKeys) {
+                foreach ($cacheKeys as $cacheKey) {
+                    $connection->del($cacheKey);
+                }
+            });
+        } else {
+            $connection->del(...$cacheKeys);
         }
     }
 

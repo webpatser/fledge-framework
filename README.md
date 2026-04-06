@@ -69,6 +69,38 @@ No background process needed — the Revolt event loop runs inline within the `r
 
 Also available as a standalone package for Laravel 11/12/13: [`webpatser/laravel-fiber`](https://github.com/webpatser/laravel-fiber)
 
+### Non-Blocking Redis (amphp driver)
+
+Fledge ships with `amphp/redis` as the **default Redis driver**. Every Redis call — cache reads, locks, queue operations, rate limiting — uses Fiber-based non-blocking I/O via the Revolt event loop.
+
+```php
+// Every Cache::get() and Redis::get() is non-blocking by default.
+// No code changes needed — the amphp driver is transparent.
+Cache::get('key');        // non-blocking I/O under the hood
+Redis::set('key', 'val'); // same
+
+// Inside Concurrency::run(), multiple Redis calls parallelize automatically:
+Concurrency::driver('fiber')->run([
+    fn () => Cache::get('user:1'),
+    fn () => Cache::get('user:2'),
+    fn () => Cache::get('user:3'),
+]); // all 3 reads happen concurrently
+```
+
+The `amphp` driver works from any context. From the main thread, each command still appears synchronous but uses non-blocking socket I/O. Inside a Fiber, multiple commands in separate Fibers execute in parallel.
+
+To fall back to the synchronous phpredis C extension (e.g., for Redis Cluster, which amphp doesn't support):
+
+```env
+REDIS_CLIENT=phpredis
+```
+
+The cache layer also includes Fiber-aware internals:
+- **Lock blocking** suspends the Fiber instead of `usleep()`, letting other Fibers run
+- **Failover reads** try all stores concurrently, returning the first success
+- **Cluster operations** (`many()`/`putMany()`) run concurrent reads/writes via Fibers
+- **Tag operations** flush chunks and write entries concurrently
+
 ## What Changed
 
 | Change | Files | Impact |
@@ -84,6 +116,9 @@ Also available as a standalone package for Laravel 11/12/13: [`webpatser/laravel
 | Persistent cURL share manager | 3 | Connection pooling |
 | `json_validate()` fast path | 1 | Skip decode on invalid JSON |
 | Fiber-based concurrency driver (Revolt + amphp) | 2 | Real async I/O in `Concurrency` facade |
+| amphp/redis as default Redis driver | 5 | Non-blocking Redis I/O for all operations |
+| Fiber-aware cache layer (locks, failover, tags) | 8 | Concurrent cache ops inside Fibers |
+| Redis required dependency for cache package | 1 | Redis is a first-class citizen |
 
 ### The RFC 3986 Problem (and How Fledge Solves It)
 

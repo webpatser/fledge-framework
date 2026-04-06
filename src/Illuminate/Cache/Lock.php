@@ -2,16 +2,17 @@
 
 namespace Illuminate\Cache;
 
+use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Contracts\Cache\Lock as LockContract;
 use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\InteractsWithTime;
-use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 
 abstract class Lock implements LockContract
 {
     use InteractsWithTime;
+    use SuspendsFibers;
 
     /**
      * The name of the lock.
@@ -123,7 +124,7 @@ abstract class Lock implements LockContract
                 throw new LockTimeoutException;
             }
 
-            Sleep::usleep($this->sleepMilliseconds * 1000);
+            $this->suspendForMilliseconds($this->sleepMilliseconds);
         }
 
         if (is_callable($callback)) {
