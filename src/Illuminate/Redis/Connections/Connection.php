@@ -237,6 +237,16 @@ abstract class Connection
     }
 
     /**
+     * Get the key prefix for this connection.
+     *
+     * @return string
+     */
+    public function getPrefix(): string
+    {
+        return '';
+    }
+
+    /**
      * Pass other method calls down to the underlying client.
      *
      * @param  string  $method

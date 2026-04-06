@@ -1455,7 +1455,7 @@ class PendingRequest
      */
     public function buildHandlerStack()
     {
-        return $this->pushHandlers(HandlerStack::create($this->handler));
+        return $this->pushHandlers(HandlerStack::create($this->handler ?? new AmphpHandler));
     }
 
     /**

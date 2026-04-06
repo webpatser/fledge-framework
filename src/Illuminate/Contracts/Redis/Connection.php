@@ -32,4 +32,11 @@ interface Connection
      * @return mixed
      */
     public function command($method, array $parameters = []);
+
+    /**
+     * Get the key prefix for this connection.
+     *
+     * @return string
+     */
+    public function getPrefix(): string;
 }

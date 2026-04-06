@@ -7,7 +7,6 @@ use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Contracts\Cache\CanFlushLocks;
 use Illuminate\Contracts\Cache\LockProvider;
 use Illuminate\Contracts\Redis\Factory as Redis;
-use Illuminate\Redis\Connections\AmphpRedisConnection;
 use Illuminate\Redis\Connections\PhpRedisClusterConnection;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Redis\Connections\PredisClusterConnection;
@@ -405,12 +404,7 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
         $connection = $this->connection();
 
         // Connections can have a global prefix...
-        $connectionPrefix = match (true) {
-            $connection instanceof PhpRedisConnection => $connection->_prefix(''),
-            $connection instanceof AmphpRedisConnection => $connection->getPrefix(),
-            $connection instanceof PredisConnection => $connection->getOptions()->prefix ?: '',
-            default => '',
-        };
+        $connectionPrefix = $connection->getPrefix();
 
         $defaultCursorValue = match (true) {
             $connection instanceof PhpRedisConnection && version_compare(phpversion('redis'), '6.1.0', '>=') => null,

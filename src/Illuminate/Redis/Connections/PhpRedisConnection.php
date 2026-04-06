@@ -549,6 +549,16 @@ class PhpRedisConnection extends Connection implements ConnectionContract
     }
 
     /**
+     * Get the key prefix for this connection.
+     *
+     * @return string
+     */
+    public function getPrefix(): string
+    {
+        return $this->client->getOption(\Redis::OPT_PREFIX) ?: '';
+    }
+
+    /**
      * Pass other method calls down to the underlying client.
      *
      * @param  string  $method

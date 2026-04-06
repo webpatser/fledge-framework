@@ -58,6 +58,16 @@ class PredisConnection extends Connection implements ConnectionContract
      * @param  array  $parameters
      * @return array
      */
+    /**
+     * Get the key prefix for this connection.
+     *
+     * @return string
+     */
+    public function getPrefix(): string
+    {
+        return $this->client->getOptions()->prefix ?: '';
+    }
+
     protected function parseParametersForEvent(array $parameters)
     {
         return (new Collection($parameters))

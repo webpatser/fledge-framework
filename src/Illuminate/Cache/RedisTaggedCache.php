@@ -6,7 +6,6 @@ use Fiber;
 use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Cache\Events\CacheFlushed;
 use Illuminate\Cache\Events\CacheFlushing;
-use Illuminate\Redis\Connections\AmphpRedisConnection;
 use Illuminate\Redis\Connections\PhpRedisClusterConnection;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Redis\Connections\PredisClusterConnection;
@@ -137,12 +136,7 @@ class RedisTaggedCache extends TaggedCache
 
         $this->event(new CacheFlushing($this->getName()));
 
-        $redisPrefix = match (true) {
-            $connection instanceof PhpRedisConnection => $connection->client()->getOption(\Redis::OPT_PREFIX),
-            $connection instanceof AmphpRedisConnection => $connection->getPrefix(),
-            $connection instanceof PredisConnection => $connection->client()->getOptions()->prefix,
-            default => '',
-        };
+        $redisPrefix = $connection->getPrefix();
 
         $cachePrefix = $redisPrefix.$this->store->getPrefix();
 
