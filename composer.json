@@ -4,9 +4,17 @@
     "license": "MIT",
     "keywords": [
         "framework",
-        "laravel"
+        "laravel",
+        "fledge",
+        "php85",
+        "fiber",
+        "async"
     ],
     "authors": [
+        {
+            "name": "Christoph Kempen",
+            "homepage": "https://github.com/webpatser"
+        },
         {
             "name": "Taylor Otwell",
             "email": "taylor@laravel.com"
