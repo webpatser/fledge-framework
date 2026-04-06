@@ -14,10 +14,6 @@
         {
             "name": "Christoph Kempen",
             "homepage": "https://github.com/webpatser"
-        },
-        {
-            "name": "Taylor Otwell",
-            "email": "taylor@laravel.com"
         }
     ],
     "homepage": "https://github.com/webpatser/fledge-framework",
