@@ -9,6 +9,7 @@ use Illuminate\Concurrency\ConcurrencyManager;
  * @method static \Illuminate\Concurrency\ProcessDriver createProcessDriver()
  * @method static \Illuminate\Concurrency\ForkDriver createForkDriver()
  * @method static \Illuminate\Concurrency\SyncDriver createSyncDriver()
+ * @method static \Illuminate\Concurrency\FiberDriver createFiberDriver()
  * @method static string getDefaultInstance()
  * @method static void setDefaultInstance(string $name)
  * @method static array getInstanceConfig(string $name)

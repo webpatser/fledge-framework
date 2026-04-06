@@ -64,6 +64,16 @@ class ConcurrencyManager extends MultipleInstanceManager
     }
 
     /**
+     * Create an instance of the fiber concurrency driver.
+     *
+     * @return \Illuminate\Concurrency\FiberDriver
+     */
+    public function createFiberDriver()
+    {
+        return new FiberDriver;
+    }
+
+    /**
      * Get the default instance name.
      *
      * @return string

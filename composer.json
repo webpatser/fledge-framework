@@ -60,11 +60,16 @@
         "symfony/var-dumper": "^7.4.0 || ^8.0.0",
         "tijsverkoyen/css-to-inline-styles": "^2.2.5",
         "vlucas/phpdotenv": "^5.6.1",
+        "revolt/event-loop": "^1.0",
+        "amphp/amp": "^3.1",
         "voku/portable-ascii": "^2.0.2"
     },
     "require-dev": {
         "ext-gmp": "*",
         "ably/ably-php": "^1.0",
+        "amphp/http-client": "^5.3",
+        "amphp/mysql": "^3.0",
+        "amphp/redis": "^2.0",
         "aws/aws-sdk-php": "^3.322.9",
         "fakerphp/faker": "^1.24",
         "guzzlehttp/psr7": "^2.4",

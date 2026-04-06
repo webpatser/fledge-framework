@@ -10,7 +10,7 @@ Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requir
 
 Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension — the single biggest performance win.
 
-**51 files changed, 416 additions, 108 deletions** on top of Laravel 13.3.0. All 13,337 framework tests pass.
+**52 files changed** on top of Laravel 13.3.0. All 13,337 framework tests pass.
 
 ## Why?
 
@@ -50,6 +50,25 @@ The main improvement is URI handling. Every HTTP request parses URIs — `$reque
 | String pipelines | ~9% faster (pipe operator) |
 | No polyfill autoloading | Faster bootstrap |
 
+### Fiber-Based Concurrency
+
+Fledge adds a `FiberDriver` to the Concurrency facade, powered by the [Revolt](https://revolt.run) event loop and [amphp](https://amphp.org). Unlike the `ProcessDriver` (which spawns child processes) or the `SyncDriver` (sequential), the `FiberDriver` provides real cooperative async I/O within a single process:
+
+```php
+use Illuminate\Support\Facades\Concurrency;
+
+// 3 HTTP requests run concurrently — total time ≈ slowest request
+$results = Concurrency::driver('fiber')->run([
+    fn () => $httpClient->request(new Request('https://api1.example.com'))->getBody()->buffer(),
+    fn () => $httpClient->request(new Request('https://api2.example.com'))->getBody()->buffer(),
+    fn () => $httpClient->request(new Request('https://api3.example.com'))->getBody()->buffer(),
+]);
+```
+
+No background process needed — the Revolt event loop runs inline within the `run()` call. Tasks using amphp async drivers (HTTP, MySQL, Redis) genuinely interleave on I/O suspension. Shared memory, no serialization overhead, works in both web requests and CLI.
+
+Also available as a standalone package for Laravel 11/12/13: [`webpatser/laravel-fiber`](https://github.com/webpatser/laravel-fiber)
+
 ## What Changed
 
 | Change | Files | Impact |
@@ -64,6 +83,7 @@ The main improvement is URI handling. Every HTTP request parses URIs — `$reque
 | `#[\NoDiscard]` on Pipeline, Cache, Container, Validation | 4 | Developer safety |
 | Persistent cURL share manager | 3 | Connection pooling |
 | `json_validate()` fast path | 1 | Skip decode on invalid JSON |
+| Fiber-based concurrency driver (Revolt + amphp) | 2 | Real async I/O in `Concurrency` facade |
 
 ### The RFC 3986 Problem (and How Fledge Solves It)
 
