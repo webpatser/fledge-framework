@@ -178,7 +178,11 @@
         "symfony/http-client": "Required to enable support for the Symfony API mail transports (^7.4 || ^8.0).",
         "symfony/mailgun-mailer": "Required to enable support for the Mailgun mail transport (^7.4 || ^8.0).",
         "symfony/postmark-mailer": "Required to enable support for the Postmark mail transport (^7.4 || ^8.0).",
-        "symfony/psr-http-message-bridge": "Required to use PSR-7 bridging features (^7.4 || ^8.0)."
+        "symfony/psr-http-message-bridge": "Required to use PSR-7 bridging features (^7.4 || ^8.0).",
+        "webpatser/fledge-fiber-database": "Non-blocking Fiber-based MySQL, MariaDB, and PostgreSQL drivers (^13.3).",
+        "webpatser/fledge-fiber-http": "Non-blocking Fiber-based HTTP handler replacing cURL (^13.3).",
+        "webpatser/fledge-fiber-redis": "Non-blocking Fiber-based Redis driver (^13.3).",
+        "webpatser/torque": "Fiber-based concurrent queue worker replacing Horizon."
     },
     "minimum-stability": "dev",
     "prefer-stable": true,
