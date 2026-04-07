@@ -37,6 +37,7 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  */
 class Router implements BindingRegistrar, RegistrarContract
 {
+    use Concerns\HasConcurrentMiddleware;
     use Macroable {
         __call as macroCall;
     }

@@ -80,6 +80,16 @@ class Kernel implements KernelContract
     protected $middlewareAliases = [];
 
     /**
+     * The application's concurrent middleware groups.
+     *
+     * Middleware in these groups run in parallel using fibers.
+     * All members must implement ConcurrentMiddleware.
+     *
+     * @var array<string, array<int, class-string>>
+     */
+    protected $concurrentMiddleware = [];
+
+    /**
      * All of the registered request duration handlers.
      *
      * @var array
@@ -529,6 +539,12 @@ class Kernel implements KernelContract
         foreach (array_merge($this->routeMiddleware, $this->middlewareAliases) as $key => $middleware) {
             $this->router->aliasMiddleware($key, $middleware);
         }
+
+        foreach ($this->concurrentMiddleware as $name => $middleware) {
+            $this->router->concurrentMiddleware($name, $middleware);
+        }
+
+        $this->router->aliasMiddleware('concurrent', \Illuminate\Routing\ConcurrentMiddlewareGroup::class);
     }
 
     /**
