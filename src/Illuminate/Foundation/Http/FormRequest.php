@@ -249,21 +249,9 @@ class FormRequest extends Request implements ValidatesWhenResolved
      */
     protected function isKnownField(string $inputKey, array $allowedKeys): bool
     {
-        foreach ($allowedKeys as $ruleKey) {
-            if ($ruleKey === $inputKey) {
-                return true;
-            }
-
-            if (str_contains($ruleKey, '*')) {
-                $pattern = '/^'.str_replace('\*', '[^.]+', preg_quote($ruleKey, '/')).'$/';
-
-                if (preg_match($pattern, $inputKey)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return array_any($allowedKeys, fn (string $ruleKey) => $ruleKey === $inputKey
+            || (str_contains($ruleKey, '*')
+                && preg_match('/^'.str_replace('\*', '[^.]+', preg_quote($ruleKey, '/')).'$/', $inputKey)));
     }
 
     /**

@@ -434,7 +434,7 @@ class Handler implements ExceptionHandlerContract
 
         $dontReport = array_merge($this->dontReport, $this->internalDontReport);
 
-        if (! is_null(Arr::first($dontReport, fn ($type) => $e instanceof $type))) {
+        if (array_any($dontReport, fn ($type) => $e instanceof $type)) {
             return true;
         }
 

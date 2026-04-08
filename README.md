@@ -10,7 +10,7 @@ Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requir
 
 Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension — the single biggest performance win.
 
-**52 files changed** on top of Laravel 13.3.0. All 13,337 framework tests pass.
+**52 files changed** on top of Laravel 13.4.0. All 13,382 framework tests pass.
 
 ## Why?
 
@@ -111,6 +111,8 @@ The cache layer also includes Fiber-aware internals:
 | Bump PHP to `^8.5` | 37 | Drop compatibility code |
 | Remove `version_compare` PHP 8.4 guards | 3 | No runtime branching |
 | `array_all`/`array_any` in `Arr::hasAll`/`hasAny` | 1 | Faster array checks |
+| `array_any` in `Handler::shouldntReport` | 1 | Replace `Arr::first` null check |
+| `array_any` in `FormRequest::isKnownField` | 1 | Replace foreach early-return |
 | Pipe operator in `Pipeline::then()` | 1 | Cleaner code |
 | `#[\NoDiscard]` on Pipeline, Cache, Container, Validation | 4 | Developer safety |
 | Persistent cURL share manager | 3 | Connection pooling |
@@ -168,7 +170,7 @@ composer install
 
 - Same `Illuminate\` namespace — all Laravel packages work unchanged
 - Same API — no code changes needed in your application
-- 13,337 tests passing (4 known Predis failures exist on vanilla Laravel 13 + PHP 8.5 too)
+- 13,382 tests passing (4 known Predis failures exist on vanilla Laravel 13 + PHP 8.5 too)
 
 ## Requirements
 
@@ -197,6 +199,7 @@ Fledge uses a **fourth version segment** to track its own releases on top of Lar
 | `v13.3.0` | `v13.3.0.1` | First Fledge release based on Laravel 13.3.0 |
 | `v13.3.0` | `v13.3.0.2` | Fledge-only fix on top of 13.3.0 |
 | `v13.4.0` | `v13.4.0.1` | Fledge synced to Laravel 13.4.0 |
+| `v13.4.0` | `v13.4.0.2` | PHP 8.5 optimizations on top of 13.4.0 |
 
 The first three segments always match the upstream Laravel version. The fourth is Fledge's own patch counter, starting at `.1` for each new Laravel release.
 
