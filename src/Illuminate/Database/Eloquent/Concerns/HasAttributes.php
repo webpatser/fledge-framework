@@ -1315,7 +1315,7 @@ trait HasAttributes
     {
         return is_subclass_of($enumClass, BackedEnum::class)
             ? $enumClass::from($value)
-            : constant($enumClass.'::'.$value);
+            : $enumClass::{$value};
     }
 
     /**

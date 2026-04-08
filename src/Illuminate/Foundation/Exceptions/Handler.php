@@ -221,7 +221,7 @@ class Handler implements ExceptionHandlerContract
     public function reportable(callable $reportUsing)
     {
         if (! $reportUsing instanceof Closure) {
-            $reportUsing = Closure::fromCallable($reportUsing);
+            $reportUsing = $reportUsing(...);
         }
 
         return tap(new ReportableHandler($reportUsing), function ($callback) {
@@ -238,7 +238,7 @@ class Handler implements ExceptionHandlerContract
     public function renderable(callable $renderUsing)
     {
         if (! $renderUsing instanceof Closure) {
-            $renderUsing = Closure::fromCallable($renderUsing);
+            $renderUsing = $renderUsing(...);
         }
 
         $this->renderCallbacks[] = $renderUsing;
@@ -296,7 +296,7 @@ class Handler implements ExceptionHandlerContract
     public function dontReportWhen(callable $dontReportWhen)
     {
         if (! $dontReportWhen instanceof Closure) {
-            $dontReportWhen = Closure::fromCallable($dontReportWhen);
+            $dontReportWhen = $dontReportWhen(...);
         }
 
         $this->dontReportCallbacks[] = $dontReportWhen;
@@ -494,7 +494,7 @@ class Handler implements ExceptionHandlerContract
     public function throttleUsing(callable $throttleUsing)
     {
         if (! $throttleUsing instanceof Closure) {
-            $throttleUsing = Closure::fromCallable($throttleUsing);
+            $throttleUsing = $throttleUsing(...);
         }
 
         $this->throttleCallbacks[] = $throttleUsing;

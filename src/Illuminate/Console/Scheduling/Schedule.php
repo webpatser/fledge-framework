@@ -31,19 +31,19 @@ class Schedule
         __call as macroCall;
     }
 
-    const SUNDAY = 0;
+    const int SUNDAY = 0;
 
-    const MONDAY = 1;
+    const int MONDAY = 1;
 
-    const TUESDAY = 2;
+    const int TUESDAY = 2;
 
-    const WEDNESDAY = 3;
+    const int WEDNESDAY = 3;
 
-    const THURSDAY = 4;
+    const int THURSDAY = 4;
 
-    const FRIDAY = 5;
+    const int FRIDAY = 5;
 
-    const SATURDAY = 6;
+    const int SATURDAY = 6;
 
     /**
      * All of the events on the schedule.

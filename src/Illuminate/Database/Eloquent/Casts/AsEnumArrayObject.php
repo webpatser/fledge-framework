@@ -47,7 +47,7 @@ class AsEnumArrayObject implements Castable
                 return new ArrayObject((new Collection($data))->map(function ($value) use ($enumClass) {
                     return is_subclass_of($enumClass, BackedEnum::class)
                         ? $enumClass::from($value)
-                        : constant($enumClass.'::'.$value);
+                        : $enumClass::{$value};
                 })->toArray());
             }
 

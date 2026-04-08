@@ -66,7 +66,7 @@ if (! function_exists('proxy')) {
     {
         static $closureReflector;
 
-        $closureReflector = new class
+        $closureReflector ??= new class
         {
             use ReflectsClosures;
 
