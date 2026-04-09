@@ -96,6 +96,10 @@ namespace Illuminate\Support\Facades;
  * @method static void registerCoreContainerAliases()
  * @method static void flush()
  * @method static string getNamespace()
+ * @method static void macro(string $name, object|callable $macro)
+ * @method static void mixin(object $mixin, bool $replace = true)
+ * @method static bool hasMacro(string $name)
+ * @method static void flushMacros()
  * @method static \Illuminate\Contracts\Container\ContextualBindingBuilder when(array|string $concrete)
  * @method static void whenHasAttribute(string $attribute, \Closure $handler)
  * @method static bool has(string $id)
@@ -141,10 +145,6 @@ namespace Illuminate\Support\Facades;
  * @method static bool currentEnvironmentIs(array<int, string>|string $environments)
  * @method static \Illuminate\Foundation\Application getInstance()
  * @method static \Illuminate\Contracts\Container\Container|\Illuminate\Foundation\Application setInstance(\Illuminate\Contracts\Container\Container|null $container = null)
- * @method static void macro(string $name, object|callable $macro)
- * @method static void mixin(object $mixin, bool $replace = true)
- * @method static bool hasMacro(string $name)
- * @method static void flushMacros()
  *
  * @see \Illuminate\Foundation\Application
  */

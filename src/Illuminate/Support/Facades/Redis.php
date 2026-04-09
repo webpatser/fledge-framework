@@ -25,6 +25,7 @@ namespace Illuminate\Support\Facades;
  * @method static \Illuminate\Contracts\Events\Dispatcher|null getEventDispatcher()
  * @method static void setEventDispatcher(\Illuminate\Contracts\Events\Dispatcher $events)
  * @method static void unsetEventDispatcher()
+ * @method static string getPrefix()
  * @method static void macro(string $name, object|callable $macro)
  * @method static void mixin(object $mixin, bool $replace = true)
  * @method static bool hasMacro(string $name)

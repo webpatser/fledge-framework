@@ -6,6 +6,7 @@ use Illuminate\Http\Client\Factory;
 
 /**
  * @method static \Illuminate\Http\Client\Factory globalMiddleware(callable $middleware)
+ * @method static \Illuminate\Http\Client\Factory persistentConnections(bool $enable = true, array|null $options = null)
  * @method static \Illuminate\Http\Client\Factory globalRequestMiddleware(callable $middleware)
  * @method static \Illuminate\Http\Client\Factory globalResponseMiddleware(callable $middleware)
  * @method static \Illuminate\Http\Client\Factory globalOptions(\Closure|array $options)
@@ -28,6 +29,8 @@ use Illuminate\Http\Client\Factory;
  * @method static \Illuminate\Http\Client\PendingRequest createPendingRequest()
  * @method static \Illuminate\Contracts\Events\Dispatcher|null getDispatcher()
  * @method static array getGlobalMiddleware()
+ * @method static void globalHandler(callable|null $handler)
+ * @method static callable|null getGlobalHandler()
  * @method static void macro(string $name, object|callable $macro)
  * @method static void mixin(object $mixin, bool $replace = true)
  * @method static bool hasMacro(string $name)
@@ -62,6 +65,7 @@ use Illuminate\Http\Client\Factory;
  * @method static \Illuminate\Http\Client\PendingRequest connectTimeout(int|float $seconds)
  * @method static \Illuminate\Http\Client\PendingRequest retry(array|int $times, \Closure|int $sleepMilliseconds = 0, callable|null $when = null, bool $throw = true)
  * @method static \Illuminate\Http\Client\PendingRequest withOptions(array $options)
+ * @method static \Illuminate\Http\Client\PendingRequest withPersistentConnections(array $options = [3,5])
  * @method static \Illuminate\Http\Client\PendingRequest withMiddleware(callable $middleware)
  * @method static \Illuminate\Http\Client\PendingRequest withRequestMiddleware(callable $middleware)
  * @method static \Illuminate\Http\Client\PendingRequest withResponseMiddleware(callable $middleware)

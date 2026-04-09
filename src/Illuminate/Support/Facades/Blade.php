@@ -36,8 +36,6 @@ namespace Illuminate\Support\Facades;
  * @method static void withDoubleEncoding()
  * @method static void withoutDoubleEncoding()
  * @method static void withoutComponentTags()
- * @method static string getCompiledPath(string $path)
- * @method static bool isExpired(string $path)
  * @method static string newComponentHash(string $component)
  * @method static string compileClassComponentOpening(string $component, string $alias, string $data, string $hash)
  * @method static string compileEndComponentClass()
@@ -46,6 +44,8 @@ namespace Illuminate\Support\Facades;
  * @method static void stringable(string|callable $class, callable|null $handler = null)
  * @method static string compileEchos(string $value)
  * @method static string applyEchoHandler(string $value)
+ * @method static string getCompiledPath(string $path)
+ * @method static bool isExpired(string $path)
  *
  * @see \Illuminate\View\Compilers\BladeCompiler
  */
