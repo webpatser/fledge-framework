@@ -1,5 +1,11 @@
 # Release Notes for 12.x
 
+## Fledge Releases
+
+### [v13.4.0.3](https://github.com/webpatser/fledge-framework/compare/v13.4.0.2...v13.4.0.3)
+
+* Fix "Cannot switch fibers in current execution context" when running Horizon or queue workers with fiber-based Redis driver. Queue worker signal handling (SIGTERM, SIGALRM, etc.) now uses Revolt's `EventLoop::onSignal()` and `EventLoop::delay()` instead of `pcntl_async_signals` + `pcntl_signal`, preventing PHP 8.5 from attempting to switch fibers mid-execution. Falls back to pcntl when Revolt is not installed.
+
 ## [Unreleased](https://github.com/laravel/framework/compare/v13.3.0...13.x)
 
 ## [v13.3.0](https://github.com/laravel/framework/compare/v13.2.0...v13.3.0) - 2026-04-01

@@ -19,6 +19,7 @@ use Illuminate\Queue\Events\Looping;
 use Illuminate\Queue\Events\WorkerStarting;
 use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Carbon;
+use Revolt\EventLoop;
 use Throwable;
 
 class Worker
@@ -105,6 +106,13 @@ class Worker
      * @var callable[]
      */
     protected static $popCallbacks = [];
+
+    /**
+     * The Revolt event loop signal watcher IDs.
+     *
+     * @var string[]
+     */
+    protected array $signalWatchers = [];
 
     /**
      * The custom exit code to be used when memory is exceeded.
@@ -247,10 +255,7 @@ class Worker
      */
     protected function registerTimeoutHandler($job, WorkerOptions $options)
     {
-        // We will register a signal handler for the alarm signal so that we can kill this
-        // process if it is running too long because it has frozen. This uses the async
-        // signals supported in recent versions of PHP to accomplish it conveniently.
-        pcntl_signal(SIGALRM, function () use ($job, $options) {
+        $timeoutHandler = function () use ($job, $options) {
             if ($job) {
                 $this->markJobAsFailedIfWillExceedMaxAttempts(
                     $job->getConnectionName(), $job, (int) $options->maxTries, $e = $this->timeoutExceededException($job)
@@ -270,11 +275,27 @@ class Worker
             }
 
             $this->kill(static::EXIT_ERROR, $options, WorkerStopReason::TimedOut);
-        }, true);
+        };
 
-        pcntl_alarm(
-            max($this->timeoutForJob($job, $options), 0)
-        );
+        $timeout = max($this->timeoutForJob($job, $options), 0);
+
+        if ($this->supportsRevoltSignals()) {
+            // Cancel any previous timeout watcher.
+            if (isset($this->signalWatchers['timeout'])) {
+                EventLoop::cancel($this->signalWatchers['timeout']);
+            }
+
+            if ($timeout > 0) {
+                $this->signalWatchers['timeout'] = EventLoop::delay($timeout, $timeoutHandler);
+            }
+        } else {
+            // We will register a signal handler for the alarm signal so that we can kill this
+            // process if it is running too long because it has frozen. This uses the async
+            // signals supported in recent versions of PHP to accomplish it conveniently.
+            pcntl_signal(SIGALRM, $timeoutHandler, true);
+
+            pcntl_alarm($timeout);
+        }
     }
 
     /**
@@ -284,7 +305,14 @@ class Worker
      */
     protected function resetTimeoutHandler()
     {
-        pcntl_alarm(0);
+        if ($this->supportsRevoltSignals()) {
+            if (isset($this->signalWatchers['timeout'])) {
+                EventLoop::cancel($this->signalWatchers['timeout']);
+                unset($this->signalWatchers['timeout']);
+            }
+        } else {
+            pcntl_alarm(0);
+        }
     }
 
     /**
@@ -806,13 +834,21 @@ class Worker
      */
     protected function listenForSignals()
     {
-        pcntl_async_signals(true);
+        if ($this->supportsRevoltSignals()) {
+            $this->signalWatchers[] = EventLoop::onSignal(SIGQUIT, fn () => $this->shouldQuit = true);
+            $this->signalWatchers[] = EventLoop::onSignal(SIGTERM, fn () => $this->shouldQuit = true);
+            $this->signalWatchers[] = EventLoop::onSignal(SIGINT, fn () => $this->shouldQuit = true);
+            $this->signalWatchers[] = EventLoop::onSignal(SIGUSR2, fn () => $this->paused = true);
+            $this->signalWatchers[] = EventLoop::onSignal(SIGCONT, fn () => $this->paused = false);
+        } else {
+            pcntl_async_signals(true);
 
-        pcntl_signal(SIGQUIT, fn () => $this->shouldQuit = true);
-        pcntl_signal(SIGTERM, fn () => $this->shouldQuit = true);
-        pcntl_signal(SIGINT, fn () => $this->shouldQuit = true);
-        pcntl_signal(SIGUSR2, fn () => $this->paused = true);
-        pcntl_signal(SIGCONT, fn () => $this->paused = false);
+            pcntl_signal(SIGQUIT, fn () => $this->shouldQuit = true);
+            pcntl_signal(SIGTERM, fn () => $this->shouldQuit = true);
+            pcntl_signal(SIGINT, fn () => $this->shouldQuit = true);
+            pcntl_signal(SIGUSR2, fn () => $this->paused = true);
+            pcntl_signal(SIGCONT, fn () => $this->paused = false);
+        }
     }
 
     /**
@@ -823,6 +859,14 @@ class Worker
     protected function supportsAsyncSignals()
     {
         return extension_loaded('pcntl');
+    }
+
+    /**
+     * Determine if the Revolt event loop is available for fiber-safe signal handling.
+     */
+    protected function supportsRevoltSignals(): bool
+    {
+        return class_exists(EventLoop::class);
     }
 
     /**
@@ -900,7 +944,11 @@ class Worker
      */
     public function sleep($seconds)
     {
-        if ($seconds < 1) {
+        if ($this->supportsRevoltSignals()) {
+            $suspension = EventLoop::getSuspension();
+            EventLoop::delay($seconds, static fn () => $suspension->resume());
+            $suspension->suspend();
+        } elseif ($seconds < 1) {
             usleep($seconds * 1_000_000);
         } else {
             sleep($seconds);

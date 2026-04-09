@@ -10,7 +10,7 @@ Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requir
 
 Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension — the single biggest performance win.
 
-**52 files changed** on top of Laravel 13.4.0. All 13,382 framework tests pass.
+**53 files changed** on top of Laravel 13.4.0. All 13,382 framework tests pass.
 
 ## Why?
 
@@ -120,6 +120,7 @@ The cache layer also includes Fiber-aware internals:
 | Fiber-based concurrency driver (Revolt + amphp) | 2 | Real async I/O in `Concurrency` facade |
 | amphp/redis as default Redis driver | 5 | Non-blocking Redis I/O for all operations |
 | Fiber-aware cache layer (locks, failover, tags) | 8 | Concurrent cache ops inside Fibers |
+| Fiber-safe queue worker signal handling (Revolt) | 1 | Horizon/queue workers work with fiber drivers |
 | Redis required dependency for cache package | 1 | Redis is a first-class citizen |
 
 ### The RFC 3986 Problem (and How Fledge Solves It)
