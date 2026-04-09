@@ -2,6 +2,10 @@
 
 ## Fledge Releases
 
+### [v13.4.0.4](https://github.com/webpatser/fledge-framework/compare/v13.4.0.3...v13.4.0.4)
+
+* Switch from `voku/portable-ascii` to `webpatser/fledge-portable-ascii` — PHP 8.5 optimized variant with ext-mbstring required. Str::ascii(), Str::slug(), and Str::transliterate() are 51% faster. See [benchmark results](https://github.com/webpatser/portable-ascii#performance).
+
 ### [v13.4.0.3](https://github.com/webpatser/fledge-framework/compare/v13.4.0.2...v13.4.0.3)
 
 * Fix "Cannot switch fibers in current execution context" when running Horizon or queue workers with fiber-based Redis driver. Queue worker signal handling (SIGTERM, SIGALRM, etc.) now uses Revolt's `EventLoop::onSignal()` and `EventLoop::delay()` instead of `pcntl_async_signals` + `pcntl_signal`, preventing PHP 8.5 from attempting to switch fibers mid-execution. Falls back to pcntl when Revolt is not installed.
