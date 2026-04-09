@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - '*.x'
+      - 'fledge-*'
   workflow_dispatch:
 
 permissions:

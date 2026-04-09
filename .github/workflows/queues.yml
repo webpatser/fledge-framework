@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - '*.x'
+      - 'fledge-*'
   pull_request:
 
 jobs:
