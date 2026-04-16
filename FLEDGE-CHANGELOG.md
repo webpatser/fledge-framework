@@ -2,6 +2,26 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.5.0.1 - 2026-04-16
+
+### Synced
+- Merged upstream Laravel v13.5.0
+  - Full Redis Cluster support (`isCluster()`, `hasHashTag()`, normalized SSL context)
+  - Enum support for Manager drivers (`AuthManager`, `CacheManager`, `MailManager`, `RedisManager`, etc.)
+  - `#[Delay]` attribute on queued mailables
+  - `RebindsCallbacksToSelf` trait for safer closure binding in managers
+  - FormRequest strict mode with `flushState()` for test isolation
+  - Controller middleware attribute inheritance
+  - Various bug fixes (validation null handling, Str::markdown null input, queue job attributes)
+  - 13,429 tests passing
+
+### Removed
+- `spatie/fork` suggestion (Fledge uses native Fiber concurrency)
+- `league/uri` suggestion (Fledge uses native PHP 8.5 URI)
+
+### Fixed
+- Replaced remaining `amphp` references with `webpatser/fledge-fiber`
+
 ## v13.4.0.2 - 2026-04-08
 
 ### Optimized
