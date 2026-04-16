@@ -52,7 +52,7 @@ The main improvement is URI handling. Every HTTP request parses URIs — `$reque
 
 ### Fiber-Based Concurrency
 
-Fledge adds a `FiberDriver` to the Concurrency facade, powered by the [Revolt](https://revolt.run) event loop and [amphp](https://amphp.org). Unlike the `ProcessDriver` (which spawns child processes) or the `SyncDriver` (sequential), the `FiberDriver` provides real cooperative async I/O within a single process:
+Fledge adds a `FiberDriver` to the Concurrency facade, powered by the [Revolt](https://revolt.run) event loop and [fledge-fiber](https://github.com/webpatser/fledge-fiber). Unlike the `ProcessDriver` (which spawns child processes) or the `SyncDriver` (sequential), the `FiberDriver` provides real cooperative async I/O within a single process:
 
 ```php
 use Illuminate\Support\Facades\Concurrency;
@@ -65,17 +65,17 @@ $results = Concurrency::driver('fiber')->run([
 ]);
 ```
 
-No background process needed — the Revolt event loop runs inline within the `run()` call. Tasks using amphp async drivers (HTTP, MySQL, Redis) genuinely interleave on I/O suspension. Shared memory, no serialization overhead, works in both web requests and CLI.
+No background process needed — the Revolt event loop runs inline within the `run()` call. Tasks using fledge-fiber async drivers (HTTP, MySQL, Redis) genuinely interleave on I/O suspension. Shared memory, no serialization overhead, works in both web requests and CLI.
 
 Also available as a standalone package for Laravel 11/12/13: [`webpatser/laravel-fiber`](https://github.com/webpatser/laravel-fiber)
 
-### Non-Blocking Redis (amphp driver)
+### Non-Blocking Redis (fledge-fiber driver)
 
-Fledge ships with `amphp/redis` as the **default Redis driver**. Every Redis call — cache reads, locks, queue operations, rate limiting — uses Fiber-based non-blocking I/O via the Revolt event loop.
+Fledge ships with `fledge-fiber` as the **default Redis driver**. Every Redis call — cache reads, locks, queue operations, rate limiting — uses Fiber-based non-blocking I/O via the Revolt event loop.
 
 ```php
 // Every Cache::get() and Redis::get() is non-blocking by default.
-// No code changes needed — the amphp driver is transparent.
+// No code changes needed — the fledge-fiber driver is transparent.
 Cache::get('key');        // non-blocking I/O under the hood
 Redis::set('key', 'val'); // same
 
@@ -87,9 +87,9 @@ Concurrency::driver('fiber')->run([
 ]); // all 3 reads happen concurrently
 ```
 
-The `amphp` driver works from any context. From the main thread, each command still appears synchronous but uses non-blocking socket I/O. Inside a Fiber, multiple commands in separate Fibers execute in parallel.
+The `fledge-fiber` driver works from any context. From the main thread, each command still appears synchronous but uses non-blocking socket I/O. Inside a Fiber, multiple commands in separate Fibers execute in parallel.
 
-To fall back to the synchronous phpredis C extension (e.g., for Redis Cluster, which amphp doesn't support):
+To fall back to the synchronous phpredis C extension (e.g., for Redis Cluster, which fledge-fiber doesn't support):
 
 ```env
 REDIS_CLIENT=phpredis
@@ -117,8 +117,8 @@ The cache layer also includes Fiber-aware internals:
 | `#[\NoDiscard]` on Pipeline, Cache, Container, Validation | 4 | Developer safety |
 | Persistent cURL share manager | 3 | Connection pooling |
 | `json_validate()` fast path | 1 | Skip decode on invalid JSON |
-| Fiber-based concurrency driver (Revolt + amphp) | 2 | Real async I/O in `Concurrency` facade |
-| amphp/redis as default Redis driver | 5 | Non-blocking Redis I/O for all operations |
+| Fiber-based concurrency driver (Revolt + fledge-fiber) | 2 | Real async I/O in `Concurrency` facade |
+| fledge-fiber as default Redis driver | 5 | Non-blocking Redis I/O for all operations |
 | Fiber-aware cache layer (locks, failover, tags) | 8 | Concurrent cache ops inside Fibers |
 | Fiber-safe queue worker signal handling (Revolt) | 1 | Horizon/queue workers work with fiber drivers |
 | Redis required dependency for cache package | 1 | Redis is a first-class citizen |

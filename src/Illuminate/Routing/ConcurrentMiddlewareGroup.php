@@ -91,7 +91,7 @@ class ConcurrentMiddlewareGroup
             return (new FiberDriver)->run($tasks);
         }
 
-        // Sequential fallback when amphp is not available.
+        // Sequential fallback when FiberDriver is not available.
         return array_map(fn (Closure $task) => $task(), $tasks);
     }
 

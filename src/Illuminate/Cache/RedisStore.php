@@ -15,8 +15,8 @@ use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 use RuntimeException;
 
-use function Amp\async;
-use function Amp\Future\await;
+use function Fledge\Async\async;
+use function Fledge\Async\Future\await;
 
 class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
 {

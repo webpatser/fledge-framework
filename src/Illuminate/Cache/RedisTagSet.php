@@ -8,8 +8,8 @@ use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\LazyCollection;
 
-use function Amp\async;
-use function Amp\Future\await;
+use function Fledge\Async\async;
+use function Fledge\Async\Future\await;
 
 class RedisTagSet extends TagSet
 {

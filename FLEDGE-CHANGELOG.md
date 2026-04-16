@@ -28,19 +28,19 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 ## v13.3.0.7 - 2026-04-06
 
 ### Added
-- Full fiber ecosystem: amphp-based database, Redis, HTTP, and DNS drivers
+- Full fiber ecosystem: fledge-fiber-based database, Redis, HTTP, and DNS drivers
 
 ## v13.3.0.3 - 2026-04-06
 
 ### Added
-- **amphp/redis as default Redis driver** — all Redis I/O non-blocking by default
+- **fledge-fiber as default Redis driver** — all Redis I/O non-blocking by default
 - **Fiber-aware cache layer** — locks, failover, tags use Fiber suspension
 - Redis as required cache dependency
 
 ## v13.3.0.2 - 2026-04-06
 
 ### Added
-- `FiberDriver` for Concurrency facade (Revolt event loop + amphp)
+- `FiberDriver` for Concurrency facade (Revolt event loop + fledge-fiber)
 - `ConcurrentMiddlewareGroup` for parallel middleware execution
 - `SuspendsFibers` trait for cache internals
 

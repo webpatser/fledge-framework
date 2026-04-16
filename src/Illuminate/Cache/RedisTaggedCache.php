@@ -11,8 +11,8 @@ use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Redis\Connections\PredisClusterConnection;
 use Illuminate\Redis\Connections\PredisConnection;
 
-use function Amp\async;
-use function Amp\Future\await;
+use function Fledge\Async\async;
+use function Fledge\Async\Future\await;
 use function Illuminate\Support\enum_value;
 
 class RedisTaggedCache extends TaggedCache

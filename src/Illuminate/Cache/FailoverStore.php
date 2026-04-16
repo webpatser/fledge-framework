@@ -10,8 +10,8 @@ use Illuminate\Contracts\Events\Dispatcher;
 use RuntimeException;
 use Throwable;
 
-use function Amp\async;
-use function Amp\Future\awaitFirst;
+use function Fledge\Async\async;
+use function Fledge\Async\Future\awaitFirst;
 
 class FailoverStore extends TaggableStore implements LockProvider
 {

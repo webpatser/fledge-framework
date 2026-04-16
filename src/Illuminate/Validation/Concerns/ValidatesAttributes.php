@@ -147,7 +147,7 @@ trait ValidatesAttributes
      */
     protected function getDnsRecords($hostname, $type)
     {
-        return \Amp\Dns\resolve(rtrim($hostname, '.'));
+        return dns_get_record($hostname, $type);
     }
 
     /**

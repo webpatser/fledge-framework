@@ -7,8 +7,8 @@ use Illuminate\Contracts\Concurrency\Driver;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Defer\DeferredCallback;
 
-use function Amp\async;
-use function Amp\Future\await;
+use function Fledge\Async\async;
+use function Fledge\Async\Future\await;
 use function Illuminate\Support\defer;
 
 class FiberDriver implements Driver
