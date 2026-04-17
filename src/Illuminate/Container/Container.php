@@ -139,6 +139,13 @@ class Container implements ArrayAccess, ContainerContract
     protected $checkedForSingletonOrScopedAttributes = [];
 
     /**
+     * Cache of ReflectionClass instances keyed by class name.
+     *
+     * @var array<class-string, \ReflectionClass<object>>
+     */
+    protected static $reflectionClassCache = [];
+
+    /**
      * All of the registered rebound callbacks.
      *
      * @var array[]
@@ -317,7 +324,7 @@ class Container implements ArrayAccess, ContainerContract
         try {
             $reflection = $reflection instanceof ReflectionClass
                 ? $reflection
-                : new ReflectionClass($reflection);
+                : (static::$reflectionClassCache[$className] ??= new ReflectionClass($reflection));
         } catch (ReflectionException) {
             return $this->checkedForSingletonOrScopedAttributes[$className] = null;
         }
@@ -1000,7 +1007,7 @@ class Container implements ArrayAccess, ContainerContract
         $this->checkedForAttributeBindings[$abstract] = true;
 
         try {
-            $reflected = new ReflectionClass($abstract);
+            $reflected = static::$reflectionClassCache[$abstract] ??= new ReflectionClass($abstract);
         } catch (ReflectionException) {
             return $abstract;
         }
@@ -1122,7 +1129,7 @@ class Container implements ArrayAccess, ContainerContract
         }
 
         try {
-            $reflector = new ReflectionClass($concrete);
+            $reflector = static::$reflectionClassCache[$concrete] ??= new ReflectionClass($concrete);
         } catch (ReflectionException $e) {
             throw new BindingResolutionException("Target class [$concrete] does not exist.", 0, $e);
         }

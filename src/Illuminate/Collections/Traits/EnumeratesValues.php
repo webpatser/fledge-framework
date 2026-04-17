@@ -723,7 +723,7 @@ trait EnumeratesValues
      */
     public function whereBetween($key, $values)
     {
-        return $this->where($key, '>=', reset($values))->where($key, '<=', end($values));
+        return $this->where($key, '>=', array_first($values))->where($key, '<=', array_last($values));
     }
 
     /**
@@ -736,7 +736,7 @@ trait EnumeratesValues
     public function whereNotBetween($key, $values)
     {
         return $this->filter(
-            fn ($item) => data_get($item, $key) < reset($values) || data_get($item, $key) > end($values)
+            fn ($item) => data_get($item, $key) < array_first($values) || data_get($item, $key) > array_last($values)
         );
     }
 
