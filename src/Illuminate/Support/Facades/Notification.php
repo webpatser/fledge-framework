@@ -22,7 +22,7 @@ use Illuminate\Support\Testing\Fakes\NotificationFake;
  * @method static string|null resolveQueueFromQueueRoute(object $queueable)
  * @method static mixed driver(\UnitEnum|string|null $driver = null)
  * @method static \Illuminate\Notifications\ChannelManager extend(string $driver, \Closure $callback)
- * @method static array<string, mixed> getDrivers()
+ * @method static array getDrivers()
  * @method static \Illuminate\Contracts\Container\Container getContainer()
  * @method static \Illuminate\Notifications\ChannelManager setContainer(\Illuminate\Contracts\Container\Container $container)
  * @method static \Illuminate\Notifications\ChannelManager forgetDrivers()
