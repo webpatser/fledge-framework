@@ -279,23 +279,22 @@ class Worker
 
         $timeout = max($this->timeoutForJob($job, $options), 0);
 
-        if ($this->supportsRevoltSignals()) {
-            // Cancel any previous timeout watcher.
-            if (isset($this->signalWatchers['timeout'])) {
-                EventLoop::cancel($this->signalWatchers['timeout']);
-            }
+        // We register a pcntl signal handler for SIGALRM so we can interrupt a
+        // stuck job even when it's blocking inside a synchronous call such as
+        // sleep(). Revolt's EventLoop::delay() cannot fire during a blocking
+        // sync call because the loop is not running. pcntl_async_signals(true)
+        // is enabled for the same reason: SIGALRM must be dispatched
+        // immediately, not deferred to the next PHP opcode after sleep returns.
+        //
+        // This differs from listenForSignals() which uses Revolt for user
+        // signals (TERM/INT/QUIT/USR2/CONT) to stay fiber-safe under Horizon.
+        // SIGALRM is a terminal condition (handler calls kill()/exit()), so
+        // fiber consistency after the handler is not a concern.
+        pcntl_async_signals(true);
 
-            if ($timeout > 0) {
-                $this->signalWatchers['timeout'] = EventLoop::delay($timeout, $timeoutHandler);
-            }
-        } else {
-            // We will register a signal handler for the alarm signal so that we can kill this
-            // process if it is running too long because it has frozen. This uses the async
-            // signals supported in recent versions of PHP to accomplish it conveniently.
-            pcntl_signal(SIGALRM, $timeoutHandler, true);
+        pcntl_signal(SIGALRM, $timeoutHandler, true);
 
-            pcntl_alarm($timeout);
-        }
+        pcntl_alarm($timeout);
     }
 
     /**
@@ -305,14 +304,7 @@ class Worker
      */
     protected function resetTimeoutHandler()
     {
-        if ($this->supportsRevoltSignals()) {
-            if (isset($this->signalWatchers['timeout'])) {
-                EventLoop::cancel($this->signalWatchers['timeout']);
-                unset($this->signalWatchers['timeout']);
-            }
-        } else {
-            pcntl_alarm(0);
-        }
+        pcntl_alarm(0);
     }
 
     /**
