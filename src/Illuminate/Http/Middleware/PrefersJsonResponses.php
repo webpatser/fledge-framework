@@ -42,24 +42,18 @@ class PrefersJsonResponses
             return true;
         }
 
-        foreach (explode(',', $accept) as $value) {
+        return array_all(explode(',', $accept), function (string $value): bool {
             $value = strtolower(trim($value));
 
             if ($value === '') {
-                continue;
+                return true;
             }
 
-            $pos = strpos($value, ';');
-
-            if ($pos !== false) {
+            if (($pos = strpos($value, ';')) !== false) {
                 $value = trim(substr($value, 0, $pos));
             }
 
-            if (! in_array($value, ['*/*', 'application/*'], true)) {
-                return false;
-            }
-        }
-
-        return true;
+            return in_array($value, ['*/*', 'application/*'], true);
+        });
     }
 }
