@@ -102,7 +102,7 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
      */
     public function many(array $keys)
     {
-        if (count($keys) === 0) {
+        if ($keys === []) {
             return [];
         }
 

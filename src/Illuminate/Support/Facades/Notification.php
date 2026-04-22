@@ -9,7 +9,8 @@ use Illuminate\Support\Testing\Fakes\NotificationFake;
 /**
  * @method static void send(\Illuminate\Support\Collection|mixed $notifiables, mixed $notification)
  * @method static void sendNow(\Illuminate\Support\Collection|mixed $notifiables, mixed $notification, array|null $channels = null)
- * @method static mixed channel(string|null $name = null)
+ * @method static mixed channel(\UnitEnum|string|null $name = null)
+ * @method static mixed driver(\UnitEnum|string|null $driver = null)
  * @method static string getDefaultDriver()
  * @method static string deliversVia()
  * @method static void deliverVia(string $channel)

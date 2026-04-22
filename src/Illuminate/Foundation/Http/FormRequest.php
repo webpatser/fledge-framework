@@ -138,25 +138,25 @@ class FormRequest extends Request implements ValidatesWhenResolved
     {
         $reflection = new ReflectionClass($this);
 
-        if (count($reflection->getAttributes(StopOnFirstFailure::class)) > 0) {
+        if ($reflection->getAttributes(StopOnFirstFailure::class) !== []) {
             $this->stopOnFirstFailure = true;
         }
 
         $redirectTo = $reflection->getAttributes(RedirectTo::class);
 
-        if (count($redirectTo) > 0) {
+        if ($redirectTo !== []) {
             $this->redirect = $redirectTo[0]->newInstance()->url;
         }
 
         $redirectToRoute = $reflection->getAttributes(RedirectToRoute::class);
 
-        if (count($redirectToRoute) > 0) {
+        if ($redirectToRoute !== []) {
             $this->redirectRoute = $redirectToRoute[0]->newInstance()->route;
         }
 
         $errorBag = $reflection->getAttributes(ErrorBag::class);
 
-        if (count($errorBag) > 0) {
+        if ($errorBag !== []) {
             $this->errorBag = $errorBag[0]->newInstance()->name;
         }
     }
@@ -231,7 +231,9 @@ class FormRequest extends Request implements ValidatesWhenResolved
     {
         $allowedKeys = array_keys($this->validationRules());
 
-        foreach (array_keys(Arr::dot($this->all())) as $inputKey) {
+        $input = $this->isJson() ? $this->json()->all() : $this->request->all();
+
+        foreach (array_keys(Arr::dot($input)) as $inputKey) {
             if (! $this->isKnownField($inputKey, $allowedKeys)) {
                 $validator->errors()->add($inputKey, trans('validation.prohibited', [
                     'attribute' => str_replace('_', ' ', $inputKey),
@@ -249,9 +251,19 @@ class FormRequest extends Request implements ValidatesWhenResolved
      */
     protected function isKnownField(string $inputKey, array $allowedKeys): bool
     {
-        return array_any($allowedKeys, fn (string $ruleKey) => $ruleKey === $inputKey
-            || (str_contains($ruleKey, '*')
-                && preg_match('/^'.str_replace('\*', '[^.]+', preg_quote($ruleKey, '/')).'$/', $inputKey)));
+        return array_any($allowedKeys, function (string $ruleKey) use ($inputKey): bool {
+            if ($ruleKey === $inputKey) {
+                return true;
+            }
+
+            if (str_ends_with($inputKey, '_confirmation')
+                && $ruleKey === substr($inputKey, 0, -13)) {
+                return true;
+            }
+
+            return str_contains($ruleKey, '*')
+                && (bool) preg_match('/^'.str_replace('\*', '[^.]+', preg_quote($ruleKey, '/')).'$/', $inputKey);
+        });
     }
 
     /**
