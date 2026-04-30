@@ -2,6 +2,11 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.7.0.2 - 2026-04-30
+
+### Added
+- `laravel/pao` (^1.0.6) in `require-dev` for agent-friendly test output. Detects Claude Code, Cursor, Devin, Gemini CLI, and others, and replaces verbose PHPUnit/Pest/Paratest/PHPStan output with compact JSON. Zero impact on humans running tools directly. Upstream `laravel/framework` does not include this; the upstream `laravel/laravel` skeleton does.
+
 ## v13.7.0.1 - 2026-04-30
 
 ### Synced

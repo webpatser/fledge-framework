@@ -75,6 +75,7 @@
         "aws/aws-sdk-php": "^3.322.9",
         "fakerphp/faker": "^1.24",
         "guzzlehttp/psr7": "^2.4",
+        "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.18",
         "league/flysystem-aws-s3-v3": "^3.25.1",
         "league/flysystem-ftp": "^3.25.1",
