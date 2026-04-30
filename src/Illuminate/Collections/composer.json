@@ -17,7 +17,8 @@
         "php": "^8.5",
         "illuminate/conditionable": "^13.0",
         "illuminate/contracts": "^13.0",
-        "illuminate/macroable": "^13.0"
+        "illuminate/macroable": "^13.0",
+        "symfony/polyfill-php86": "^1.36"
     },
     "suggest": {
         "illuminate/http": "Required to convert collections to API resources (^13.0).",

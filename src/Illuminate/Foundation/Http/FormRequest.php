@@ -256,13 +256,20 @@ class FormRequest extends Request implements ValidatesWhenResolved
                 return true;
             }
 
-            if (str_ends_with($inputKey, '_confirmation')
-                && $ruleKey === substr($inputKey, 0, -13)) {
+            if (str_ends_with($inputKey, '_confirmation') &&
+                $ruleKey === substr($inputKey, 0, -13)) {
                 return true;
             }
 
-            return str_contains($ruleKey, '*')
-                && (bool) preg_match('/^'.str_replace('\*', '[^.]+', preg_quote($ruleKey, '/')).'$/', $inputKey);
+            if (str_contains($ruleKey, '*')) {
+                $pattern = '/^'.str_replace('\*', '[^.]+', preg_quote($ruleKey, '/')).'$/';
+
+                if (preg_match($pattern, $inputKey)) {
+                    return true;
+                }
+            }
+
+            return false;
         });
     }
 
@@ -292,15 +299,12 @@ class FormRequest extends Request implements ValidatesWhenResolved
     {
         $url = $this->redirector->getUrlGenerator();
 
-        if ($this->redirect) {
-            return $url->to($this->redirect);
-        } elseif ($this->redirectRoute) {
-            return $url->route($this->redirectRoute);
-        } elseif ($this->redirectAction) {
-            return $url->action($this->redirectAction);
-        }
-
-        return $url->previous();
+        return match (true) {
+            ! empty($this->redirect) => $url->to($this->redirect),
+            ! empty($this->redirectRoute) => $url->route($this->redirectRoute),
+            ! empty($this->redirectAction) => $url->action($this->redirectAction),
+            default => $url->previous(),
+        };
     }
 
     /**

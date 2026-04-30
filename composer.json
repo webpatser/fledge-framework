@@ -60,6 +60,7 @@
         "symfony/http-kernel": "^7.4.0 || ^8.0.0",
         "symfony/mailer": "^7.4.0 || ^8.0.0",
         "symfony/mime": "^7.4.0 || ^8.0.0",
+        "symfony/polyfill-php86": "^1.36",
         "symfony/process": "^7.4.5 || ^8.0.5",
         "symfony/routing": "^7.4.0 || ^8.0.0",
         "symfony/uid": "^7.4.0 || ^8.0.0",

@@ -6,6 +6,7 @@ use Illuminate\Contracts\Cache\Repository as CacheContract;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Queue\Factory as QueueManager;
+use Illuminate\Contracts\Queue\Interruptible;
 use Illuminate\Database\DetectsLostConnections;
 use Illuminate\Queue\Events\JobAttempted;
 use Illuminate\Queue\Events\JobExceptionOccurred;
@@ -16,6 +17,7 @@ use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobReleasedAfterException;
 use Illuminate\Queue\Events\JobTimedOut;
 use Illuminate\Queue\Events\Looping;
+use Illuminate\Queue\Events\WorkerInterrupted;
 use Illuminate\Queue\Events\WorkerStarting;
 use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Carbon;
@@ -78,6 +80,13 @@ class Worker
      * @var callable
      */
     protected $resetScope;
+
+    /**
+     * The job currently being processed.
+     *
+     * @var \Illuminate\Contracts\Queue\Job|null
+     */
+    public $currentJob = null;
 
     /**
      * Indicates if the worker should exit.
@@ -176,7 +185,7 @@ class Worker
     public function daemon($connectionName, $queue, WorkerOptions $options)
     {
         if ($supportsAsyncSignals = $this->supportsAsyncSignals()) {
-            $this->listenForSignals();
+            $this->listenForSignals($connectionName, $queue);
         }
 
         $lastRestart = $this->getTimestampOfLastQueueRestart();
@@ -466,6 +475,8 @@ class Worker
      */
     protected function runJob($job, $connectionName, WorkerOptions $options)
     {
+        $this->currentJob = $job;
+
         try {
             return $this->process($connectionName, $job, $options);
         } catch (Throwable $e) {
@@ -474,6 +485,8 @@ class Worker
             }
 
             $this->stopWorkerIfLostConnection($e);
+        } finally {
+            $this->currentJob = null;
         }
     }
 
@@ -822,24 +835,65 @@ class Worker
     /**
      * Enable async signals for the process.
      *
+     * @param  string|null  $connectionName
+     * @param  string|null  $queue
      * @return void
      */
-    protected function listenForSignals()
+    protected function listenForSignals($connectionName = null, $queue = null)
     {
         if ($this->supportsRevoltSignals()) {
-            $this->signalWatchers[] = EventLoop::onSignal(SIGQUIT, fn () => $this->shouldQuit = true);
-            $this->signalWatchers[] = EventLoop::onSignal(SIGTERM, fn () => $this->shouldQuit = true);
-            $this->signalWatchers[] = EventLoop::onSignal(SIGINT, fn () => $this->shouldQuit = true);
+            foreach ([SIGQUIT, SIGTERM, SIGINT] as $signal) {
+                $this->signalWatchers[] = EventLoop::onSignal($signal, function () use ($signal, $connectionName, $queue) {
+                    $this->shouldQuit = true;
+
+                    $this->events->dispatch(new WorkerInterrupted($signal, $connectionName, $queue));
+
+                    $this->notifyJobOfSignal($signal);
+                });
+            }
+
             $this->signalWatchers[] = EventLoop::onSignal(SIGUSR2, fn () => $this->paused = true);
             $this->signalWatchers[] = EventLoop::onSignal(SIGCONT, fn () => $this->paused = false);
         } else {
             pcntl_async_signals(true);
 
-            pcntl_signal(SIGQUIT, fn () => $this->shouldQuit = true);
-            pcntl_signal(SIGTERM, fn () => $this->shouldQuit = true);
-            pcntl_signal(SIGINT, fn () => $this->shouldQuit = true);
+            foreach ([SIGQUIT, SIGTERM, SIGINT] as $signal) {
+                pcntl_signal($signal, function (int $signal) use ($connectionName, $queue) {
+                    $this->shouldQuit = true;
+
+                    $this->events->dispatch(new WorkerInterrupted($signal, $connectionName, $queue));
+
+                    $this->notifyJobOfSignal($signal);
+                });
+            }
+
             pcntl_signal(SIGUSR2, fn () => $this->paused = true);
             pcntl_signal(SIGCONT, fn () => $this->paused = false);
+        }
+    }
+
+    /**
+     * Passes the signal to the running job.
+     *
+     * @param  int  $signal
+     * @return void
+     */
+    protected function notifyJobOfSignal(int $signal): void
+    {
+        if (! $this->currentJob) {
+            return;
+        }
+
+        $handler = $this->currentJob->getResolvedJob();
+
+        if (! $handler instanceof CallQueuedHandler) {
+            return;
+        }
+
+        $job = $handler->getRunningCommand();
+
+        if ($job instanceof Interruptible) {
+            $job->interrupted($signal);
         }
     }
 
