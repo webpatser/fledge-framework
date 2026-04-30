@@ -10,7 +10,7 @@ Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requir
 
 Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension — the single biggest performance win.
 
-**53 files changed** on top of Laravel 13.4.0. All 13,382 framework tests pass.
+**94 files changed** on top of Laravel 13.7.0. All 13,623 framework tests pass.
 
 ## Why?
 
@@ -171,7 +171,7 @@ composer install
 
 - Same `Illuminate\` namespace — all Laravel packages work unchanged
 - Same API — no code changes needed in your application
-- 13,382 tests passing (4 known Predis failures exist on vanilla Laravel 13 + PHP 8.5 too)
+- 13,623 tests passing (4 known Predis failures exist on vanilla Laravel 13 + PHP 8.5 too)
 
 ## Requirements
 

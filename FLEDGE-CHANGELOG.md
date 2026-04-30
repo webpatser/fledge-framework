@@ -2,6 +2,28 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.7.0.1 - 2026-04-30
+
+### Synced
+- Merged upstream Laravel v13.7.0 (squashed 59 files, 902 insertions, 154 deletions)
+  - New `Interruptible` queue contract and `WorkerInterrupted` event
+  - `$pausable` flag on Worker for managed queues (Laravel Cloud)
+  - `runningCommand` tracking in `CallQueuedHandler`
+  - `ReadsClassAttributes::getAttributeInstance()` helper (used by `DebounceLock` and `PendingDispatch`)
+  - SQS connector now memoizes credential providers (`CredentialProvider::memoize`)
+  - `Factory::hasAttached()` adds `array_is_list` guard
+  - 13,623 tests passing (up from 13,535)
+
+### Added
+- `symfony/polyfill-php86` (^1.36) - required for the new `SortDirection` enum (PHP 8.6 feature, Fledge runs on 8.5+)
+
+### Preserved
+- `Worker::listenForSignals()` - kept the Revolt fiber-safe signal branch and extended both branches to dispatch `WorkerInterrupted` and call `notifyJobOfSignal()`
+- `Application::VERSION` stays a typed class constant (`const string VERSION`, PHP 8.3 typed constants)
+- `FormRequest::isKnownField()` keeps `array_any()` (PHP 8.5 native)
+- `PrefersJsonResponses::acceptHeaderIsBroad()` keeps `array_all()` (PHP 8.5 native)
+- `FailoverStore` keeps `Fledge\Async\async` and `awaitFirst` imports
+
 ## v13.5.0.2 - 2026-04-17
 
 ### Optimized
