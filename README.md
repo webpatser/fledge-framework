@@ -127,7 +127,7 @@ Concurrency::driver('fiber')->run([
 
 Pick fledge-fiber when your request paths touch Redis multiple times, when Redis is on another host, or when you mix Redis with other I/O. Pick `phpredis` (or stay on Predis) when you only ever do single sequential calls against a local Redis and the per-call overhead matters more than the suspension benefit.
 
-To fall back to the synchronous phpredis C extension (e.g., for Redis Cluster, which fledge-fiber doesn't support):
+To fall back to the synchronous phpredis C extension:
 
 ```env
 REDIS_CLIENT=phpredis
@@ -161,7 +161,7 @@ The `FiberDriver` shipped in `Illuminate\Concurrency\FiberDriver` is a thin wrap
 
 Worth knowing before going to production:
 
-- **Redis Cluster** is not supported by `fledge-fiber`. Set `REDIS_CLIENT=phpredis` to fall back to the synchronous C extension. Sentinel and standalone Redis work fine.
+- **Redis Cluster** is supported by `fledge-fiber` from `v13.7.0.1` onward via Laravel's standard `clusters.*` config, with full API parity against `PhpRedisClusterConnection` / `PredisClusterConnection` (`isCluster()`, `scan()` with `node` option, `keys()` fan-out, `flushdb` fan-out). Multi-key commands must share a hash tag (`{tag}.key`), `SELECT` to a non-zero database is rejected, and MULTI/EXEC is pinned to a single slot. Sentinel and standalone Redis work too.
 - **PHP 8.5 hosting** was released in November 2025. Managed-host availability is still rolling out across Forge, Vapor, Ploi, and Laravel Cloud, check your provider before committing.
 - **`fledge-fiber` is a hardened fork**, not raw amphp. The async runtime started from amphp/revolt but has been consolidated, namespaced under `Fledge\Async\` and `Fledge\Fiber\`, and tuned for the Fledge use case. If you're auditing dependencies, treat it as first-party Webpatser code.
 - **Active branch is `fledge-13`**, not `main`. PRs and clones aimed at framework development should target that branch.
