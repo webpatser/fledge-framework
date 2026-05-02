@@ -2,6 +2,13 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.7.0.3 - 2026-05-02
+
+### Added
+- `schedule:terminate` command: graceful reload analogue of `horizon:terminate` for the `schedule:work` daemon. Writes a timestamp to the `illuminate:schedule:work:terminate` cache key; the daemon compares the value against its boot timestamp on each loop iteration and exits cleanly after draining any in-flight `schedule:run` subprocesses. Closes the gap left by `schedule:interrupt`, which only short-circuits the sub-minute `repeatEvents()` loop and never the outer daemon.
+- New `Fledge\` PSR-4 namespace (`src/Fledge/`) for Fledge-specific additions that should not touch upstream files. Auto-discovered via `extra.laravel.providers`, so the new `Fledge\Console\Scheduling\ScheduleServiceProvider` boots without modifications to upstream service providers.
+- `php artisan reload` now also runs `schedule:terminate` via `Illuminate\Support\ServiceProvider::$reloadCommands`, no edits to `ReloadCommand`.
+
 ## v13.7.0.2 - 2026-04-30
 
 ### Added
