@@ -195,7 +195,8 @@
                 "src/Illuminate/Collections/",
                 "src/Illuminate/Conditionable/",
                 "src/Illuminate/Reflection/"
-            ]
+            ],
+            "Fledge\\": "src/Fledge/"
         },
         "files": [
             "src/Illuminate/Collections/functions.php",
@@ -233,6 +234,11 @@
     "extra": {
         "branch-alias": {
             "dev-master": "13.0.x-dev"
+        },
+        "laravel": {
+            "providers": [
+                "Fledge\\Console\\Scheduling\\ScheduleServiceProvider"
+            ]
         }
     }
 }
