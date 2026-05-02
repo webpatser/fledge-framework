@@ -32,6 +32,7 @@ use Illuminate\Database\Console\TableCommand as DatabaseTableCommand;
 use Illuminate\Database\Console\WipeCommand;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Foundation\Console\ApiInstallCommand;
+use Illuminate\Foundation\Console\BenchCommand;
 use Illuminate\Foundation\Console\BroadcastingInstallCommand;
 use Illuminate\Foundation\Console\CastMakeCommand;
 use Illuminate\Foundation\Console\ChannelListCommand;
@@ -123,6 +124,7 @@ class ArtisanServiceProvider extends ServiceProvider implements DeferrableProvid
      */
     protected $commands = [
         'About' => AboutCommand::class,
+        'Bench' => BenchCommand::class,
         'CacheClear' => CacheClearCommand::class,
         'CacheForget' => CacheForgetCommand::class,
         'ClearCompiled' => ClearCompiledCommand::class,
