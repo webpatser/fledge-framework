@@ -39,7 +39,7 @@ jobs:
       fail-fast: true
       matrix:
         php: [8.5]
-        phpunit: ['11.5.50', '12.5.8', '13.0.3']
+        phpunit: ['12.5.23', '13.1.7']
         stability: [prefer-lowest, prefer-stable]
 
     name: PHP ${{ matrix.php }} - PHPUnit ${{ matrix.phpunit }} - ${{ matrix.stability }}
@@ -95,7 +95,7 @@ jobs:
       fail-fast: true
       matrix:
         php: [8.5]
-        phpunit: ['11.5.50', '12.5.8', '13.0.3']
+        phpunit: ['12.5.23', '13.1.7']
         stability: [prefer-lowest, prefer-stable]
 
     name: PHP ${{ matrix.php }} - PHPUnit ${{ matrix.phpunit }} - ${{ matrix.stability }} - Windows
