@@ -2,6 +2,11 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.7.0.4 - 2026-05-02
+
+### Fixed
+- `schedule:work` Fledge subclass override now actually takes effect. The previous binding swap in `ScheduleServiceProvider::register()` ran during eager bootstrap, but `Illuminate\Foundation\Providers\ArtisanServiceProvider` is a deferred provider whose lazy registration re-bound `Illuminate\Console\Scheduling\ScheduleWorkCommand` to its own auto-resolution after the Fledge provider's `register()`. The override now happens in `boot()` by registering the Fledge subclass via `$this->commands([...])`, which queues a `Console\Application::starting` callback that runs after the framework's. Symfony Console's `Application::add()` overwrites by command name, so the Fledge subclass wins for `schedule:work`. Smoke-tested end-to-end against the `webpatser/fledge` skeleton.
+
 ## v13.7.0.3 - 2026-05-02
 
 ### Added
