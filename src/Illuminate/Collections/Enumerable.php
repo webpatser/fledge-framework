@@ -805,16 +805,20 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
     /**
      * Get the min value of a given key.
      *
-     * @param  (callable(TValue):mixed)|string|null  $callback
-     * @return mixed
+     * @template TMinResult = mixed
+     *
+     * @param  (callable(TValue): TMinResult)|string|null  $callback
+     * @return ($callback is callable ? ?TMinResult : ($callback is null ? ?TValue : mixed))
      */
     public function min($callback = null);
 
     /**
      * Get the max value of a given key.
      *
-     * @param  (callable(TValue):mixed)|string|null  $callback
-     * @return mixed
+     * @template TMaxResult = mixed
+     *
+     * @param  (callable(TValue): TMaxResult)|string|null  $callback
+     * @return ($callback is callable ? ?TMaxResult : ($callback is null ? ?TValue : mixed))
      */
     public function max($callback = null);
 
@@ -1065,7 +1069,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
     /**
      * Sort items in descending order.
      *
-     * @param  int  $options
+     * @param  int-mask-of<SORT_REGULAR|SORT_NUMERIC|SORT_STRING|SORT_LOCALE_STRING|SORT_NATURAL|SORT_FLAG_CASE>  $options
      * @return static
      */
     public function sortDesc($options = SORT_REGULAR);
@@ -1073,8 +1077,8 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
     /**
      * Sort the collection using the given callback.
      *
-     * @param  array<array-key, (callable(TValue, TValue): mixed)|(callable(TValue, TKey): mixed)|string|array{string, string}>|(callable(TValue, TKey): mixed)|string|int  $callback
-     * @param  int  $options
+     * @param  array<array-key, (callable(TValue, TValue): mixed)|(callable(TValue, TKey): mixed)|string|array{string, \SortDirection|'asc'|'desc'}>|(callable(TValue, TKey): mixed)|string|int  $callback
+     * @param  int-mask-of<SORT_REGULAR|SORT_NUMERIC|SORT_STRING|SORT_LOCALE_STRING|SORT_NATURAL|SORT_FLAG_CASE>  $options
      * @param  bool  $descending
      * @return static
      */
@@ -1083,8 +1087,8 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
     /**
      * Sort the collection in descending order using the given callback.
      *
-     * @param  array<array-key, (callable(TValue, TValue): mixed)|(callable(TValue, TKey): mixed)|string|array{string, string}>|(callable(TValue, TKey): mixed)|string|int  $callback
-     * @param  int  $options
+     * @param  array<array-key, (callable(TValue, TValue): mixed)|(callable(TValue, TKey): mixed)|string|array{string, \SortDirection|'asc'|'desc'}>|(callable(TValue, TKey): mixed)|string|int  $callback
+     * @param  int-mask-of<SORT_REGULAR|SORT_NUMERIC|SORT_STRING|SORT_LOCALE_STRING|SORT_NATURAL|SORT_FLAG_CASE>  $options
      * @return static
      */
     public function sortByDesc($callback, $options = SORT_REGULAR);
@@ -1092,7 +1096,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
     /**
      * Sort the collection keys.
      *
-     * @param  int  $options
+     * @param  int-mask-of<SORT_REGULAR|SORT_NUMERIC|SORT_STRING|SORT_LOCALE_STRING|SORT_NATURAL|SORT_FLAG_CASE>  $options
      * @param  bool  $descending
      * @return static
      */
@@ -1101,7 +1105,7 @@ interface Enumerable extends Arrayable, Countable, IteratorAggregate, Jsonable, 
     /**
      * Sort the collection keys in descending order.
      *
-     * @param  int  $options
+     * @param  int-mask-of<SORT_REGULAR|SORT_NUMERIC|SORT_STRING|SORT_LOCALE_STRING|SORT_NATURAL|SORT_FLAG_CASE>  $options
      * @return static
      */
     public function sortKeysDesc($options = SORT_REGULAR);
