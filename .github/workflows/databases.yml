@@ -23,9 +23,6 @@ jobs:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
-    strategy:
-      fail-fast: true
-
     name: MySQL 5.7
 
     steps:
@@ -70,9 +67,6 @@ jobs:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
 
-    strategy:
-      fail-fast: true
-
     name: MySQL 8
 
     steps:
@@ -115,9 +109,6 @@ jobs:
         ports:
           - 3306:3306
         options: --health-cmd="healthcheck.sh --connect --innodb_initialized" --health-interval=10s --health-timeout=5s --health-retries=3
-
-    strategy:
-      fail-fast: true
 
     name: MariaDB 10
 
@@ -162,9 +153,6 @@ jobs:
         ports:
           - 5432:5432
         options: --health-cmd=pg_isready --health-interval=10s --health-timeout=5s --health-retries=3
-
-    strategy:
-      fail-fast: true
 
     name: PostgreSQL 18
 
@@ -212,9 +200,6 @@ jobs:
           - 5432:5432
         options: --health-cmd=pg_isready --health-interval=10s --health-timeout=5s --health-retries=3
 
-    strategy:
-      fail-fast: true
-
     name: PostgreSQL 14
 
     steps:
@@ -261,9 +246,6 @@ jobs:
           - 5432:5432
         options: --health-cmd=pg_isready --health-interval=10s --health-timeout=5s --health-retries=3
 
-    strategy:
-      fail-fast: true
-
     name: PostgreSQL 10
 
     steps:
@@ -307,9 +289,6 @@ jobs:
           SA_PASSWORD: Forge123
         ports:
           - 1433:1433
-
-    strategy:
-      fail-fast: true
 
     name: SQL Server 2019
 
@@ -356,9 +335,6 @@ jobs:
         ports:
           - 1433:1433
 
-    strategy:
-      fail-fast: true
-
     name: SQL Server 2017
 
     steps:
@@ -394,9 +370,6 @@ jobs:
   sqlite:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-
-    strategy:
-      fail-fast: true
 
     name: SQLite
 

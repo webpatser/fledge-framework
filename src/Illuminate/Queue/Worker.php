@@ -133,6 +133,13 @@ class Worker
     public static $memoryExceededExitCode;
 
     /**
+     * The custom exit code to be used when a job times out.
+     *
+     * @var int|null
+     */
+    public static $timedOutExitCode;
+
+    /**
      * Indicates if the worker should report job exceptions.
      *
      * @var bool
@@ -285,7 +292,7 @@ class Worker
                 ));
             }
 
-            $this->kill(static::EXIT_ERROR, $options, WorkerStopReason::TimedOut);
+            $this->kill(static::$timedOutExitCode ?? static::EXIT_ERROR, $options, WorkerStopReason::TimedOut);
         };
 
         $timeout = max($this->timeoutForJob($job, $options), 0);
