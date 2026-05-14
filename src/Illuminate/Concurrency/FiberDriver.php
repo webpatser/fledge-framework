@@ -2,7 +2,9 @@
 
 namespace Illuminate\Concurrency;
 
+use Carbon\CarbonInterval;
 use Closure;
+use Fledge\Async\TimeoutCancellation;
 use Illuminate\Contracts\Concurrency\Driver;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Defer\DeferredCallback;
@@ -16,7 +18,7 @@ class FiberDriver implements Driver
     /**
      * Run the given tasks concurrently and return an array containing the results.
      */
-    public function run(Closure|array $tasks): array
+    public function run(Closure|array $tasks, CarbonInterval|int|null $timeout = null): array
     {
         $tasks = Arr::wrap($tasks);
 
@@ -26,7 +28,13 @@ class FiberDriver implements Driver
             $futures[$key] = async($task);
         }
 
-        return await($futures);
+        $cancellation = match (true) {
+            $timeout instanceof CarbonInterval => new TimeoutCancellation($timeout->totalSeconds),
+            is_int($timeout) => new TimeoutCancellation($timeout),
+            default => null,
+        };
+
+        return await($futures, $cancellation);
     }
 
     /**
