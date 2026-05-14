@@ -2,6 +2,35 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.9.0.1 - 2026-05-14
+
+### Synced
+- Merged upstream Laravel v13.9.0 (57 files, 1,350 insertions, 118 deletions)
+  - New `Foundation/Cloud/` queue integration (`Events`, `FailedJobProvider`, `Queue`, `QueueConnector`) and `Contracts/Queue/PreparesForDispatch` contract
+  - Concurrency `Driver::run()` contract gained a `CarbonInterval|int|null $timeout` parameter
+  - `Worker::$timedOutExitCode` static property, used by the timeout handler
+  - `Http\Client\PendingRequest::parseMultipartBodyFormat()` refactored (`flatMap` to `map`); `guzzlehttp/psr7` bumped to `^2.9`
+  - `ValidatesAttributes` dropped the unused `$parameters` argument from `validateLowercase()` / `validateUppercase()`
+  - 13,727 framework tests passing
+
+### Changed
+- `Concurrency\FiberDriver::run()` updated to match the new `Driver` contract signature. The `$timeout` parameter is honored via `Fledge\Async\TimeoutCancellation` (`CarbonInterval` converted through `->totalSeconds`, `int` taken as seconds).
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`, PHP 8.3 typed constants)
+- `PendingRequest` persistent cURL share handle support kept intact through the upstream multipart refactor
+- `Worker::registerTimeoutHandler()` keeps the Fledge SIGALRM / Revolt fiber-safe signal handling; upstream's `$timedOutExitCode` lookup was integrated into the Fledge closure
+- `composer.json` keeps `laravel/pao` in `require-dev`; accepted the upstream `guzzlehttp/psr7 ^2.9` bump
+
+## v13.8.0.1 - 2026-05-08
+
+### Synced
+- Merged upstream Laravel v13.8.0 (62 files, 854 insertions, 161 deletions)
+  - `SortDirection` enum support across query builder classes
+  - `all*` queue inspection methods and enum support for `QueueFake::assertPushedOn()`
+  - Environment filter for the `schedule:list` command
+  - Mail default driver accepts enums; custom on delete/update strings for foreign keys
+
 ## v13.7.0.4 - 2026-05-02
 
 ### Fixed
