@@ -2,6 +2,23 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.11.1.1 - 2026-05-20
+
+### Synced
+- Merged upstream Laravel v13.9.0 -> v13.11.1 (80 files, 2,531 insertions, 298 deletions; covers 13.10.0, 13.11.0, 13.11.1)
+  - New `Cache/StorageStore.php` cache store
+  - New `Queue/Events/WorkerIdle.php` event; `Worker` gained the `stopWhenEmptyFor` option, a batched `getPausedQueues()` lookup (replaces per-queue `queuePaused()`), and a `currentTime()` helper
+  - New `Foundation/LaravelCloudJsonFormatter.php`
+  - `ValidatesAttributes`: `validateEmail()` now rejects CR/LF; `validateStartsWith()` / `validateEndsWith()` (and their `Doesnt*` variants) accept numeric values
+  - `Mail/Message.php` address-safety hardening
+  - 13,788 framework tests passing
+
+### Changed
+- `Queue\Worker::listenForSignals()` updated for the new upstream `$options` parameter. Fledge's Revolt/pcntl signal branching is kept; the `WorkerOptions` instance is now threaded through every signal closure and into every `WorkerInterrupted` / `WorkerPausing` / `WorkerResuming` dispatch.
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.11.1`
+
 ## v13.9.0.1 - 2026-05-14
 
 ### Synced
