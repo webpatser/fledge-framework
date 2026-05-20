@@ -14,20 +14,20 @@ use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Queue\Connectors\ConnectorInterface;
 use Illuminate\Queue\Connectors\SqsConnector;
+use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Queue\Failed\FileFailedJobProvider;
 use Illuminate\Queue\Jobs\FakeJob;
 use Illuminate\Queue\SqsQueue;
 use Illuminate\Queue\Worker;
-use Illuminate\Support\Arr;
+use Illuminate\Queue\WorkerStopReason;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Support\Testing\Fakes\QueueFake;
+use InvalidArgumentException;
 use Mockery\MockInterface;
-use Orchestra\Testbench\Attributes\WithConfig;
 use Orchestra\Testbench\Attributes\WithMigration;
 use Orchestra\Testbench\TestCase;
 use Ramsey\Uuid\Uuid;
@@ -49,21 +49,29 @@ class QueueTest extends TestCase
     {
         Worker::$restartable = true;
         Worker::$pausable = true;
-        $_SERVER['LARAVEL_CLOUD'] = $_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES'] = '1';
+        $_SERVER['LARAVEL_CLOUD'] = '1';
+        $_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES'] = '1';
+        $_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES_CONFIG'] = json_encode([
+            'driver' => 'cloud',
+            'connection' => [
+                'driver' => 'sqs',
+                'region' => 'us-east-2',
+                'prefix' => 'https://sqs.us-east-2.amazonaws.com/1234567',
+                'suffix' => '-env-8280cf2c-2081-47e8-a1f1-9cdfcba8618f',
+                'queue' => 'default',
+            ],
+        ]);
 
         parent::setUp();
 
-        $this->app['config']->set([
-            'queue.connections.sqs.prefix' => 'https://sqs.us-east-2.amazonaws.com/1234567',
-            'queue.connections.sqs.suffix' => '-env-8280cf2c-2081-47e8-a1f1-9cdfcba8618f',
-        ]);
+        $this->app['config']->set('queue.connections.cloud', json_decode($_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES_CONFIG'], true));
     }
 
     protected function tearDown(): void
     {
         parent::tearDown();
 
-        unset($_SERVER['LARAVEL_CLOUD'], $_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES'], $_SERVER['LARAVEL_CLOUD_REGION']);
+        unset($_SERVER['LARAVEL_CLOUD'], $_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES'], $_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES_CONFIG']);
         Worker::$restartable = true;
         Worker::$pausable = true;
     }
@@ -77,7 +85,7 @@ class QueueTest extends TestCase
             Cloud::bootManagedQueues($this->app);
             $this->assertTrue(Worker::$restartable);
 
-            $this->app['queue']->connection('sqs');
+            $this->app['queue']->connection('cloud');
             $this->assertFalse(Worker::$restartable);
         } finally {
             $_SERVER['argv'] = $argv;
@@ -93,65 +101,42 @@ class QueueTest extends TestCase
             Cloud::bootManagedQueues($this->app);
             $this->assertTrue(Worker::$pausable);
 
-            $this->app['queue']->connection('sqs');
+            $this->app['queue']->connection('cloud');
             $this->assertFalse(Worker::$pausable);
         } finally {
             $_SERVER['argv'] = $argv;
         }
     }
 
-    #[WithConfig('queue.connections.sqs', ['driver' => 'sqs', 'region' => 'us-east-1', 'queue' => 'default'])]
-    public function testItConfiguresManagedQueueCredentials()
+    public function testItConfiguresCloudConnectionFromManagedQueuesConfig()
     {
+        $this->app['config']->set('queue.connections.cloud', null);
+
         Cloud::configureManagedQueues($this->app);
 
-        $this->assertEquals('ecs', $this->app['config']->get('queue.connections.sqs.credentials'));
+        $expected = json_decode($_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES_CONFIG'], true);
+        $expected['connection']['after_commit'] = false;
+        $expected['connection']['overflow'] = [
+            'enabled' => false,
+            'store' => null,
+            'always' => false,
+            'delete_after_processing' => true,
+        ];
+
+        $this->assertSame(
+            $expected,
+            $this->app['config']->get('queue.connections.cloud'),
+        );
     }
 
-    #[WithConfig('queue.connections.sqs', ['driver' => 'sqs', 'region' => 'us-east-1', 'queue' => 'default'])]
     public function testItDoesNotConfigureManagedQueuesWhenNotEnabled()
     {
-        unset($_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES']);
-        Cloud::configureManagedQueues($this->app);
-
-        $this->assertNull($this->app['config']->get('queue.connections.sqs.credentials'));
-    }
-
-    #[WithConfig('queue.connections.sqs', ['driver' => 'sqs', 'region' => 'us-east-1', 'queue' => 'default'])]
-    public function testItConfiguresManagedQueueRegion()
-    {
-        $_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES'] = '1';
-        $_SERVER['LARAVEL_CLOUD_REGION'] = 'us-west-2';
-
-        try {
-            Cloud::configureManagedQueues($this->app);
-
-            $this->assertEquals('us-west-2', $this->app['config']->get('queue.connections.sqs.region'));
-        } finally {
-            unset($_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES'], $_SERVER['LARAVEL_CLOUD_REGION']);
-        }
-    }
-
-    public function testItSetSqsCredentialsToEcs()
-    {
-        $this->assertSame(null, Config::get('queue.connections.sqs.credentials'));
+        unset($_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES_CONFIG']);
+        $this->app['config']->set('queue.connections.cloud', null);
 
         Cloud::configureManagedQueues($this->app);
 
-        $this->assertSame('ecs', Config::get('queue.connections.sqs.credentials'));
-    }
-
-    public function testItSetsTheSqsRegion()
-    {
-        $this->assertSame('us-east-1', Config::get('queue.connections.sqs.region'));
-
-        Cloud::configureManagedQueues($this->app);
-        $this->assertSame('us-east-1', Config::get('queue.connections.sqs.region'));
-
-        $_SERVER['LARAVEL_CLOUD_REGION'] = 'eu-central-1';
-        Cloud::configureManagedQueues($this->app);
-
-        $this->assertSame('eu-central-1', Config::get('queue.connections.sqs.region'));
+        $this->assertNull($this->app['config']->get('queue.connections.cloud'));
     }
 
     public function testItBindsQueueConnectorAndNewsUpSqsConnector()
@@ -166,7 +151,7 @@ class QueueTest extends TestCase
     {
         Cloud::bootManagedQueues($this->app);
 
-        $this->assertInstanceOf(Queue::class, $this->app['queue']->connection('sqs'));
+        $this->assertInstanceOf(Queue::class, $this->app['queue']->connection('cloud'));
     }
 
     public function testItBindsCloudEventsAsSingleton()
@@ -184,20 +169,21 @@ class QueueTest extends TestCase
         $this->assertInstanceOf(FailedJobProvider::class, $this->app['queue.failer']);
     }
 
-    public function testItDoesNotBindCloudQueueWhenManagedQueuesIsInactive()
+    public function testItDoesNotRegisterCloudConnectorWhenManagedQueuesIsInactive()
     {
         unset($_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES']);
 
         Cloud::bootManagedQueues($this->app);
 
-        $this->assertInstanceOf(SqsQueue::class, $this->app['queue']->connection('sqs'));
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('No connector for [cloud]');
+        $this->app['queue']->connection('cloud');
     }
 
     public function testItDoesNotEmitEventsWhilePoppingWhenNoJobsAreProcessingAndNoJobsAreAvailableToPop()
     {
         $eventsFake = $this->fakeEvents();
-        $queueFake = $this->fakeQueue();
-        $queue = new Queue($queueFake, $eventsFake, []);
+        [$queue] = $this->fakeQueue();
 
         $queue->pop();
 
@@ -208,8 +194,7 @@ class QueueTest extends TestCase
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
         $eventsFake = $this->fakeEvents();
-        $queueFake = $this->fakeQueue();
-        $queue = new Queue($queueFake, $eventsFake, $this->app['config']->get('queue.connections.sqs'));
+        [$queue, $queueFake] = $this->fakeQueue();
 
         $queueFake->jobsToPop[] = new FakeJob;
         $queue->pop();
@@ -226,8 +211,7 @@ class QueueTest extends TestCase
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
         $eventsFake = $this->fakeEvents();
-        $queueFake = $this->fakeQueue();
-        $queue = new Queue($queueFake, $eventsFake, $this->app['config']->get('queue.connections.sqs'));
+        [$queue, $queueFake] = $this->fakeQueue();
 
         $queueFake->jobsToPop[] = new FakeJob;
         $queue->pop();
@@ -255,8 +239,7 @@ class QueueTest extends TestCase
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
         $eventsFake = $this->fakeEvents();
-        $queueFake = $this->fakeQueue();
-        $queue = new Queue($queueFake, $eventsFake, $this->app['config']->get('queue.connections.sqs'));
+        [$queue, $queueFake] = $this->fakeQueue();
 
         $queueFake->jobsToPop[] = new FakeJob;
         $queue->pop();
@@ -271,8 +254,7 @@ class QueueTest extends TestCase
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
         $eventsFake = $this->fakeEvents();
-        $queueFake = $this->fakeQueue();
-        $queue = new Queue($queueFake, $eventsFake, $this->app['config']->get('queue.connections.sqs'));
+        [$queue, $queueFake] = $this->fakeQueue();
 
         $queueFake->jobsToPop = [new FakeJob, new FakeJob];
         $queue->pop('first');
@@ -312,8 +294,7 @@ class QueueTest extends TestCase
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
         $eventsFake = $this->fakeEvents();
-        $queueFake = $this->fakeQueue();
-        $queue = new Queue($queueFake, $eventsFake, $this->app['config']->get('queue.connections.sqs'));
+        [$queue, $queueFake] = $this->fakeQueue();
         $failerFake = $this->fakeFailer();
         $failedJobProvider = new FailedJobProvider($failerFake, $eventsFake, $this->app['encrypter']);
         $failedJobProvider->setQueue($queue);
@@ -323,7 +304,7 @@ class QueueTest extends TestCase
         $queue->pop();
         $jobFake->fail();
         Str::createUuidsUsingSequence([Uuid::fromString('00dc709e-90c4-70c2-87c8-9b7127d20e8f')]);
-        $failedJobProvider->log('sqs', 'default', ['payload' => 'here'], new RuntimeException('Whoops!'));
+        $failedJobProvider->log('cloud', 'default', ['payload' => 'here'], new RuntimeException('Whoops!'));
         Str::createUuidsNormally();
         $queue->pop();
 
@@ -359,8 +340,7 @@ class QueueTest extends TestCase
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
         $eventsFake = $this->fakeEvents();
-        $queueFake = $this->fakeQueue();
-        $queue = new Queue($queueFake, $eventsFake, $this->app['config']->get('queue.connections.sqs'));
+        [$queue, $queueFake] = $this->fakeQueue();
 
         $queueFake->jobsToPop[] = $jobFake = new FakeJob;
         $queue->pop();
@@ -446,13 +426,227 @@ class QueueTest extends TestCase
         ], $eventsFake->emitted);
     }
 
+    public function testItEmitsReleasedEventWhenWorkerStopsBecauseItTimedOut()
+    {
+        $argv = $_SERVER['argv'];
+        $_SERVER['argv'] = ['artisan', 'queue:work'];
+
+        try {
+            $this->travelTo('2000-01-02 03:04:05.060708');
+            Cloud::configureManagedQueues($this->app);
+            Cloud::bootManagedQueues($this->app);
+            $eventsFake = $this->fakeEvents();
+            [$queue, $queueFake] = $this->fakeQueue();
+
+            $queueFake->jobsToPop[] = new FakeJob;
+            $queue->pop();
+            $this->travel(2)->seconds();
+
+            $this->app['events']->dispatch(new WorkerStopping(0, null, WorkerStopReason::TimedOut));
+
+            $this->assertSame([
+                [
+                    '_cloud_event' => 'queue',
+                    'timestamp' => '2000-01-02 03:04:05.060708',
+                    'type' => 'started',
+                    'queue' => 'default',
+                ],
+                [
+                    '_cloud_event' => 'queue',
+                    'timestamp' => '2000-01-02 03:04:07.060708',
+                    'type' => 'released',
+                    'queue' => 'default',
+                    'duration_ms' => 2000,
+                ],
+            ], $eventsFake->emitted);
+        } finally {
+            $_SERVER['argv'] = $argv;
+        }
+    }
+
+    public function testItEmitsProcessedEventWhenWorkerStopsForReasonsOtherThanTimedOut()
+    {
+        $argv = $_SERVER['argv'];
+        $_SERVER['argv'] = ['artisan', 'queue:work'];
+
+        $reasons = [
+            WorkerStopReason::Interrupted,
+            WorkerStopReason::LostConnection,
+            WorkerStopReason::MaxJobsExceeded,
+            WorkerStopReason::MaxMemoryExceeded,
+            WorkerStopReason::MaxTimeExceeded,
+            WorkerStopReason::QueueEmpty,
+            WorkerStopReason::ReceivedRestartSignal,
+        ];
+
+        try {
+            $this->travelTo('2000-01-02 03:04:05.060708');
+            Cloud::configureManagedQueues($this->app);
+            Cloud::bootManagedQueues($this->app);
+            $eventsFake = $this->fakeEvents();
+            [$queue, $queueFake] = $this->fakeQueue();
+
+            foreach ($reasons as $index => $reason) {
+                $queueFake->jobsToPop[] = new FakeJob;
+                $queue->pop();
+
+                $this->app['events']->dispatch(new WorkerStopping(0, null, $reason));
+
+                $this->assertSame([
+                    '_cloud_event' => 'queue',
+                    'timestamp' => '2000-01-02 03:04:05.060708',
+                    'type' => 'processed',
+                    'queue' => 'default',
+                    'duration_ms' => 0,
+                ], $eventsFake->emitted[($index * 2) + 1]);
+            }
+        } finally {
+            $_SERVER['argv'] = $argv;
+        }
+    }
+
+    public function testItEmitsProcessedEventWhenWorkerStopsWithoutAReason()
+    {
+        $argv = $_SERVER['argv'];
+        $_SERVER['argv'] = ['artisan', 'queue:work'];
+
+        try {
+            $this->travelTo('2000-01-02 03:04:05.060708');
+            Cloud::configureManagedQueues($this->app);
+            Cloud::bootManagedQueues($this->app);
+            $eventsFake = $this->fakeEvents();
+            [$queue, $queueFake] = $this->fakeQueue();
+
+            $queueFake->jobsToPop[] = new FakeJob;
+            $queue->pop();
+
+            $this->app['events']->dispatch(new WorkerStopping);
+
+            $this->assertSame([
+                [
+                    '_cloud_event' => 'queue',
+                    'timestamp' => '2000-01-02 03:04:05.060708',
+                    'type' => 'started',
+                    'queue' => 'default',
+                ],
+                [
+                    '_cloud_event' => 'queue',
+                    'timestamp' => '2000-01-02 03:04:05.060708',
+                    'type' => 'processed',
+                    'queue' => 'default',
+                    'duration_ms' => 0,
+                ],
+            ], $eventsFake->emitted);
+        } finally {
+            $_SERVER['argv'] = $argv;
+        }
+    }
+
+    public function testWorkerStoppingListenerEmitsFailedTypeWhenProcessingJobHasFailed()
+    {
+        $argv = $_SERVER['argv'];
+        $_SERVER['argv'] = ['artisan', 'queue:work'];
+
+        try {
+            $this->travelTo('2000-01-02 03:04:05.060708');
+            Cloud::configureManagedQueues($this->app);
+            Cloud::bootManagedQueues($this->app);
+            $eventsFake = $this->fakeEvents();
+            [$queue, $queueFake] = $this->fakeQueue();
+
+            $queueFake->jobsToPop[] = $jobFake = new FakeJob;
+            $queue->pop();
+            $jobFake->fail();
+
+            $this->app['events']->dispatch(new WorkerStopping(0, null, WorkerStopReason::TimedOut));
+
+            $this->assertSame('failed', $eventsFake->emitted[1]['type']);
+        } finally {
+            $_SERVER['argv'] = $argv;
+        }
+    }
+
+    public function testWorkerStoppingListenerEmitsReleasedTypeWhenProcessingJobWasReleased()
+    {
+        $argv = $_SERVER['argv'];
+        $_SERVER['argv'] = ['artisan', 'queue:work'];
+
+        try {
+            $this->travelTo('2000-01-02 03:04:05.060708');
+            Cloud::configureManagedQueues($this->app);
+            Cloud::bootManagedQueues($this->app);
+            $eventsFake = $this->fakeEvents();
+            [$queue, $queueFake] = $this->fakeQueue();
+
+            $queueFake->jobsToPop[] = $jobFake = new FakeJob;
+            $queue->pop();
+            $jobFake->release();
+
+            $this->app['events']->dispatch(new WorkerStopping(0, null, WorkerStopReason::MaxJobsExceeded));
+
+            $this->assertSame('released', $eventsFake->emitted[1]['type']);
+        } finally {
+            $_SERVER['argv'] = $argv;
+        }
+    }
+
+    public function testWorkerStoppingListenerDoesNothingWhenNoJobIsProcessing()
+    {
+        $argv = $_SERVER['argv'];
+        $_SERVER['argv'] = ['artisan', 'queue:work'];
+
+        try {
+            Cloud::configureManagedQueues($this->app);
+            Cloud::bootManagedQueues($this->app);
+            $eventsFake = $this->fakeEvents();
+            $this->fakeQueue();
+
+            $this->app['events']->dispatch(new WorkerStopping(0, null, WorkerStopReason::TimedOut));
+            $this->app['events']->dispatch(new WorkerStopping(0, null, WorkerStopReason::QueueEmpty));
+
+            $this->assertSame([], $eventsFake->emitted);
+        } finally {
+            $_SERVER['argv'] = $argv;
+        }
+    }
+
+    public function testItDoesNotRegisterWorkerStoppingListenerWhenNotRunningQueueWork()
+    {
+        $argv = $_SERVER['argv'];
+        $_SERVER['argv'] = ['artisan', 'tinker'];
+
+        try {
+            $this->travelTo('2000-01-02 03:04:05.060708');
+            Cloud::configureManagedQueues($this->app);
+            Cloud::bootManagedQueues($this->app);
+            $eventsFake = $this->fakeEvents();
+            [$queue, $queueFake] = $this->fakeQueue();
+
+            $queueFake->jobsToPop[] = new FakeJob;
+            $queue->pop();
+
+            $this->app['events']->dispatch(new WorkerStopping(0, null, WorkerStopReason::TimedOut));
+
+            $this->assertSame([
+                [
+                    '_cloud_event' => 'queue',
+                    'timestamp' => '2000-01-02 03:04:05.060708',
+                    'type' => 'started',
+                    'queue' => 'default',
+                ],
+            ], $eventsFake->emitted);
+        } finally {
+            $_SERVER['argv'] = $argv;
+        }
+    }
+
     public function testItRespectsDispatchAfterTransaction()
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
         Cloud::configureManagedQueues($this->app);
         Cloud::bootManagedQueues($this->app);
         $eventsFake = $this->fakeEvents();
-        $this->app['config']->set('queue.connections.sqs.after_commit', true);
+        $this->app['config']->set('queue.connections.cloud.connection.after_commit', true);
         [$queue, $client] = $this->mockedQueue();
         $client->shouldReceive('sendMessage')->times(7)->andReturn(new Result());
 
@@ -518,8 +712,7 @@ class QueueTest extends TestCase
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
         $eventsFake = $this->fakeEvents();
-        $queueFake = $this->fakeQueue();
-        $queue = new Queue($queueFake, $eventsFake, $this->app['config']->get('queue.connections.sqs'));
+        [$queue, $queueFake] = $this->fakeQueue();
 
         $queueFake->jobsToPop = [new FakeJob, new FakeJob];
         $queue->pop();
@@ -537,8 +730,7 @@ class QueueTest extends TestCase
         date_default_timezone_set('Australia/Melbourne');
         $this->travelTo(Carbon::parse('2000-01-02 03:04:05.060708', 'Australia/Melbourne'));
         $eventsFake = $this->fakeEvents();
-        $queueFake = $this->fakeQueue();
-        $queue = new Queue($queueFake, $eventsFake, $this->app['config']->get('queue.connections.sqs'));
+        [$queue, $queueFake] = $this->fakeQueue();
 
         $queueFake->jobsToPop[] = new FakeJob;
         $queue->pop();
@@ -579,7 +771,7 @@ class QueueTest extends TestCase
         $failer = $this->fakeFailer();
         $provider = new FailedJobProvider($failer, $eventsFake, $this->app['encrypter']);
 
-        $payload = ['id' => 'test-job-id', 'connection' => 'sqs', 'queue' => 'default', 'payload' => '{"job":"App\\\\Jobs\\\\TestJob"}'];
+        $payload = ['id' => 'test-job-id', 'connection' => 'cloud', 'queue' => 'default', 'payload' => '{"job":"App\\\\Jobs\\\\TestJob"}'];
         $encrypted = Crypt::encryptString(json_encode($payload));
 
         Http::fake([
@@ -590,7 +782,7 @@ class QueueTest extends TestCase
 
         $this->assertIsObject($result);
         $this->assertSame('test-job-id', $result->id);
-        $this->assertSame('sqs', $result->connection);
+        $this->assertSame('cloud', $result->connection);
         $this->assertSame('default', $result->queue);
         $this->assertSame('{"job":"App\\\\Jobs\\\\TestJob"}', $result->payload);
         Http::assertSent(fn ($request) => $request->url() === 'https://cloud.laravel.com/api/jobs/test-job-id?signature=abc');
@@ -657,7 +849,7 @@ class QueueTest extends TestCase
         $failer = $this->fakeFailer();
         $provider = new FailedJobProvider($failer, $eventsFake, $this->app['encrypter']);
 
-        $payload = ['id' => 'forget-test-id', 'connection' => 'sqs', 'queue' => 'default', 'payload' => '{}'];
+        $payload = ['id' => 'forget-test-id', 'connection' => 'cloud', 'queue' => 'default', 'payload' => '{}'];
         $encrypted = Crypt::encryptString(json_encode($payload));
 
         Http::fake([
@@ -706,22 +898,6 @@ class QueueTest extends TestCase
         $this->assertSame('my-queue', $eventsFake->emitted[0]['queue']);
     }
 
-    public function testItHandlesMissingPrefixAndSuffixConfig()
-    {
-        Cloud::configureManagedQueues($this->app);
-        Cloud::bootManagedQueues($this->app);
-        $eventsFake = $this->fakeEvents();
-        $this->app['config']->set('queue.connections.sqs', Arr::except($this->app['config']->get('queue.connections.sqs'), ['prefix', 'suffix']));
-        [$queue, $client] = $this->mockedQueue();
-        $client->shouldReceive('sendMessage')->times(1)->andReturn(new Result());
-
-        unset($_SERVER['SQS_PREFIX'], $_SERVER['SQS_SUFFIX']);
-
-        $queue->push(new FakeJob, queue: 'https://sqs.us-east-2.amazonaws.com/1234567/my-queue-env-8280cf2c-2081-47e8-a1f1-9cdfcba8618f');
-
-        $this->assertSame('https://sqs.us-east-2.amazonaws.com/1234567/my-queue-env-8280cf2c-2081-47e8-a1f1-9cdfcba8618f', $eventsFake->emitted[0]['queue']);
-    }
-
     /**
      * @return array{Queue, MockInterface<SqsClient>}
      */
@@ -749,7 +925,9 @@ class QueueTest extends TestCase
             }
         }, $this->app));
 
-        return [$this->app['queue']->connection('sqs'), $client];
+        $this->app['queue']->addConnector('cloud', $this->app->factory(QueueConnector::class));
+
+        return [$this->app['queue']->connection('cloud'), $client];
     }
 
     private function fakeEvents()
@@ -768,9 +946,12 @@ class QueueTest extends TestCase
         });
     }
 
+    /**
+     * @return array{Queue, object{jobsToPop: array}}
+     */
     private function fakeQueue()
     {
-        return new class($this->app, [], null) extends QueueFake
+        $fakeQueue = new class($this->app, [], null) extends QueueFake
         {
             public array $jobsToPop = [];
 
@@ -783,9 +964,36 @@ class QueueTest extends TestCase
             {
                 $queue ??= 'default';
 
-                return config('queue.connections.sqs.prefix').'/'.$queue.config('queue.connections.sqs.suffix');
+                return config('queue.connections.cloud.connection.prefix').'/'.$queue.config('queue.connections.cloud.connection.suffix');
+            }
+
+            public function setConfig(array $config)
+            {
+                return $this;
+            }
+
+            public function setContainer($container)
+            {
+                return $this;
             }
         };
+
+        $this->app->instance(QueueConnector::class, new QueueConnector(new class($fakeQueue) implements ConnectorInterface
+        {
+            public function __construct(private $fakeQueue)
+            {
+                //
+            }
+
+            public function connect($config)
+            {
+                return $this->fakeQueue;
+            }
+        }, $this->app));
+
+        $this->app['queue']->addConnector('cloud', $this->app->factory(QueueConnector::class));
+
+        return [$this->app['queue']->connection('cloud'), $fakeQueue];
     }
 
     private function fakeFailer()

@@ -1,6 +1,91 @@
 # Release Notes for 13.x
 
-## [Unreleased](https://github.com/laravel/framework/compare/v13.8.0...13.x)
+## [Unreleased](https://github.com/laravel/framework/compare/v13.11.0...13.x)
+
+## [v13.11.0](https://github.com/laravel/framework/compare/v13.10.0...v13.11.0) - 2026-05-19
+
+* [13.x] Dedicated Cloud Queue by [@kieranbrown](https://github.com/kieranbrown) in https://github.com/laravel/framework/pull/60180
+
+## [v13.10.0](https://github.com/laravel/framework/compare/v13.9.0...v13.10.0) - 2026-05-19
+
+* [13.x] Improve queue metric tests by [@timacdonald](https://github.com/timacdonald) in https://github.com/laravel/framework/pull/60124
+* [13.x] Add tests for SeeInHtml constraint covering unicode whitespace by [@scabarcas17](https://github.com/scabarcas17) in https://github.com/laravel/framework/pull/60128
+* [13.x] Fix starts_with/ends_with rules rejecting numeric values by [@aydinfatih](https://github.com/aydinfatih) in https://github.com/laravel/framework/pull/60120
+* Fix typo in docblock for listManagementOptions method in SesV2Transport by [@daliendev](https://github.com/daliendev) in https://github.com/laravel/framework/pull/60115
+* [13.x] Fix typo in mergeAttributeFromCachedCasts() PHPDoc comment by [@mosabbirrakib](https://github.com/mosabbirrakib) in https://github.com/laravel/framework/pull/60112
+* [13.x] Optimize Worker queue pause check by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60109
+* [13.x] Fix typo in preg_replace_array() PHPDoc comment by [@mosabbirrakib](https://github.com/mosabbirrakib) in https://github.com/laravel/framework/pull/60111
+* Add storage store by [@taylorotwell](https://github.com/taylorotwell) in https://github.com/laravel/framework/pull/60131
+* Fix typo in Builder::getRelation() comment by [@rpsohag](https://github.com/rpsohag) in https://github.com/laravel/framework/pull/60130
+* URL Encode Paths by [@taylorotwell](https://github.com/taylorotwell) in https://github.com/laravel/framework/pull/60137
+* [13.x] Add WorkerIdle event by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60134
+* [13.x] Replace [@return](https://github.com/return) with [@var](https://github.com/var) on docblocks for properties in tests by [@scabarcas17](https://github.com/scabarcas17) in https://github.com/laravel/framework/pull/60132
+* [13.x] Pass WorkerOptions to Pausing/Resuming/Interrupted by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60135
+* [13.x] Switch force check in Worker by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60145
+* [13.x] Skip delimiter filesystem tests on Windows  by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60143
+* Delimit aggregate alias by [@willrowe](https://github.com/willrowe) in https://github.com/laravel/framework/pull/60140
+* [13.x] Allow lifecycle and output callbacks on Schedule::group() by [@cosmastech](https://github.com/cosmastech) in https://github.com/laravel/framework/pull/60133
+* [13.x] Allow passing scheduled `Event` in callbacks by [@cosmastech](https://github.com/cosmastech) in https://github.com/laravel/framework/pull/60144
+* Validate against line breaks in emails by [@taylorotwell](https://github.com/taylorotwell) in https://github.com/laravel/framework/pull/60151
+* [13.x] Add `assertPushedOnce()` by [@weshooper](https://github.com/weshooper) in https://github.com/laravel/framework/pull/60150
+* [13.x] Fix callable usage in `Event@callEventCallback()` by [@cosmastech](https://github.com/cosmastech) in https://github.com/laravel/framework/pull/60148
+* [13.x] Fix numeric property names being cast to integers in JsonSchema requi… by [@irabbi360](https://github.com/irabbi360) in https://github.com/laravel/framework/pull/60149
+* [13.x] Pass worker options to Looping by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60153
+* [13.x] Support enum queue names in QueueFake by [@Tresor-Kasenda](https://github.com/Tresor-Kasenda) in https://github.com/laravel/framework/pull/60161
+* [13.x] Remove obsolete [@phpstan-ignore](https://github.com/phpstan-ignore) clauses by [@jnoordsij](https://github.com/jnoordsij) in https://github.com/laravel/framework/pull/60164
+* [13.x] Consistent test OS attributes by [@jnoordsij](https://github.com/jnoordsij) in https://github.com/laravel/framework/pull/60162
+* Output cloud request ID in logs by [@jradtilbrook](https://github.com/jradtilbrook) in https://github.com/laravel/framework/pull/60156
+* [13.x] Optionally flush the SQS overflow store on queue:clear by [@Orrison](https://github.com/Orrison) in https://github.com/laravel/framework/pull/60138
+* [13.x] Add JSON output option to ListFailedCommand and corresponding tests by [@Tresor-Kasenda](https://github.com/Tresor-Kasenda) in https://github.com/laravel/framework/pull/60168
+* [13.x] Add schema foreign key existence helper by [@Tresor-Kasenda](https://github.com/Tresor-Kasenda) in https://github.com/laravel/framework/pull/60169
+* Stop when empty for by [@taylorotwell](https://github.com/taylorotwell) in https://github.com/laravel/framework/pull/60176
+* [13.x] Add initial value type to return of `reduce` and `reduceWithKeys` by [@jnoordsij](https://github.com/jnoordsij) in https://github.com/laravel/framework/pull/60178
+* [13.x] Fix incorrect type hint in EncodedHtmlString::convert() docblock by [@rpsohag](https://github.com/rpsohag) in https://github.com/laravel/framework/pull/60186
+
+## [v13.9.0](https://github.com/laravel/framework/compare/v13.8.0...v13.9.0) - 2026-05-13
+
+* [13.x] Fix issue using custom aws credential providers by [@iWader](https://github.com/iWader) in https://github.com/laravel/framework/pull/60000
+* [13.x] Revert "Correct Factory::configure [@return](https://github.com/return) to $this (#59963)" by [@jnoordsij](https://github.com/jnoordsij) in https://github.com/laravel/framework/pull/60004
+* [13.x] Replace `mb_split` with `preg_split` by [@jnoordsij](https://github.com/jnoordsij) in https://github.com/laravel/framework/pull/60012
+* [13.x] Keep calls to implode() consistent by [@lucasmichot](https://github.com/lucasmichot) in https://github.com/laravel/framework/pull/60013
+* [13.x] update `rand()` to `mt_rand()` by [@browner12](https://github.com/browner12) in https://github.com/laravel/framework/pull/60018
+* [13.x] remove `mt_srand()` deprecated "mode" argument by [@browner12](https://github.com/browner12) in https://github.com/laravel/framework/pull/60020
+* [13.x] Remove useless `fail-fast` option by [@lucasmichot](https://github.com/lucasmichot) in https://github.com/laravel/framework/pull/60019
+* [13.x] Prefer spaceship operator when possible by [@lucasmichot](https://github.com/lucasmichot) in https://github.com/laravel/framework/pull/60015
+* [13.x] Fix incorrectly opened DocBlocks by [@CasEbb](https://github.com/CasEbb) in https://github.com/laravel/framework/pull/60014
+* [13.x] Ensure that the named arguments are sorted during a call by [@lucasmichot](https://github.com/lucasmichot) in https://github.com/laravel/framework/pull/60017
+* [13.x] Rely on guzzlehttp/psr7 for nested multipart array expansion - Fix #59992 by [@RomainMazB](https://github.com/RomainMazB) in https://github.com/laravel/framework/pull/59984
+* [13.x] Add PreparesForDispatch interface for Jobs by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/59879
+* Add support to scoped filesystem for Cloud by [@jeremynikolic](https://github.com/jeremynikolic) in https://github.com/laravel/framework/pull/60030
+* [13.x] Unused `$parameters` in `validate*case()` by [@weshooper](https://github.com/weshooper) in https://github.com/laravel/framework/pull/60024
+* [13.x] Narrow attachment url scheme by [@benbjurstrom](https://github.com/benbjurstrom) in https://github.com/laravel/framework/pull/60034
+* [13.x] Skip allocation in mergeFillable/Appends/Hidden/Visible when input is empty by [@olivier-zenchef](https://github.com/olivier-zenchef) in https://github.com/laravel/framework/pull/60008
+* add generic return types to `Builder` paginate methods by [@levikl](https://github.com/levikl) in https://github.com/laravel/framework/pull/60045
+* [13.x] Make PendingDispatch conditionable by [@kevinb1989](https://github.com/kevinb1989) in https://github.com/laravel/framework/pull/60047
+* [13.x] Display error in `queue:pause` when `Worker` isn't pausable by [@weshooper](https://github.com/weshooper) in https://github.com/laravel/framework/pull/60023
+* [13.x] Add tests for `Attachment::fromUrl()` URL scheme validation by [@mdalikadar](https://github.com/mdalikadar) in https://github.com/laravel/framework/pull/60054
+* [13.x] Fix [@params](https://github.com/params) typo in toPrettyJson docblocks by [@mosabbirrakib](https://github.com/mosabbirrakib) in https://github.com/laravel/framework/pull/60050
+* [13.x] re-add docblock for `apply()` method by [@browner12](https://github.com/browner12) in https://github.com/laravel/framework/pull/60055
+* [13.x] Add unicode modifier to preg_split by [@rodrigopedra](https://github.com/rodrigopedra) in https://github.com/laravel/framework/pull/60056
+* [13.x] Add name to MigrationStarted/MigrationEnded events by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60059
+* [13.x] Ability to override the Worker timeout exit code by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60072
+* [13.x] Add method to convert a Password instance to a passwordrules string by [@imliam](https://github.com/imliam) in https://github.com/laravel/framework/pull/60070
+* add index for database performance by [@DGarbs51](https://github.com/DGarbs51) in https://github.com/laravel/framework/pull/60073
+* [13.x] Add optional disk storage for large SQS queue payloads by [@Orrison](https://github.com/Orrison) in https://github.com/laravel/framework/pull/59734
+* [13.x] Cloud queue metrics by [@timacdonald](https://github.com/timacdonald) in https://github.com/laravel/framework/pull/60074
+* [13.x] reset Lottery on test case teardown by [@cosmastech](https://github.com/cosmastech) in https://github.com/laravel/framework/pull/60083
+* [13.x] Add support for `after_commit` for Cloud queue metrics by [@timacdonald](https://github.com/timacdonald) in https://github.com/laravel/framework/pull/60078
+* [13.x] Remove Composer `github-oauth` credentials on Linux & Windows Actions by [@crynobone](https://github.com/crynobone) in https://github.com/laravel/framework/pull/60095
+* Revert "[13.x] Remove Composer `github-oauth` credentials on Linux & Windows Actions" by [@crynobone](https://github.com/crynobone) in https://github.com/laravel/framework/pull/60100
+* [13.x] Support config caching with Cloud queues by [@timacdonald](https://github.com/timacdonald) in https://github.com/laravel/framework/pull/60094
+* [13.x] Support Concurrency Run Timeouts by [@dbpolito](https://github.com/dbpolito) in https://github.com/laravel/framework/pull/60105
+* [13.x] Allow passing a Closure to `ThrottlesExceptions` middleware by [@cosmastech](https://github.com/cosmastech) in https://github.com/laravel/framework/pull/60103
+* [13.x] Add enum support to contextual attribute binding by [@Tresor-Kasenda](https://github.com/Tresor-Kasenda) in https://github.com/laravel/framework/pull/60092
+* [13.x] Add foreignUuidFor schema helper by [@Tresor-Kasenda](https://github.com/Tresor-Kasenda) in https://github.com/laravel/framework/pull/60091
+* [13.x] Add unicode modifier to SeeInHtml normalize whitespace regex by [@mosabbirrakib](https://github.com/mosabbirrakib) in https://github.com/laravel/framework/pull/60090
+* [13.x] Replace [@return](https://github.com/return) with [@var](https://github.com/var) on property docblocks by [@mosabbirrakib](https://github.com/mosabbirrakib) in https://github.com/laravel/framework/pull/60087
+* Fix grammatical error in Lottery::alwaysLose() PHPDoc comment by [@rpsohag](https://github.com/rpsohag) in https://github.com/laravel/framework/pull/60086
+* Fix typo in Sleep::microsecond() PHPDoc comment by [@rpsohag](https://github.com/rpsohag) in https://github.com/laravel/framework/pull/60085
 
 ## [v13.8.0](https://github.com/laravel/framework/compare/v13.7.0...v13.8.0) - 2026-05-05
 

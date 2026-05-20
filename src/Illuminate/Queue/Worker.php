@@ -17,6 +17,7 @@ use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Queue\Events\JobReleasedAfterException;
 use Illuminate\Queue\Events\JobTimedOut;
 use Illuminate\Queue\Events\Looping;
+use Illuminate\Queue\Events\WorkerIdle;
 use Illuminate\Queue\Events\WorkerInterrupted;
 use Illuminate\Queue\Events\WorkerPausing;
 use Illuminate\Queue\Events\WorkerResuming;
@@ -194,12 +195,14 @@ class Worker
     public function daemon($connectionName, $queue, WorkerOptions $options)
     {
         if ($supportsAsyncSignals = $this->supportsAsyncSignals()) {
-            $this->listenForSignals($connectionName, $queue);
+            $this->listenForSignals($connectionName, $queue, $options);
         }
 
         $lastRestart = $this->getTimestampOfLastQueueRestart();
 
-        [$startTime, $jobsProcessed] = [hrtime(true) / 1e9, 0];
+        [$startTime, $jobsProcessed] = [$this->currentTime(), 0];
+
+        $lastJobProcessedAt = $startTime;
 
         $this->raiseWorkerStartingEvent($connectionName, $queue, $options);
 
@@ -208,7 +211,9 @@ class Worker
             // if it is we will just pause this worker for a given amount of time and
             // make sure we do not need to kill this worker process off completely.
             if (! $this->daemonShouldRun($options, $connectionName, $queue)) {
-                [$status, $reason] = $this->pauseWorker($options, $lastRestart);
+                [$status, $reason] = $this->pauseWorker(
+                    $options, $lastRestart, $startTime, $jobsProcessed, $lastJobProcessedAt
+                );
 
                 if (! is_null($status)) {
                     return $this->stop($status, $options, $reason);
@@ -240,10 +245,14 @@ class Worker
 
                 $this->runJob($job, $connectionName, $options);
 
+                $lastJobProcessedAt = $this->currentTime();
+
                 if ($options->rest > 0) {
                     $this->sleep($options->rest);
                 }
             } else {
+                $this->events->dispatch(new WorkerIdle($connectionName, $queue, $options));
+
                 $this->sleep($options->sleep);
             }
 
@@ -255,7 +264,7 @@ class Worker
             // the queue should restart based on other indications. If so, we'll stop
             // this worker and let whatever is "monitoring" it restart the process.
             [$status, $reason] = $this->stopIfNecessary(
-                $options, $lastRestart, $startTime, $jobsProcessed, $job
+                $options, $lastRestart, $startTime, $jobsProcessed, $job, $lastJobProcessedAt
             );
 
             if (! is_null($status)) {
@@ -347,9 +356,9 @@ class Worker
      */
     protected function daemonShouldRun(WorkerOptions $options, $connectionName, $queue)
     {
-        return ! ((($this->isDownForMaintenance)() && ! $options->force) ||
+        return ! ((! $options->force && ($this->isDownForMaintenance)()) ||
             $this->paused ||
-            $this->events->until(new Looping($connectionName, $queue)) === false);
+            $this->events->until(new Looping($connectionName, $queue, $options)) === false);
     }
 
     /**
@@ -357,13 +366,16 @@ class Worker
      *
      * @param  \Illuminate\Queue\WorkerOptions  $options
      * @param  int  $lastRestart
+     * @param  int|float  $startTime
+     * @param  int  $jobsProcessed
+     * @param  int|float|null  $lastJobProcessedAt
      * @return array|null
      */
-    protected function pauseWorker(WorkerOptions $options, $lastRestart)
+    protected function pauseWorker(WorkerOptions $options, $lastRestart, $startTime = 0, $jobsProcessed = 0, $lastJobProcessedAt = null)
     {
         $this->sleep($options->sleep > 0 ? $options->sleep : 1);
 
-        return $this->stopIfNecessary($options, $lastRestart);
+        return $this->stopIfNecessary($options, $lastRestart, $startTime, $jobsProcessed, null, $lastJobProcessedAt);
     }
 
     /**
@@ -374,9 +386,10 @@ class Worker
      * @param  int  $startTime
      * @param  int  $jobsProcessed
      * @param  mixed  $job
+     * @param  int|float|null  $lastJobProcessedAt
      * @return array|null
      */
-    protected function stopIfNecessary(WorkerOptions $options, $lastRestart, $startTime = 0, $jobsProcessed = 0, $job = null)
+    protected function stopIfNecessary(WorkerOptions $options, $lastRestart, $startTime = 0, $jobsProcessed = 0, $job = null, $lastJobProcessedAt = null)
     {
         return match (true) {
             $this->lostConnection => [static::EXIT_SUCCESS, WorkerStopReason::LostConnection],
@@ -384,7 +397,8 @@ class Worker
             $this->memoryExceeded($options->memory) => [static::$memoryExceededExitCode ?? static::EXIT_MEMORY_LIMIT, WorkerStopReason::MaxMemoryExceeded],
             $this->queueShouldRestart($lastRestart) => [static::EXIT_SUCCESS, WorkerStopReason::ReceivedRestartSignal],
             $options->stopWhenEmpty && is_null($job) => [static::EXIT_SUCCESS, WorkerStopReason::QueueEmpty],
-            $options->maxTime && hrtime(true) / 1e9 - $startTime >= $options->maxTime => [static::EXIT_SUCCESS, WorkerStopReason::MaxTimeExceeded],
+            $options->stopWhenEmptyFor && is_null($job) && $this->currentTime() - ($lastJobProcessedAt ?? $startTime) >= $options->stopWhenEmptyFor => [static::EXIT_SUCCESS, WorkerStopReason::QueueEmptyFor],
+            $options->maxTime && $this->currentTime() - $startTime >= $options->maxTime => [static::EXIT_SUCCESS, WorkerStopReason::MaxTimeExceeded],
             $options->maxJobs && $jobsProcessed >= $options->maxJobs => [static::EXIT_SUCCESS, WorkerStopReason::MaxJobsExceeded],
             default => null
         };
@@ -438,8 +452,12 @@ class Worker
                 return $job;
             }
 
-            foreach (explode(',', $queue) as $index => $queue) {
-                if ($this->queuePaused($connection->getConnectionName(), $queue)) {
+            $queues = explode(',', $queue);
+
+            $paused = array_flip($this->getPausedQueues($connection->getConnectionName(), $queues));
+
+            foreach ($queues as $index => $queue) {
+                if (isset($paused[$queue])) {
                     continue;
                 }
 
@@ -459,19 +477,23 @@ class Worker
     }
 
     /**
-     * Determine if a given connection and queue is paused.
+     * Determine which of the given queues are currently paused.
      *
      * @param  string  $connectionName
-     * @param  string  $queue
-     * @return bool
+     * @param  array  $queues
+     * @return array
      */
-    protected function queuePaused($connectionName, $queue)
+    protected function getPausedQueues($connectionName, $queues)
     {
         if (! static::$pausable) {
-            return false;
+            return [];
         }
 
-        return $this->cache && $this->manager->isPaused($connectionName, $queue);
+        if ($this->cache === null) {
+            return [];
+        }
+
+        return $this->manager->getPausedQueues($connectionName, $queues);
     }
 
     /**
@@ -846,54 +868,55 @@ class Worker
      *
      * @param  string|null  $connectionName
      * @param  string|null  $queue
+     * @param  \Illuminate\Queue\WorkerOptions|null  $options
      * @return void
      */
-    protected function listenForSignals($connectionName = null, $queue = null)
+    protected function listenForSignals($connectionName = null, $queue = null, $options = null)
     {
         if ($this->supportsRevoltSignals()) {
             foreach ([SIGQUIT, SIGTERM, SIGINT] as $signal) {
-                $this->signalWatchers[] = EventLoop::onSignal($signal, function () use ($signal, $connectionName, $queue) {
+                $this->signalWatchers[] = EventLoop::onSignal($signal, function () use ($signal, $connectionName, $queue, $options) {
                     $this->shouldQuit = true;
 
-                    $this->events->dispatch(new WorkerInterrupted($signal, $connectionName, $queue));
+                    $this->events->dispatch(new WorkerInterrupted($signal, $connectionName, $queue, $options));
 
                     $this->notifyJobOfSignal($signal);
                 });
             }
 
-            $this->signalWatchers[] = EventLoop::onSignal(SIGUSR2, function () use ($connectionName, $queue) {
+            $this->signalWatchers[] = EventLoop::onSignal(SIGUSR2, function () use ($connectionName, $queue, $options) {
                 $this->paused = true;
 
-                $this->events->dispatch(new WorkerPausing($connectionName, $queue));
+                $this->events->dispatch(new WorkerPausing($connectionName, $queue, $options));
             });
-            $this->signalWatchers[] = EventLoop::onSignal(SIGCONT, function () use ($connectionName, $queue) {
+            $this->signalWatchers[] = EventLoop::onSignal(SIGCONT, function () use ($connectionName, $queue, $options) {
                 $this->paused = false;
 
-                $this->events->dispatch(new WorkerResuming($connectionName, $queue));
+                $this->events->dispatch(new WorkerResuming($connectionName, $queue, $options));
             });
         } else {
             pcntl_async_signals(true);
 
             foreach ([SIGQUIT, SIGTERM, SIGINT] as $signal) {
-                pcntl_signal($signal, function (int $signal) use ($connectionName, $queue) {
+                pcntl_signal($signal, function (int $signal) use ($connectionName, $queue, $options) {
                     $this->shouldQuit = true;
 
-                    $this->events->dispatch(new WorkerInterrupted($signal, $connectionName, $queue));
+                    $this->events->dispatch(new WorkerInterrupted($signal, $connectionName, $queue, $options));
 
                     $this->notifyJobOfSignal($signal);
                 });
             }
 
-            pcntl_signal(SIGUSR2, function () use ($connectionName, $queue) {
+            pcntl_signal(SIGUSR2, function () use ($connectionName, $queue, $options) {
                 $this->paused = true;
 
-                $this->events->dispatch(new WorkerPausing($connectionName, $queue));
+                $this->events->dispatch(new WorkerPausing($connectionName, $queue, $options));
             });
 
-            pcntl_signal(SIGCONT, function () use ($connectionName, $queue) {
+            pcntl_signal(SIGCONT, function () use ($connectionName, $queue, $options) {
                 $this->paused = false;
 
-                $this->events->dispatch(new WorkerResuming($connectionName, $queue));
+                $this->events->dispatch(new WorkerResuming($connectionName, $queue, $options));
             });
         }
     }
@@ -1088,5 +1111,15 @@ class Worker
     public function setManager(QueueManager $manager)
     {
         $this->manager = $manager;
+    }
+
+    /**
+     * Get the current high-resolution timestamp.
+     *
+     * @return float
+     */
+    protected function currentTime()
+    {
+        return hrtime(true) / 1e9;
     }
 }
