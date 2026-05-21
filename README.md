@@ -10,7 +10,7 @@ Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requir
 
 Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension. That swap is the single biggest performance win.
 
-**120 files changed** on top of Laravel 13.11.1. All 13,788 framework tests pass.
+**120 files changed** on top of Laravel 13.11.2. All 13,788 framework tests pass.
 
 ## Why?
 
@@ -244,17 +244,17 @@ That is why the canonical install line targets `webpatser/fledge-framework` dire
 
 ### Constraint compatibility
 
-All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.11.1.1` as of 2026-05-20):
+All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.11.2.1` as of 2026-05-21):
 
 | Constraint | Resolves to | Notes |
 |------------|------------|-------|
-| `^13.3` | v13.11.1.1 | Recommended, accepts any 13.x release |
-| `^13.11` | v13.11.1.1 | Pins to current minor |
-| `~13.11.1` | v13.11.1.1 | Pins to 13.11.x patches and Fledge revisions |
-| `13.11.*` | v13.11.1.1 | Wildcard, identical resolution |
-| `^13.11.1.1` | v13.11.1.1 | Pin to a specific Fledge revision |
-| `~13.11.1.1` | v13.11.1.1 | Same, accepts higher Fledge patches |
-| `>=13.0` | v13.11.1.1 | Open-ended |
+| `^13.3` | v13.11.2.1 | Recommended, accepts any 13.x release |
+| `^13.11` | v13.11.2.1 | Pins to current minor |
+| `~13.11.2` | v13.11.2.1 | Pins to 13.11.x patches and Fledge revisions |
+| `13.11.*` | v13.11.2.1 | Wildcard, identical resolution |
+| `^13.11.2.1` | v13.11.2.1 | Pin to a specific Fledge revision |
+| `~13.11.2.1` | v13.11.2.1 | Same, accepts higher Fledge patches |
+| `>=13.0` | v13.11.2.1 | Open-ended |
 | `dev-fledge-13` | (does not resolve cleanly) | Dev branches need a `branch-alias` to satisfy `^13.0` constraints from other Laravel packages |
 
 Use `^13.7` in production. The 4-segment `v13.X.Y.N` versioning is fully Composer-compatible: the resolver treats the fourth segment as a regular patch component.

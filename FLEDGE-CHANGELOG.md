@@ -2,6 +2,25 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.11.2.1 - 2026-05-21
+
+### Synced
+- Merged upstream Laravel v13.11.1 -> v13.11.2 (4 files, 12 insertions, 8 deletions)
+  - `Console/Scheduling/Schedule.php`: `__call()` now also defers methods listed in `PendingEventAttributes::DEFERRED_EVENT_METHODS`
+  - `Console/Scheduling/PendingEventAttributes.php`: `DEFERRED_EVENT_METHODS` visibility raised `protected` -> `public`
+  - `Foundation/Cloud.php`: `bootManagedQueues()` moved to `bootstrapperBootstrapping()` and now keys off the `queue.connections.cloud.driver` config instead of the `LARAVEL_CLOUD_MANAGED_QUEUES` env var
+  - 13,105 framework tests passing (685 skipped, 1 known dependency failure, see below)
+
+### Optimized
+- `PendingEventAttributes::DEFERRED_EVENT_METHODS` is now a typed class constant (`public const array`), matching Fledge's existing typed-constant style in the same scheduling area (`Schedule::SUNDAY` etc.)
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.11.2`
+- `Schedule` weekday constants stay typed (`const int SUNDAY` ... `SATURDAY`); upstream's new `__call()` deferral merged cleanly alongside them
+
+### Known failures
+- `MailMailerTest::testMailerRejectsSymfonyAddressesContainingLineBreaks` asserts on Symfony's internal exception text. `symfony/mime v8.0.12` reworded it from "Email addresses may not contain line break characters." to "Email address contains control characters." This is a Symfony dependency change, not a Fledge or Laravel regression; the upstream test will need updating.
+
 ## v13.11.1.1 - 2026-05-20
 
 ### Synced
