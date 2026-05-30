@@ -39,6 +39,7 @@ use Illuminate\Support\Fluent;
 use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use Illuminate\Support\Stringable;
+use Illuminate\Support\Uri;
 use JsonSerializable;
 use Mockery as m;
 use OutOfBoundsException;
@@ -1129,6 +1130,18 @@ class HttpClientTest extends TestCase
         $this->factory->assertSent(function (Request $request) {
             return $request->url() === 'http://foo.com/get?foo=bar'
                 && $request['foo'] === 'bar';
+        });
+    }
+
+    public function testRequestUriMethod()
+    {
+        $this->factory->fake();
+
+        $this->factory->get('http://foo.com/get?foo=bar&page=1');
+
+        $this->factory->assertSent(function (Request $request) {
+            return $request->uri() instanceof Uri
+                && (string) $request->uri() === 'http://foo.com/get?foo=bar&page=1';
         });
     }
 
@@ -2280,6 +2293,40 @@ class HttpClientTest extends TestCase
         $this->assertTrue($response->failed());
 
         $this->factory->assertSentCount(3);
+    }
+
+    public function testAsyncRequestRetriesWithBackoffArray()
+    {
+        $this->factory->fake([
+            '*' => $this->factory::response(['error'], 403),
+        ]);
+
+        $response = $this->factory
+            ->async()
+            ->retry([1, 2], throw: false)
+            ->get('http://foo.com/get')
+            ->wait();
+
+        $this->assertTrue($response->failed());
+
+        $this->factory->assertSentCount(3);
+    }
+
+    public function testAsyncRequestRetriesWithIntegerTries()
+    {
+        $this->factory->fake([
+            '*' => $this->factory::response(['error'], 403),
+        ]);
+
+        $response = $this->factory
+            ->async()
+            ->retry(2, 1000, null, false)
+            ->get('http://foo.com/get')
+            ->wait();
+
+        $this->assertTrue($response->failed());
+
+        $this->factory->assertSentCount(2);
     }
 
     public function testRequestExceptionIsNotThrownWithoutRetriesIfRetryNotNecessary()
