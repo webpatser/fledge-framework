@@ -2,6 +2,28 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.12.0.1 - 2026-05-30
+
+### Synced
+- Merged upstream Laravel v13.11.2 -> v13.12.0 (58 files, 396 insertions, 175 deletions)
+  - `Http/Client/PendingRequest.php`: retry handling reworked to support array-based per-attempt delays via new `getMaximumAttempts()` and `retryDelayInMilliseconds()` helpers; Fledge's persistent-cURL share manager merged cleanly alongside
+  - `Queue/Worker.php`: new `$stopOnLostConnection` static toggle gating `stopWorkerIfLostConnection()`
+  - `Console/Scheduling/ManagesAttributes.php` + `PendingEventAttributes.php`: scheduled events gained arbitrary `withAttributes()` storage, merged into the event in `Schedule::mergePendingAttributes()` (reordered to apply pending attributes before group attributes)
+  - `Redis/Connectors/PhpRedisConnector.php` + `PredisConnector.php`: `formatHost()` now validates the host scheme and throws `InvalidArgumentException` on an empty host or a scheme/host mismatch
+  - New files: `Contracts/Events/ShouldBeDiscovered.php`, `Foundation/Cloud/ManagedQueueNotFoundException.php`
+  - Widespread `compact()` -> array-literal cleanups (Mail, FormRequest, `Database/Connection::logQuery()`), already matching Fledge style
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.12.0`
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through the merge untouched
+
+### Optimized
+- None. The merged upstream code is already idiomatic for PHP 8.5; the new `Worker::$stopOnLostConnection` matches the existing untyped static-bool style of its siblings (`$reportJobExceptions`, `$restartable`, `$pausable`), and the new `PendingRequest` retry helpers are already clean
+
+### Known failures
+- `ExceptionsFacadeTest::testWithoutDeprecationHandler`: `symfony/http-foundation v8.1.0` added a deprecation for directly setting the `headers` property of `Illuminate\Http\Response`. With deprecation handling disabled, the extra deprecation surfaces as an error. This is a Symfony dependency change (not a Fledge or Laravel v13.12.0 regression) and affects vanilla Laravel 13 on symfony 8.1 + PHP 8.5 too; upstream Laravel will need to adopt the header-bag constructor argument
+- Pre-existing dependency-drift failures remain (symfony/mime address wording, Predis connection tests)
+
 ## v13.11.2.1 - 2026-05-21
 
 ### Synced
