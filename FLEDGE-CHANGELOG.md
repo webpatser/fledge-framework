@@ -2,6 +2,11 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.12.0.2 - 2026-05-30
+
+### Fixed
+- `Http/Response.php`: `symfony/http-foundation 8.1` added a PHP 8.4 property hook that deprecates direct writes to the `Response::$headers` property. Laravel's constructor assigned `$this->headers = new ResponseHeaderBag(...)` directly, tripping the deprecation (a hard failure under CI's `--fail-on-deprecation`). The constructor now passes the header bag through `parent::__construct()`, which routes it via Symfony's internal `setHeaders()` and avoids the deprecation. This resolves the `ExceptionsFacadeTest::testWithoutDeprecationHandler` failure noted under v13.12.0.1. Full suite green under `--fail-on-deprecation`.
+
 ## v13.12.0.1 - 2026-05-30
 
 ### Synced
@@ -21,7 +26,7 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 - None. The merged upstream code is already idiomatic for PHP 8.5; the new `Worker::$stopOnLostConnection` matches the existing untyped static-bool style of its siblings (`$reportJobExceptions`, `$restartable`, `$pausable`), and the new `PendingRequest` retry helpers are already clean
 
 ### Known failures
-- `ExceptionsFacadeTest::testWithoutDeprecationHandler`: `symfony/http-foundation v8.1.0` added a deprecation for directly setting the `headers` property of `Illuminate\Http\Response`. With deprecation handling disabled, the extra deprecation surfaces as an error. This is a Symfony dependency change (not a Fledge or Laravel v13.12.0 regression) and affects vanilla Laravel 13 on symfony 8.1 + PHP 8.5 too; upstream Laravel will need to adopt the header-bag constructor argument
+- `ExceptionsFacadeTest::testWithoutDeprecationHandler`: `symfony/http-foundation v8.1.0` added a deprecation for directly setting the `headers` property of `Illuminate\Http\Response`. **Fixed in v13.12.0.2** by routing the header bag through `parent::__construct()`
 - Pre-existing dependency-drift failures remain (symfony/mime address wording, Predis connection tests)
 
 ## v13.11.2.1 - 2026-05-21

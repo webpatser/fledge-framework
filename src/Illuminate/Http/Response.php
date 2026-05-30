@@ -29,11 +29,12 @@ class Response extends SymfonyResponse
      */
     public function __construct($content = '', $status = 200, array $headers = [])
     {
-        $this->headers = new ResponseHeaderBag($headers);
+        // Pass the header bag through the parent constructor rather than assigning
+        // $this->headers directly: symfony/http-foundation 8.1 added a property
+        // hook that deprecates direct writes to the headers property.
+        parent::__construct('', $status, new ResponseHeaderBag($headers));
 
         $this->setContent($content);
-        $this->setStatusCode($status);
-        $this->setProtocolVersion('1.0');
     }
 
     /**
