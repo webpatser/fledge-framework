@@ -5,7 +5,7 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 ## v13.12.0.2 - 2026-05-30
 
 ### Fixed
-- `Http/Response.php`: `symfony/http-foundation 8.1` added a PHP 8.4 property hook that deprecates direct writes to the `Response::$headers` property. Laravel's constructor assigned `$this->headers = new ResponseHeaderBag(...)` directly, tripping the deprecation (a hard failure under CI's `--fail-on-deprecation`). The constructor now passes the header bag through `parent::__construct()`, which routes it via Symfony's internal `setHeaders()` and avoids the deprecation. This resolves the `ExceptionsFacadeTest::testWithoutDeprecationHandler` failure noted under v13.12.0.1. Full suite green under `--fail-on-deprecation`.
+- `Http/Response.php`: `symfony/http-foundation 8.1` added a PHP 8.4 property hook that deprecates direct writes to the `Response::$headers` property. Laravel's constructor assigned `$this->headers = new ResponseHeaderBag(...)` directly, tripping the deprecation (a hard failure under CI's `--fail-on-deprecation`). The constructor now passes the headers **array** through `parent::__construct()`; Symfony builds the `ResponseHeaderBag` via its internal `setHeaders()`, avoiding the deprecation. The array is passed as-is (not pre-wrapped in a `ResponseHeaderBag`) so older symfony releases, whose constructor types the third argument as `array`, still accept it (`prefer-lowest` CI stays green). Resolves the `ExceptionsFacadeTest::testWithoutDeprecationHandler` failure noted under v13.12.0.1. Full suite green under `--fail-on-deprecation`.
 
 ## v13.12.0.1 - 2026-05-30
 

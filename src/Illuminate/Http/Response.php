@@ -10,7 +10,6 @@ use Illuminate\Support\Traits\Macroable;
 use InvalidArgumentException;
 use JsonSerializable;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
-use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 
 class Response extends SymfonyResponse
 {
@@ -29,10 +28,13 @@ class Response extends SymfonyResponse
      */
     public function __construct($content = '', $status = 200, array $headers = [])
     {
-        // Pass the header bag through the parent constructor rather than assigning
+        // Pass headers through the parent constructor rather than assigning
         // $this->headers directly: symfony/http-foundation 8.1 added a property
-        // hook that deprecates direct writes to the headers property.
-        parent::__construct('', $status, new ResponseHeaderBag($headers));
+        // hook that deprecates direct writes to the headers property. The array
+        // is passed as-is (not wrapped in a ResponseHeaderBag) so this stays
+        // compatible with older symfony releases whose constructor still types
+        // the third argument as array; both versions build a ResponseHeaderBag.
+        parent::__construct('', $status, $headers);
 
         $this->setContent($content);
     }
