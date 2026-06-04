@@ -2,6 +2,11 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.13.0.2 - 2026-06-04
+
+### Fixed
+- `Database/Schema/MySqlSchemaState.php`: removed the `@phpstan-ignore classConstant.notFound` comment that upstream v13.13.0 added above the `Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT` check. Upstream's PHPStan CI runs without the `pdo_mysql` extension loaded, so the constant is unresolved there and the ignore is needed. Fledge requires PHP 8.5 with `pdo_mysql`, where `Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT` resolves cleanly, making the ignore unmatched and tripping `ignore.unmatchedIdentifier` under our stricter static-analysis config (the "Source Code" job). Removing the dead ignore is the correct resolution; both `phpstan.src` and `phpstan.types` are green.
+
 ## v13.13.0.1 - 2026-06-04
 
 ### Synced
