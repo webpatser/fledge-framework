@@ -2,6 +2,30 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.13.0.1 - 2026-06-04
+
+### Synced
+- Merged upstream Laravel v13.12.0 -> v13.13.0 (28 source files changed, 407 insertions, 44 deletions). Eight Fledge-modified files were also touched upstream; only `Foundation/Application.php` (VERSION constant) and `Http/Response.php` (constructor) produced real conflicts, the other six auto-merged cleanly:
+  - `Http/Client/PendingRequest.php` + `Factory.php`: upstream added header/multipart normalization helpers (`normalizeHeaderValues()`, `normalizeMultipartOption()`, `normalizeResponseHeaders()`); Fledge's persistent-cURL share manager and global-handler fallback merged alongside untouched
+  - `Bus/Dispatcher.php`: new `bulk()` method grouping queued jobs by connection/queue
+  - `Notifications/Messages/MailMessage.php`: new `attachFromStorage()` / `attachFromStorageDisk()` helpers
+  - `Console/Scheduling/Schedule.php`: new `$pausable` / `$interruptible` static toggles + `withoutInterruptionPolling()`; Fledge's typed day constants (`const int SUNDAY`) preserved
+  - `Container/Attributes/Cache.php`: new `memo` flag on the contextual attribute
+  - `Mail/Mailable.php`, `Foundation/Exceptions/Handler.php`, `Validation/Concerns/ValidatesAttributes.php`: upstream logic merged disjoint from Fledge's `array_is_list` / first-class-callable / dynamic class-const optimizations
+
+### Changed
+- `Http/Response.php`: **adopted upstream's official fix** for the symfony 8.1 `ResponseHeaderBag` property-hook deprecation, retiring the bespoke Fledge fix from v13.12.0.2. The constructor now guards on `method_exists($this, 'setHeaders')`, passing a `ResponseHeaderBag` through `parent::__construct()` on symfony 8.1+ and falling back to direct assignment on older releases. Restores the `ResponseHeaderBag` import. Functionally equivalent to the prior Fledge fix but tracks upstream going forward, removing a divergence.
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.13.0`
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through the merge untouched
+
+### Optimized
+- None. The merged upstream code is already idiomatic for PHP 8.5: the new code is grouping/transformation `foreach` loops (header normalization, bulk job grouping) that do not map to `array_any`/`array_all`/`array_find`, `Cache.php` already uses typed constructor promotion, and the new `Schedule::$pausable`/`$interruptible` statics match the existing untyped static-property style of that file
+
+### Known failures
+- Pre-existing environment-gated skips only (DB/Redis-requiring integration tests). Full suite green under `--fail-on-deprecation`; the symfony 8.1 deprecation failure resolved in v13.12.0.2 stays resolved under upstream's fix
+
 ## v13.12.0.2 - 2026-05-30
 
 ### Fixed

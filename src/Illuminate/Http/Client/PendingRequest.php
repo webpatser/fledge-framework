@@ -26,6 +26,7 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Stringable;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
+use InvalidArgumentException;
 use JsonSerializable;
 use Psr\Http\Message\MessageInterface;
 use Psr\Http\Message\RequestInterface;
@@ -358,12 +359,17 @@ class PendingRequest
 
         $this->asMultipart();
 
-        $this->pendingFiles[] = array_filter([
+        $file = [
             'name' => $name,
             'contents' => $contents,
             'headers' => $headers,
-            'filename' => $filename,
-        ]);
+        ];
+
+        if ($filename !== null) {
+            $file['filename'] = $filename;
+        }
+
+        $this->pendingFiles[] = $file;
 
         return $this;
     }
@@ -1384,6 +1390,10 @@ class PendingRequest
             $laravelData = $laravelData->jsonSerialize();
         }
 
+        if (is_array($laravelData) && $this->bodyFormat === 'multipart') {
+            return $this->normalizeMultipartOption($laravelData);
+        }
+
         return is_array($laravelData) ? $laravelData : [];
     }
 
@@ -1396,14 +1406,136 @@ class PendingRequest
     protected function normalizeRequestOptions(array $options)
     {
         foreach ($options as $key => $value) {
-            $options[$key] = match (true) {
-                is_array($value) => $this->normalizeRequestOptions($value),
-                $value instanceof Stringable => $value->toString(),
-                default => $value,
-            };
+            if ($key === 'headers' && is_array($value)) {
+                $options[$key] = $this->normalizeHeaderValues($value);
+
+                continue;
+            }
+
+            if ($key === 'multipart' && is_array($value)) {
+                $options[$key] = $this->normalizeMultipartOption($value);
+
+                continue;
+            }
+
+            $options[$key] = $this->normalizeRequestOptionValue($value);
         }
 
         return $options;
+    }
+
+    /**
+     * Normalize the given header values.
+     *
+     * @param  array  $headers
+     * @return array
+     */
+    protected function normalizeHeaderValues(array $headers): array
+    {
+        foreach ($headers as $name => $value) {
+            $headers[$name] = $this->normalizeHeaderValue($value);
+        }
+
+        return $headers;
+    }
+
+    /**
+     * Normalize the given header value.
+     *
+     * @param  mixed  $value
+     * @return string|array
+     */
+    protected function normalizeHeaderValue($value): string|array
+    {
+        if (is_array($value)) {
+            if ($value === []) {
+                return '';
+            }
+
+            foreach ($value as $key => $item) {
+                $value[$key] = match (true) {
+                    is_scalar($item) => (string) $item,
+                    $item instanceof Stringable => $item->toString(),
+                    default => throw new InvalidArgumentException('HTTP header values must be scalar, Laravel Stringable, or arrays of scalar or Laravel Stringable values.'),
+                };
+            }
+
+            return $value;
+        }
+
+        return match (true) {
+            is_scalar($value) => (string) $value,
+            $value instanceof Stringable => $value->toString(),
+            default => throw new InvalidArgumentException('HTTP header values must be scalar, Laravel Stringable, or arrays of scalar or Laravel Stringable values.'),
+        };
+    }
+
+    /**
+     * Normalize the given multipart option.
+     *
+     * @param  array  $multipart
+     * @return array
+     */
+    protected function normalizeMultipartOption(array $multipart): array
+    {
+        foreach ($multipart as $index => $part) {
+            if (! is_array($part)) {
+                $multipart[$index] = $this->normalizeRequestOptionValue($part);
+
+                continue;
+            }
+
+            foreach ($part as $key => $value) {
+                if ($key === 'headers' && is_array($value)) {
+                    continue;
+                }
+
+                $part[$key] = $this->normalizeRequestOptionValue($value);
+            }
+
+            $multipart[$index] = $part;
+        }
+
+        return $this->normalizeMultipartHeaders($multipart);
+    }
+
+    /**
+     * Normalize the given multipart headers.
+     *
+     * @param  array  $multipart
+     * @return array
+     */
+    protected function normalizeMultipartHeaders(array $multipart): array
+    {
+        foreach ($multipart as $index => $part) {
+            if (is_array($part) && isset($part['headers']) && is_array($part['headers'])) {
+                foreach ($part['headers'] as $name => $value) {
+                    $multipart[$index]['headers'][$name] = match (true) {
+                        $value === [] => '',
+                        is_scalar($value) => (string) $value,
+                        $value instanceof Stringable => $value->toString(),
+                        default => throw new InvalidArgumentException('Multipart header values must be scalar or Laravel Stringable.'),
+                    };
+                }
+            }
+        }
+
+        return $multipart;
+    }
+
+    /**
+     * Normalize the given request option value.
+     *
+     * @param  mixed  $value
+     * @return mixed
+     */
+    protected function normalizeRequestOptionValue($value)
+    {
+        return match (true) {
+            is_array($value) => array_map(fn ($item) => $this->normalizeRequestOptionValue($item), $value),
+            $value instanceof Stringable => $value->toString(),
+            default => $value,
+        };
     }
 
     /**
@@ -1522,7 +1654,7 @@ class PendingRequest
                 return $promise->then(function ($response) use ($request, $options) {
                     $this->factory?->recordRequestResponsePair(
                         (new Request($request))
-                            ->withData($options['laravel_data'])
+                            ->withData($options['laravel_data'] ?? [])
                             ->setRequestAttributes($this->attributes),
                         $this->newResponse($response)
                     );
@@ -1548,7 +1680,7 @@ class PendingRequest
                     ->map
                     ->__invoke(
                         (new Request($request))
-                            ->withData($options['laravel_data'])
+                            ->withData($options['laravel_data'] ?? [])
                             ->setRequestAttributes($this->attributes),
                         $options
                     )
@@ -1612,7 +1744,7 @@ class PendingRequest
                 $callbackResult = call_user_func(
                     $callback,
                     (new Request($request))
-                        ->withData($options['laravel_data'])
+                        ->withData($options['laravel_data'] ?? [])
                         ->setRequestAttributes($this->attributes),
                     $options,
                     $this
