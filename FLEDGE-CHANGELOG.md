@@ -2,6 +2,22 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.14.0.1 - 2026-06-09
+
+### Synced
+- Merged upstream Laravel v13.13.0 -> v13.14.0 (20 source files changed, 634 insertions, 47 deletions). Three Fledge-modified files were also touched upstream; only `Foundation/Application.php` (VERSION constant) plus the `Http/Client/Factory.php` and `PendingRequest.php` header-normalization match arms produced real conflicts, all small:
+  - `Http/Client/Factory.php` + `PendingRequest.php`: upstream added `null => ''` arms to the header / multipart / fake-response normalization `match` expressions (null header values now coerce to an empty string instead of throwing). Fledge's persistent-cURL share manager and global-handler fallback merged alongside untouched.
+  - New upstream file accepted as-is: `JsonSchema/Deserializer.php` (524 lines); `JsonSchema/JsonSchema.php` gained the matching deserialize entry point.
+  - `Support/Traits/ReadsClassAttributes.php`, `Queue/RedisQueue.php`, `Queue/Jobs/InspectedJob.php`, `Support/Testing/Fakes/QueueFake.php`: upstream's child-property-overrides-attribute logic and `InspectedJob::fromPayload(queue:)` threading merged disjoint from Fledge's optimizations.
+  - Upstream renamed `Foundation/LaravelCloudJsonFormatter` -> `Foundation/Cloud/JsonFormatter` (and its test); rename adopted.
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.14.0`.
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through the merge untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
+### Optimized
+- None. The merged upstream code is already idiomatic for PHP 8.5: the new `null => ''` arms slot into existing `match` expressions, and the new `JsonSchema/Deserializer` / `RedisQueue` / `ReadsClassAttributes` loops are stateful accumulation/transformation (carry-over enum inference, union-branch collapsing, reflection walks) that do not map to `array_any`/`array_all`/`array_find`. `in_array()` uses are membership checks without callbacks.
+
 ## v13.13.0.2 - 2026-06-04
 
 ### Fixed
