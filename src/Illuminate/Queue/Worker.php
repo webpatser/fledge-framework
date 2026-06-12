@@ -878,7 +878,7 @@ class Worker
      * @param  \Illuminate\Queue\WorkerOptions|null  $options
      * @return void
      */
-    protected function listenForSignals($connectionName = null, $queue = null, $options = null)
+    protected function listenForSignals($connectionName = null, $queue = null, ?WorkerOptions $options = null)
     {
         if ($this->supportsRevoltSignals()) {
             foreach ([SIGQUIT, SIGTERM, SIGINT] as $signal) {
