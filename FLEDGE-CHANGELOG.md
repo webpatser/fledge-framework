@@ -2,6 +2,12 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.15.0.2 - 2026-06-12
+
+### Fixed
+- `.github/workflows/tests.yml`: removed a duplicate top-level `permissions:` block introduced by the v13.15.0 squash merge. GitHub Actions rejects workflows with duplicate YAML keys, which failed the `tests` workflow at parse time (0s runs).
+- `Database/Schema/MySqlSchemaState.php`: re-removed the unmatched `@phpstan-ignore classConstant.notFound` comment above the `Mysql::ATTR_SSL_VERIFY_SERVER_CERT` check. This is the same fix as v13.13.0.2; the v13.14.0 sync silently re-introduced upstream's comment, turning the `static analysis` workflow red from v13.14.0 onward. Fledge runs PHP 8.5 with `pdo_mysql`, where the constant resolves cleanly, so the ignore is unmatched under our strict config (`phpstan.src` and `phpstan.types` both green).
+
 ## v13.15.0.1 - 2026-06-12
 
 ### Synced

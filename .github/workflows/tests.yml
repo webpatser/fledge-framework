@@ -11,9 +11,6 @@ on:
 permissions:
   contents: read
 
-permissions:
-  contents: read
-
 jobs:
   linux_tests:
     runs-on: ubuntu-24.04
