@@ -2,6 +2,27 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.15.0.1 - 2026-06-12
+
+### Synced
+- Merged upstream Laravel v13.14.0 -> v13.15.0 (48 source files changed, 349 insertions, 64 deletions). Seven Fledge-modified files were also touched upstream; only `Foundation/Application.php` (VERSION constant) produced a real conflict. The other six auto-merged cleanly because upstream's edits landed in regions Fledge never touched:
+  - `Container/Container.php` + `Support/Facades/App.php`: `resolveFromAttribute()` gained a `ReflectionParameter $parameter` argument threaded through to the contextual-attribute handler.
+  - `Queue/Worker.php`: `listenForSignals()` parameter typed `?WorkerOptions $options`.
+  - `Support/Facades/Lang.php`: new `string()` / `array()` docblock methods.
+  - `Database/Eloquent/Concerns/HasAttributes.php`: `castAttributeAsEncryptedString()` return type widened to `string|null`.
+  - `Validation/Concerns/ValidatesAttributes.php`: `compare()` `=` arm hardened against loose null equality.
+- New upstream files accepted as-is: `JsonSchema/Types/UnionType.php` and the multi-type union support added to `JsonSchema/Deserializer.php` (add/add, took upstream); `Translation/Translator.php` gained typed `string()` / `array()` accessors.
+- `Foundation/LaravelCloudJsonFormatter.php`: git's rename detection mis-paired this new top-level formatter against the pre-existing `Foundation/Cloud/JsonFormatter`, so the squash merge silently dropped both the new file and the `Cloud.php` switch to it. Restored both from v13.15.0 by hand; cloud logging now references `LaravelCloudJsonFormatter::class` as upstream intends (the old `Cloud\JsonFormatter` stays for back-compat).
+- `.github/workflows/databases-nightly.yml`: kept Fledge's deletion (upstream left it unchanged in this window).
+- `CHANGELOG.md`: took upstream's Laravel changelog.
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.15.0`.
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced (`polyfill-php86` retained, it backfills PHP 8.6 features for the 8.5 runtime).
+
+### Optimized
+- None. The v13.15.0 delta is small bugfix guards (`Number::fileSize`/`pairs`/`trim` infinity and zero checks, `BladeCompiler` mtime touch) and new typed accessors that are already idiomatic for PHP 8.5. The new `JsonSchema` union loops are membership validation with precise per-element error messages that `array_all`/`array_any` would degrade; `in_array()` uses are callback-free membership checks. Nothing maps cleanly to `array_find` or the pipe operator.
+
 ## v13.14.0.1 - 2026-06-09
 
 ### Synced
