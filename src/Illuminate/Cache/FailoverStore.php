@@ -12,7 +12,6 @@ use RuntimeException;
 use Throwable;
 
 use function Fledge\Async\async;
-use function Fledge\Async\Future\awaitFirst;
 
 class FailoverStore extends TaggableStore implements CanFlushLocks, LockProvider
 {
@@ -251,8 +250,11 @@ class FailoverStore extends TaggableStore implements CanFlushLocks, LockProvider
     /**
      * Attempt the given method on all stores.
      *
-     * For read operations inside a Fiber context, all stores are tried concurrently
-     * and the first successful result is returned. Otherwise, stores are tried sequentially.
+     * For read operations inside a Fiber context, every store is dispatched
+     * concurrently so secondaries can warm while the primary resolves, but the
+     * PRIMARY store remains authoritative: results are consumed in registration
+     * order and a secondary is only consulted when an earlier store errors.
+     * Write operations always run sequentially in registration order.
      *
      * @return mixed
      *
@@ -276,7 +278,14 @@ class FailoverStore extends TaggableStore implements CanFlushLocks, LockProvider
     }
 
     /**
-     * Attempt the method on all stores concurrently, returning the first success.
+     * Attempt a read on all stores concurrently while keeping the primary authoritative.
+     *
+     * All stores are dispatched at once so secondary reads can warm in parallel,
+     * but the futures are awaited in registration order. The primary store's
+     * result is returned whenever it succeeds; a secondary is only consulted when
+     * an earlier store throws. This avoids the race-to-first behaviour where a
+     * faster secondary could shadow the primary with a stale or missing value,
+     * which would break rate-limiter / throttle correctness.
      *
      * @return mixed
      *
@@ -287,16 +296,41 @@ class FailoverStore extends TaggableStore implements CanFlushLocks, LockProvider
         $futures = [];
 
         foreach ($this->stores as $store) {
-            $futures[] = async(fn () => $this->store($store)->{$method}(...$arguments));
+            $futures[$store] = async(fn () => $this->store($store)->{$method}(...$arguments));
         }
 
+        [$lastException, $failedCaches] = [null, []];
+
         try {
-            return awaitFirst($futures);
-        } catch (Throwable) {
-            // All concurrent attempts failed — fall through to sequential
-            // for proper event dispatch and error tracking.
-            return $this->attemptSequentially($method, $arguments);
+            foreach ($futures as $store => $future) {
+                try {
+                    $result = $future->await();
+
+                    // The authoritative result has been resolved. Ignore any
+                    // still-pending secondary futures so their potential errors
+                    // are not surfaced as unhandled future rejections.
+                    foreach ($futures as $name => $pending) {
+                        if ($name !== $store) {
+                            $pending->ignore();
+                        }
+                    }
+
+                    return $result;
+                } catch (Throwable $e) {
+                    $lastException = $e;
+
+                    $failedCaches[] = $store;
+
+                    if (! in_array($store, $this->failingCaches)) {
+                        $this->events->dispatch(new CacheFailedOver($store, $e));
+                    }
+                }
+            }
+        } finally {
+            $this->failingCaches = $failedCaches;
         }
+
+        throw $lastException ?? new RuntimeException('All failover cache stores failed.');
     }
 
     /**

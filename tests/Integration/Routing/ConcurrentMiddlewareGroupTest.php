@@ -86,6 +86,23 @@ class ConcurrentMiddlewareGroupTest extends TestCase
         $response->assertHeader('X-Custom-Header', 'custom-value');
     }
 
+    public function test_concurrent_middleware_propagates_header_removal()
+    {
+        $router = $this->app->make(Router::class);
+        $router->concurrentMiddleware('remove-header', [
+            RemoveTrustedHeader::class,
+        ]);
+
+        Route::get('/remove-header', function (Request $request) {
+            return response()->json(['trusted' => $request->headers->get('X-Trusted')]);
+        })->middleware('concurrent:remove-header');
+
+        $response = $this->withHeaders(['X-Trusted' => 'spoofed'])->get('/remove-header');
+
+        $response->assertOk();
+        $this->assertNull($response->json('trusted'));
+    }
+
     public function test_empty_concurrent_group_passes_through()
     {
         $router = $this->app->make(Router::class);
@@ -195,6 +212,21 @@ class AddResponseHeader implements ConcurrentMiddleware
     {
         $response->headers->set('X-Custom-Header', 'custom-value');
 
+        return $response;
+    }
+}
+
+class RemoveTrustedHeader implements ConcurrentMiddleware
+{
+    public function before(Request $request): Request|Response
+    {
+        $request->headers->remove('X-Trusted');
+
+        return $request;
+    }
+
+    public function after(Request $request, Response $response): Response
+    {
         return $response;
     }
 }

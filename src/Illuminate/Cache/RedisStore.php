@@ -15,9 +15,6 @@ use Illuminate\Support\LazyCollection;
 use Illuminate\Support\Str;
 use RuntimeException;
 
-use function Fledge\Async\async;
-use function Fledge\Async\Future\await;
-
 class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
 {
     use RetrievesMultipleKeys {
@@ -130,21 +127,24 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
     }
 
     /**
-     * Retrieve multiple items concurrently using Fibers.
+     * Retrieve multiple items from a cluster connection.
+     *
+     * Executes sequentially on the shared connection. The single phpredis/Predis
+     * socket is not fiber-safe, so concurrent fibers cannot dispatch interleaved
+     * commands on it without corrupting the protocol stream; the reads are run in
+     * a plain loop instead.
      */
     protected function manyConcurrent(array $keys, $connection): array
     {
-        $futures = [];
+        $results = [];
 
         foreach ($keys as $key) {
-            $futures[$key] = async(function () use ($key, $connection) {
-                $value = $connection->get($this->prefix.$key);
+            $value = $connection->get($this->prefix.$key);
 
-                return ! is_null($value) ? $this->connectionAwareUnserialize($value, $connection) : null;
-            });
+            $results[$key] = ! is_null($value) ? $this->connectionAwareUnserialize($value, $connection) : null;
         }
 
-        return await($futures);
+        return $results;
     }
 
     /**
@@ -208,21 +208,22 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
     }
 
     /**
-     * Store multiple items concurrently using Fibers.
+     * Store multiple items on a cluster connection.
+     *
+     * Executes sequentially on the shared connection. The single phpredis/Predis
+     * socket is not fiber-safe, so concurrent fibers cannot dispatch interleaved
+     * commands on it without corrupting the protocol stream; the writes are run in
+     * a plain loop instead.
      */
     protected function putManyConcurrent(array $values, int $seconds, $connection): bool
     {
-        $futures = [];
+        $results = [];
 
         foreach ($values as $key => $value) {
-            $futures[$key] = async(function () use ($key, $value, $seconds, $connection) {
-                return (bool) $connection->setex(
-                    $this->prefix.$key, (int) max(1, $seconds), $this->connectionAwareSerialize($value, $connection)
-                );
-            });
+            $results[$key] = (bool) $connection->setex(
+                $this->prefix.$key, (int) max(1, $seconds), $this->connectionAwareSerialize($value, $connection)
+            );
         }
-
-        $results = await($futures);
 
         return ! in_array(false, $results, true);
     }
