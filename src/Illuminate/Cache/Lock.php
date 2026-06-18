@@ -8,6 +8,7 @@ use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\InteractsWithTime;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 abstract class Lock implements LockContract
 {
@@ -136,6 +137,17 @@ abstract class Lock implements LockContract
         }
 
         return true;
+    }
+
+    /**
+     * Attempt to refresh the lock for the given number of seconds.
+     *
+     * @param  int|null  $seconds
+     * @return bool
+     */
+    public function refresh($seconds = null)
+    {
+        throw new RuntimeException('This lock driver does not support refreshing locks.');
     }
 
     /**
