@@ -10,7 +10,7 @@ Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requir
 
 Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension. That swap is the single biggest performance win.
 
-**124 files changed** on top of Laravel 13.15.0. The full framework test suite passes under CI's `--fail-on-deprecation`, including against symfony 8.1.
+**124 files changed** on top of Laravel 13.16.1. The full framework test suite passes under CI's `--fail-on-deprecation`, including against symfony 8.1.
 
 ## Why?
 
@@ -244,17 +244,17 @@ That is why the canonical install line targets `webpatser/fledge-framework` dire
 
 ### Constraint compatibility
 
-All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.15.0.1` as of 2026-06-12):
+All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.16.1.2` as of 2026-06-18):
 
 | Constraint | Resolves to | Notes |
 |------------|------------|-------|
-| `^13.3` | v13.15.0.1 | Recommended, accepts any 13.x release |
-| `^13.15` | v13.15.0.1 | Pins to current minor |
-| `~13.15.0` | v13.15.0.1 | Pins to 13.15.x patches and Fledge revisions |
-| `13.15.*` | v13.15.0.1 | Wildcard, identical resolution |
-| `^13.15.0.1` | v13.15.0.1 | Pin to a specific Fledge revision |
-| `~13.15.0.1` | v13.15.0.1 | Same, accepts higher Fledge patches |
-| `>=13.0` | v13.15.0.1 | Open-ended |
+| `^13.3` | v13.16.1.2 | Recommended, accepts any 13.x release |
+| `^13.16` | v13.16.1.2 | Pins to current minor |
+| `~13.16.1` | v13.16.1.2 | Pins to 13.16.x patches and Fledge revisions |
+| `13.16.*` | v13.16.1.2 | Wildcard, identical resolution |
+| `^13.16.1.1` | v13.16.1.2 | Pin to a specific Fledge revision |
+| `~13.16.1.1` | v13.16.1.2 | Same, accepts higher Fledge patches |
+| `>=13.0` | v13.16.1.2 | Open-ended |
 | `dev-fledge-13` | (does not resolve cleanly) | Dev branches need a `branch-alias` to satisfy `^13.0` constraints from other Laravel packages |
 
 Use `^13.7` in production. The 4-segment `v13.X.Y.N` versioning is fully Composer-compatible: the resolver treats the fourth segment as a regular patch component.

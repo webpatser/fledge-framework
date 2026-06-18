@@ -55,16 +55,12 @@ class NodePackageManager
      */
     protected function detect(): NodePackageManagerContract
     {
-        foreach ([
+        $packageManager = array_find([
             NodePackageManagers\Bun::class,
             NodePackageManagers\Pnpm::class,
             NodePackageManagers\Yarn::class,
-        ] as $packageManager) {
-            if ($packageManager::matches()) {
-                return new $packageManager;
-            }
-        }
+        ], fn ($packageManager) => $packageManager::matches());
 
-        return new NodePackageManagers\Npm;
+        return $packageManager ? new $packageManager : new NodePackageManagers\Npm;
     }
 }

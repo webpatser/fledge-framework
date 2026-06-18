@@ -2,6 +2,29 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.16.1.2 - 2026-06-18
+
+### Optimized
+- `Support/NodePackageManagers/Bun.php`: `matches()` lock-file scan rewritten from a `foreach` early-return loop to PHP 8.5 `array_any()`, matching the idiom already used across `Arr`.
+- `Support/NodePackageManager.php`: `detect()` rewritten from a `foreach` early-return loop to PHP 8.4 `array_find()`, expressing the "first matching manager, else npm" intent in one expression. The new `DevCommands::preventVendorRegistration()` stack-walk and `commands()` filter were left as loops; their per-frame reflection fallback and dual `in_array` membership checks do not map cleanly to the new array callbacks.
+
+## v13.16.1.1 - 2026-06-18
+
+### Synced
+- Merged upstream Laravel v13.15.0 -> v13.16.1, two releases in one window (108 source files changed, 3,674 insertions, 1,016 deletions). Three Fledge-modified source files conflicted, all resolved small:
+  - `Foundation/Application.php`: VERSION constant (typed-constant conflict, see Preserved).
+  - `Http/Client/Factory.php`: upstream added `psr7Response()` body validation, `JSON_THROW_ON_ERROR` encoding, and a `normalizeScalarString()` helper that guards PHP 8.5 non-finite-float `(string)` coercion. Adopted alongside Fledge's persistent-cURL `persistentConnections()` and `globalHandler()` additions, which live in disjoint methods.
+  - `Http/Client/PendingRequest.php`: upstream reworked request body/query/multipart normalization (`normalizeNonFiniteFloatValues()`, `normalizeScalarString()`, `ensureValidRequestBody()`, `withBody()` validation). Rebuilt on upstream's version with Fledge's three persistent-cURL hunks (`persistentCurlOptions` property, `withPersistentConnections()`, the `Factory::getGlobalHandler()` fallback in `buildHandlerStack()`) re-applied on top. Verified byte-for-byte against upstream plus exactly those hunks.
+- New upstream files accepted as-is: the Node package-manager system (`Support/NodePackageManager.php`, `Support/Contracts/NodePackageManager.php`, `Support/NodePackageManagers/{Bun,Npm,Pnpm,Yarn}.php`), the `dev` command suite (`Foundation/DevCommand.php`, `Foundation/DevCommands.php`, `Foundation/DevCommandColor.php`, `Foundation/Console/DevCommand.php`), `Foundation/ArrayMaintenanceMode.php`, and `JsonSchema/Types/AnyOfType.php`.
+- `JsonSchema/{Deserializer,JsonSchemaTypeFactory}.php`, `Contracts/JsonSchema/JsonSchema.php`, and their tests surfaced as add/add conflicts purely because the squash merge-base predates them; Fledge never modified them, so upstream was taken verbatim.
+- `.github/workflows/*`: kept Fledge's CI customizations (PHP 8.5, `fledge-*` branch triggers, `:php-psr`, the extra MySQL-9 matrix, deleted `databases-nightly.yml`). Upstream's only delta was a `shivammathur/setup-php` action SHA pin bump, which does not affect the published package.
+- `CHANGELOG.md`: took upstream's Laravel changelog.
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.16.1`.
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+- Tests: 13,573 passing. The only failures are the four `RedisConnectionTest` SCAN cases, which fail identically on stock Laravel here: the local server is Valkey 9.1.0, which rejects PhpRedis's prefixed non-integer SCAN cursors with `ERR invalid cursor`. Not a framework or Fledge issue.
+
 ## v13.15.0.2 - 2026-06-12
 
 ### Fixed
