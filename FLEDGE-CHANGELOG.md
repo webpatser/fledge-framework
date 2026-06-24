@@ -2,6 +2,29 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.17.0.2 - 2026-06-24
+
+### Optimized
+- `Foundation/Exceptions/Handler.php`: the new v13.17.0 job-retry methods now match the idioms already used elsewhere in this file. `dontRetryWhen()` uses first-class callable syntax (`$dontRetryWhen(...)`) instead of `Closure::fromCallable()`, mirroring `reportable()`/`renderable()`/`dontReportWhen()`. `shouldStopRetries()` collapses `! is_null(Arr::first(...))` plus a manual `foreach` into two PHP 8.5 `array_any()` calls, the same rewrite already applied to `shouldntReport()`.
+
+## v13.17.0.1 - 2026-06-24
+
+### Synced
+- Merged upstream Laravel v13.16.1 -> v13.17.0 (80 source files changed, 2,912 insertions, 266 deletions). The headline upstream feature is direct/pooled PDO connections; four Fledge-modified files conflicted, all resolved small:
+  - `Foundation/Application.php`: VERSION constant (typed-constant conflict, see Preserved).
+  - `Foundation/Providers/ArtisanServiceProvider.php`: kept Fledge's `BenchCommand` registration alongside upstream's new `DevListCommand` (`dev:list`).
+  - `Http/Client/Factory.php` + `Http/Client/PendingRequest.php`: upstream added `@throws \InvalidArgumentException` docblocks to header/multipart/body normalizers. Accepted on top of Fledge's persistent-cURL hunks, which live in disjoint methods.
+  - `composer.json`: kept Fledge's `webpatser/fledge-fiber` requirement and `php: ^8.5`; adopted upstream's `brick/math ^0.18` range bump (also applied to the `Database` and `Validation` sub-package composer files).
+- Auto-merged cleanly because upstream's edits landed in regions Fledge never touched: `Queue/Worker.php` (new `markJobAsFailedIfItShouldntBeRetried()` next to Fledge's Revolt signal watchers), `Foundation/Exceptions/Handler.php` (new `dontRetry`/`dontRetryWhen`/`shouldStopRetries` alongside Fledge's `array_any` and first-class-callable rewrites), `Support/Facades/Route.php` (new `metadata()` next to Fledge's `concurrentMiddleware` docblocks), `Validation/Concerns/ValidatesAttributes.php` (loosened `array{0?:}` param docblocks next to Fledge's dynamic `DateTimeZone::{...}` const fetch), and `Reflection/helpers.php`.
+- New upstream features accepted as-is: direct/pooled PDO connections (`Database/Connectors/Concerns/ConfiguresPooledConnections.php`, `Database/Console/Concerns/InteractsWithPooledConnections.php`, the `directPdo` routing on `Database/Connection.php`, and `PostgresConnection::prepareBindings()`/`usesEmulatedPrepares()`), the `bench` command, and the `dev:list` command (`Foundation/Console/DevListCommand.php`).
+- `.github/workflows/*`: kept Fledge's CI customizations (PHP 8.5, `fledge-*` triggers, custom matrix). Upstream's only delta this window was an `actions/checkout` v6 -> v7 SHA pin bump, which does not affect the published package. Upstream's nightly workflows were re-pruned: the squash merge re-added `databases-nightly.yml` and pulled in the new `install-nightly.yml`; both were removed to keep Fledge's no-nightly-CI policy.
+- `CHANGELOG.md`: took upstream's Laravel changelog. Add/add conflicts from the older squash merge-base (`NodePackageManager.php`, `NodePackageManagers/Bun.php`, the `DevCommand` suite, several test and type files) were resolved by keeping whichever side actually changed in this window.
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.17.0`.
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+- Tests: 13,657 passing. The only failures are the four `RedisConnectionTest` SCAN cases, which fail identically on stock Laravel here: the local server rejects PhpRedis's prefixed non-integer SCAN cursors with `ERR invalid cursor`. Not a framework or Fledge issue.
+
 ## v13.16.1.2 - 2026-06-18
 
 ### Optimized
