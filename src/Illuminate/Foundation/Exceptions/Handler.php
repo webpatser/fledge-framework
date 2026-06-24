@@ -362,7 +362,7 @@ class Handler implements ExceptionHandlerContract
     public function dontRetryWhen(callable $dontRetryWhen)
     {
         if (! $dontRetryWhen instanceof Closure) {
-            $dontRetryWhen = Closure::fromCallable($dontRetryWhen);
+            $dontRetryWhen = $dontRetryWhen(...);
         }
 
         $this->dontRetryCallbacks[] = $dontRetryWhen;
@@ -378,17 +378,11 @@ class Handler implements ExceptionHandlerContract
      */
     public function shouldStopRetries(Throwable $e)
     {
-        if (! is_null(Arr::first($this->dontRetry, fn ($type) => $e instanceof $type))) {
+        if (array_any($this->dontRetry, fn ($type) => $e instanceof $type)) {
             return true;
         }
 
-        foreach ($this->dontRetryCallbacks as $dontRetryCallback) {
-            if ($dontRetryCallback($e) === true) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->dontRetryCallbacks, fn ($dontRetryCallback) => $dontRetryCallback($e) === true);
     }
 
     /**
