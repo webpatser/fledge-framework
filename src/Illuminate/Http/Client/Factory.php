@@ -218,6 +218,8 @@ class Factory
      * @param  int  $status
      * @param  array<string, mixed>  $headers
      * @return \GuzzleHttp\Psr7\Response
+     *
+     * @throws \InvalidArgumentException
      */
     public static function psr7Response($body = null, $status = 200, $headers = [])
     {
@@ -243,6 +245,8 @@ class Factory
      *
      * @param  array  $headers
      * @return array
+     *
+     * @throws \InvalidArgumentException
      */
     protected static function normalizeResponseHeaders(array $headers): array
     {
@@ -405,6 +409,8 @@ class Factory
      * @param  string  $url
      * @param  \Illuminate\Http\Client\Response|\GuzzleHttp\Promise\PromiseInterface|callable|int|string|array|\Illuminate\Http\Client\ResponseSequence  $callback
      * @return $this
+     *
+     * @throws \InvalidArgumentException
      */
     public function stubUrl($url, $callback)
     {
