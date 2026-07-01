@@ -7,17 +7,17 @@ class DevCommand
     /**
      * The priority level for default commands that are registered by the framework.
      */
-    const PRIORITY_DEFAULT = 0;
+    const int PRIORITY_DEFAULT = 0;
 
     /**
      * The priority level for commands that are registered by packages in the vendor directory.
      */
-    const PRIORITY_VENDOR = 1;
+    const int PRIORITY_VENDOR = 1;
 
     /**
      * The priority level for commands that are registered by the user in their application.
      */
-    const PRIORITY_USERLAND = 2;
+    const int PRIORITY_USERLAND = 2;
 
     /**
      * Color of the command when output to the console.

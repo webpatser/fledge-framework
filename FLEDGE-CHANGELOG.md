@@ -2,6 +2,28 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.18.0.2 - 2026-07-01
+
+### Optimized
+- `Foundation/DevCommand.php`: typed the new `PRIORITY_DEFAULT`/`PRIORITY_VENDOR`/`PRIORITY_USERLAND` class constants (`const int`), matching the convention already used on `Application::VERSION` (`const string`) and `Worker::EXIT_*` (`const int`).
+
+## v13.18.0.1 - 2026-07-01
+
+### Synced
+- Merged upstream Laravel v13.17.0 -> v13.18.0 (35 source files changed, 243 insertions, 101 deletions). Headline upstream changes: the queue `Worker` now tracks `jobsProcessed`/`lastJobProcessedAt` as instance properties and forwards them to the `WorkerStopping` event; a new command-registration priority system (`DevCommand::PRIORITY_*`, `DevCommands::resolvePriority()`); `Number::fileSize()`/`summarize()` guard against non-finite input; and the `schedule:work` command gained graceful-shutdown signal handling.
+- Four Fledge-modified files conflicted, all resolved small:
+  - `Foundation/Application.php`: VERSION constant (typed-constant conflict, see Preserved).
+  - `Routing/Route.php`: accepted upstream's conditional `@return` PHPDoc on `getMetadata()`; disjoint from Fledge's `concurrentMiddleware` additions.
+  - `Collections/Arr.php` and `Foundation/Http/Kernel.php`: upstream touched only `@return` PHPDoc (`random()`, `getGlobalMiddleware()`), disjoint from Fledge's `array_all`/`array_any` and `concurrentMiddleware` hunks; auto-merged.
+  - `Queue/Worker.php`: auto-merged cleanly. Upstream's `jobsProcessed`/`lastJobProcessedAt` instance-property refactor and new `WorkerStopping` arguments live in disjoint methods from Fledge's Revolt signal watchers, `sleep()`, and `const int` typing.
+- Squash merge-base drift produced add/add conflicts in files upstream did NOT change this window; resolved by keeping whichever side actually owns them: kept Fledge's `composer.json` (php ^8.5, `webpatser/fledge-fiber`, no polyfills), `Foundation/Exceptions/Handler.php` (array_any/first-class-callable rewrites), `Support/NodePackageManager.php`, and `Support/NodePackageManagers/Bun.php`; took upstream's `CHANGELOG.md` (Fledge maintains its own release notes here). The `DevCommand` suite (`Foundation/Console/DevCommand.php`, `Foundation/Console/DevListCommand.php`, `Foundation/DevCommand.php`, `Foundation/DevCommands.php`) and their tests are unmodified by Fledge, so upstream's versions were taken wholesale.
+- `.github/workflows/*`: kept Fledge's CI customizations. Upstream's only real delta this window was `releases.yml` (two action SHA-pin bumps targeting Laravel's own splitter/release infra, which Fledge does not run). The squash re-added upstream's `databases-nightly.yml`; removed again to keep Fledge's no-nightly-CI policy.
+- Tests: 13,676 passing. The only failures are the four known-environmental `RedisConnectionTest::*scansForKeys` "ERR invalid cursor" errors (phpredis cursor typing under PHP 8.5); upstream made no Redis changes this window.
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.18.0`.
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.17.0.2 - 2026-06-24
 
 ### Optimized
