@@ -183,6 +183,10 @@ class RedirectResponse extends BaseRedirectResponse
             ($validateScheme && $target->scheme() !== $current->scheme()) ||
             ($validatePort && $target->port() !== $current->port())) {
             $this->setTargetUrl($fallback);
+        } else {
+            // Emit the normalized form we actually validated, so the Location
+            // header cannot differ from the string whose host was checked.
+            $this->setTargetUrl($target->value());
         }
 
         return $this;

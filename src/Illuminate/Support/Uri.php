@@ -71,7 +71,21 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
             return $uri;
         }
 
-        [, $schemeAndSlashes, $host, $rest] = $matches;
+        [, $schemeAndSlashes, $authority, $rest] = $matches;
+
+        // Split off any userinfo so IDN mapping only ever runs on the real host
+        // label. Folding userinfo through UTS-46 can relocate the host boundary
+        // (e.g. a fullwidth "@" collapsing into a real "@") and corrupts legit
+        // unicode credentials.
+        $userInfoBoundary = strrpos($authority, '@');
+
+        if ($userInfoBoundary !== false) {
+            $userInfo = substr($authority, 0, $userInfoBoundary + 1);
+            $host = substr($authority, $userInfoBoundary + 1);
+        } else {
+            $userInfo = '';
+            $host = $authority;
+        }
 
         if (! preg_match('/[^\x00-\x7F]/', $host)) {
             return $uri;
@@ -80,7 +94,7 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
         if (function_exists('idn_to_ascii')) {
             $asciiHost = idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
             if ($asciiHost !== false) {
-                return $schemeAndSlashes.$asciiHost.$rest;
+                return $schemeAndSlashes.$userInfo.$asciiHost.$rest;
             }
         }
 

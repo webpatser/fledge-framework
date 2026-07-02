@@ -130,6 +130,22 @@ class HttpRedirectResponseTest extends TestCase
         $this->assertSame('https://example.com:1/foo/bar', $response->getTargetUrl());
     }
 
+    public function testEnforceSameOriginEmitsTheValidatedNormalizedTarget()
+    {
+        // A fullwidth solidus (U+FF0F) folds to "/" under UTS-46 normalization,
+        // so the host validates as example.com while the raw bytes still carry
+        // the fullwidth character. The emitted Location header must be the
+        // normalized string we actually validated, not the raw input.
+        $response = new RedirectResponse("https://example.com\u{FF0F}evil.com/steal");
+        $response->setRequest(Request::create('https://example.com/baz/buzz'));
+        $response->enforceSameOrigin('fallback');
+
+        $target = $response->getTargetUrl();
+
+        $this->assertStringNotContainsString("\u{FF0F}", $target);
+        $this->assertSame('https://example.com/evil.com/steal', $target);
+    }
+
     public function testCanEnforceSameOriginWhenNotSameScheme()
     {
         $response = new RedirectResponse('https://example.com/foo/bar');

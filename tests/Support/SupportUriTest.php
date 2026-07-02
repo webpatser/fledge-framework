@@ -45,6 +45,17 @@ class SupportUriTest extends TestCase
         $this->assertSame('taylor:password@laravel.com', $uri->authority());
     }
 
+    public function test_idn_host_is_converted_without_disturbing_userinfo()
+    {
+        // Only the host label may be IDN-mapped; userinfo must be left intact so
+        // UTS-46 folding cannot relocate the "@" boundary or mangle credentials.
+        $uri = Uri::of('https://user@bébé.be/path');
+
+        $this->assertSame('xn--bb-bjab.be', $uri->host());
+        $this->assertSame('user', $uri->user());
+        $this->assertSame('path', $uri->path());
+    }
+
     public function test_is_empty_and_is_not_empty()
     {
         $this->assertTrue(Uri::of('')->isEmpty());
