@@ -2,6 +2,28 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.19.0.2 - 2026-07-07
+
+### Optimized
+- `Queue/SqsQueue.php`: typed the class constants (`const int MAX_SQS_PAYLOAD_SIZE`, `const int MAX_MESSAGES_PER_BATCH`, `const string EXTENDED_PAYLOAD_CACHE_PREFIX`), matching the convention already used on `Application::VERSION` and `DevCommand::PRIORITY_*`. `MAX_MESSAGES_PER_BATCH` is new in v13.19.0; the two siblings were typed alongside it for consistency. Nothing else in the window qualified: upstream's new code already uses `array_any`/`array_all` natively, and the remaining new loops (`SqsQueue::chunkBatchEntries()`, `CommandInput::all()`, `Collection::reduceInto()`) are accumulators with no clean array-function equivalent.
+
+## v13.19.0.1 - 2026-07-07
+
+### Synced
+- Merged upstream Laravel v13.18.0 -> v13.19.0, two releases in one window (50 source files changed, 1,100 insertions, 332 deletions). Headline upstream changes: `SqsQueue::bulk()` rewritten onto the SQS `SendMessageBatch` API with count/byte-aware chunking and after-commit partitioning; HTTP QUERY method support (`Http::query()`, `PendingRequest::query()`, `MakesHttpRequests::query()`/`queryJson()`); `Collection::reduceInto()`; a new `Console/CommandInput` container backing `input()` on commands; Cloud queue agent-aware lost-connection handling (`AgentAwareLostConnectionDetector`, `AgentUnreachableException`, `CloudJob`); the `Release` queue middleware; and scalar Predis retry config for `config:cache`.
+- Notably, upstream adopted Fledge's own idioms this window: `Arr::hasAll()`/`hasAny()`, `Router::has()`/`uses()`, `ValidatesAttributes::anyFailingRequired()`/`allFailingRequired()`, `Bun::matches()`, and `whereInstanceOf()` all moved to `array_all`/`array_any` upstream, converging with rewrites Fledge shipped months ago.
+- Fledge-modified files that conflicted, all resolved small:
+  - `Foundation/Application.php`: VERSION constant (typed-constant conflict, see Preserved).
+  - `Collections/Arr.php`: dropped upstream's now-redundant standalone `$keys === []` guard in `hasAny()`; Fledge's combined `! $array || $keys === []` guard already covers it.
+  - `Http/Client/PendingRequest.php`: upstream's new `query()` method auto-merged next to Fledge's persistent-cURL hunks.
+- Squash merge-base drift again produced conflicts in files upstream did NOT change this window; kept Fledge's `composer.json` (php ^8.5, `webpatser/fledge-fiber`, no polyfills), `Foundation/Exceptions/Handler.php`, `Foundation/DevCommand.php`, `Support/NodePackageManager.php`, and `Support/NodePackageManagers/Bun.php`; took upstream's versions of files Fledge does not modify (`Foundation/Cloud/QueueConnector.php`, `Log/LogManager.php`, `Redis/Connectors/PredisConnector.php`, `Support/Testing/Fakes/QueueFake.php`, `CHANGELOG.md`, and four test files) and verified them byte-identical to v13.19.0.
+- `.github/workflows/*`: kept Fledge's CI customizations; the squash re-added upstream's `databases-nightly.yml`, removed again to keep Fledge's no-nightly-CI policy.
+- Tests: 13,783 passing (14,307 total, 520 skipped). The only failures are the four known-environmental `RedisConnectionTest::*scansForKeys` "ERR invalid cursor" errors (phpredis cursor typing under PHP 8.5).
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.19.0`.
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.18.0.2 - 2026-07-01
 
 ### Optimized

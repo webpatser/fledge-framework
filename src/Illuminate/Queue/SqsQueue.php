@@ -16,24 +16,18 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
 {
     /**
      * The maximum SQS payload size in bytes (1 MB).
-     *
-     * @var int
      */
-    const MAX_SQS_PAYLOAD_SIZE = 1048576;
+    const int MAX_SQS_PAYLOAD_SIZE = 1048576;
 
     /**
      * The maximum number of messages allowed per SendMessageBatch request.
-     *
-     * @var int
      */
-    const MAX_MESSAGES_PER_BATCH = 10;
+    const int MAX_MESSAGES_PER_BATCH = 10;
 
     /**
      * The cache key prefix for extended SQS payloads.
-     *
-     * @var string
      */
-    const EXTENDED_PAYLOAD_CACHE_PREFIX = 'laravel:sqs-payloads:';
+    const string EXTENDED_PAYLOAD_CACHE_PREFIX = 'laravel:sqs-payloads:';
 
     /**
      * The Amazon SQS instance.
