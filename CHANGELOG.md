@@ -1,6 +1,37 @@
 # Release Notes for 13.x
 
-## [Unreleased](https://github.com/laravel/framework/compare/v13.17.0...13.x)
+## [Unreleased](https://github.com/laravel/framework/compare/v13.18.1...13.x)
+
+## [v13.18.1](https://github.com/laravel/framework/compare/v13.18.0...v13.18.1) - 2026-07-02
+
+* [13.x] Allow assertDatabaseEmpty to handle iterable by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60621
+* [13.x] Add `input()` method to console commands by [@stevebauman](https://github.com/stevebauman) in https://github.com/laravel/framework/pull/60607
+* [13.x] Handle api / json routes with Down (Maintenance) command by [@davidrushton](https://github.com/davidrushton) in https://github.com/laravel/framework/pull/60595
+* [13.x] fix: respect channel name for on-demand log stacks by [@maltf0](https://github.com/maltf0) in https://github.com/laravel/framework/pull/60635
+* [13.x] Support inspecting delayed jobs on the queue fake by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60636
+* Add `Release` queue middleware by [@mgcodeur](https://github.com/mgcodeur) in https://github.com/laravel/framework/pull/60630
+* [13.x] Update docblocks of Blueprint foreignUuid and foreignUlid to match foreignId by [@LiddleDev](https://github.com/LiddleDev) in https://github.com/laravel/framework/pull/60643
+* Respect the encoding in Str::mask() when building the end of the string by [@iammcoding](https://github.com/iammcoding) in https://github.com/laravel/framework/pull/60646
+* [13.x] Supports scalar Predis retry config to allows `config:cache` by [@crynobone](https://github.com/crynobone) in https://github.com/laravel/framework/pull/60642
+
+## [v13.18.0](https://github.com/laravel/framework/compare/v13.17.0...v13.18.0) - 2026-06-30
+
+* [13.x] Further reduce cache hits when using debounced jobs by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60575
+* Add priority-based registration to dev commands by [@joetannenbaum](https://github.com/joetannenbaum) in https://github.com/laravel/framework/pull/60580
+* fix: cache headers not set on HEAD requests by [@c0defre4k](https://github.com/c0defre4k) in https://github.com/laravel/framework/pull/60589
+* [13.x] Add conditional return types to several methods by [@alies-dev](https://github.com/alies-dev) in https://github.com/laravel/framework/pull/60586
+* [13.x] Sync getter return types with their property generics by [@dfinchenko](https://github.com/dfinchenko) in https://github.com/laravel/framework/pull/60591
+* [13.x] Expose jobs processed count and last job timestamp on the WorkerStopping event by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60592
+* [13.x] Prevent restored event when soft delete restore fails by [@Button99](https://github.com/Button99) in https://github.com/laravel/framework/pull/60605
+* [13.x] Ensure lastJobProcessedAt is null if nothing is processed by [@jackbayliss](https://github.com/jackbayliss) in https://github.com/laravel/framework/pull/60608
+* Fix RateLimited middleware not serializing releaseAfter in __sleep() by [@Amirhf1](https://github.com/Amirhf1) in https://github.com/laravel/framework/pull/60609
+* Use `--kill-others-on-fail` for `artisan dev` by [@joetannenbaum](https://github.com/joetannenbaum) in https://github.com/laravel/framework/pull/60606
+* [13.x] Fix Number::forHumans() and Number::abbreviate() crashing on INF/NAN by [@humamj1](https://github.com/humamj1) in https://github.com/laravel/framework/pull/60617
+* [13.x] Fix Json parsing for top level zero bodies by [@Button99](https://github.com/Button99) in https://github.com/laravel/framework/pull/60614
+* [13.x] schedule:work catch signals by [@rforced](https://github.com/rforced) in https://github.com/laravel/framework/pull/60616
+* Bump the github-actions group with 2 updates by [@dependabot](https://github.com/dependabot)[bot] in https://github.com/laravel/framework/pull/60622
+* [13.x] Fix Number::fileSize crashing on INF/NAN inputs by [@Amirhf1](https://github.com/Amirhf1) in https://github.com/laravel/framework/pull/60625
+* [13.x] Fix flexible() lock and defer label collisions in TaggedCache by [@Amirhf1](https://github.com/Amirhf1) in https://github.com/laravel/framework/pull/60626
 
 ## [v13.17.0](https://github.com/laravel/framework/compare/v13.16.1...v13.17.0) - 2026-06-23
 
