@@ -1004,7 +1004,7 @@ class Worker
      */
     public function memoryExceeded($memoryLimit)
     {
-        return ((int) $memoryLimit) > 0 && (memory_get_usage(true) / 1024 / 1024) >= ((int) $memoryLimit);
+        return ((int) $memoryLimit) > 0 && $this->currentMemoryUsage() >= ((int) $memoryLimit);
     }
 
     /**
@@ -1017,7 +1017,9 @@ class Worker
      */
     public function stop($status = 0, $options = null, $reason = null)
     {
-        $this->events->dispatch(new WorkerStopping($status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt));
+        $this->events->dispatch(new WorkerStopping(
+            $status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt, $this->currentMemoryUsage()
+        ));
 
         return $status;
     }
@@ -1032,7 +1034,9 @@ class Worker
      */
     public function kill($status = 0, $options = null, $reason = null)
     {
-        $this->events->dispatch(new WorkerStopping($status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt));
+        $this->events->dispatch(new WorkerStopping(
+            $status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt, $this->currentMemoryUsage()
+        ));
 
         if (extension_loaded('posix')) {
             posix_kill(getmypid(), SIGKILL);
@@ -1153,5 +1157,15 @@ class Worker
     protected function currentTime()
     {
         return hrtime(true) / 1e9;
+    }
+
+    /**
+     * Get the current memory usage in MB.
+     *
+     * @return int|float
+     */
+    protected function currentMemoryUsage()
+    {
+        return memory_get_usage(true) / 1024 / 1024;
     }
 }

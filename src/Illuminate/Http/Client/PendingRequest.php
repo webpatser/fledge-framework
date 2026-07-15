@@ -498,7 +498,7 @@ class PendingRequest
      * @param  string  $password
      * @return $this
      */
-    public function withBasicAuth(string $username, string $password)
+    public function withBasicAuth(string $username, #[\SensitiveParameter] string $password)
     {
         $this->options['auth'] = [$username, $password];
 
@@ -512,7 +512,7 @@ class PendingRequest
      * @param  string  $password
      * @return $this
      */
-    public function withDigestAuth($username, $password)
+    public function withDigestAuth($username, #[\SensitiveParameter] $password)
     {
         $this->options['auth'] = [$username, $password, 'digest'];
 
@@ -526,7 +526,7 @@ class PendingRequest
      * @param  string  $password
      * @return $this
      */
-    public function withNtlmAuth($username, $password)
+    public function withNtlmAuth($username, #[\SensitiveParameter] $password)
     {
         $this->options['auth'] = [$username, $password, 'ntlm'];
 
@@ -540,7 +540,7 @@ class PendingRequest
      * @param  string  $type
      * @return $this
      */
-    public function withToken($token, $type = 'Bearer')
+    public function withToken(#[\SensitiveParameter] $token, $type = 'Bearer')
     {
         $this->options['headers']['Authorization'] = trim($type.' '.$token);
 
@@ -1969,13 +1969,7 @@ class PendingRequest
             return true;
         }
 
-        foreach ($this->allowedStrayRequestUrls as $pattern) {
-            if (Str::is($pattern, $url)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->allowedStrayRequestUrls, fn ($pattern) => Str::is($pattern, $url));
     }
 
     /**

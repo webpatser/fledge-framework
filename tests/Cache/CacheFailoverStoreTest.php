@@ -17,11 +17,6 @@ use function Fledge\Async\async;
 
 class CacheFailoverStoreTest extends TestCase
 {
-    protected function tearDown(): void
-    {
-        m::close();
-    }
-
     public function testImplementsCanFlushLocks()
     {
         $store = $this->makeFailoverStore([]);
