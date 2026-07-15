@@ -2,6 +2,32 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.20.0.2 - 2026-07-15
+
+### Optimized
+- `Image/ImageOutputOptions.php`: typed the new `DEFAULT_QUALITY` class constant (`const int`), matching the convention already used on `Application::VERSION`, `Worker::EXIT_*`, and the `SqsQueue` constants.
+- `Image/Drivers/InterventionDriver.php`: `transformationHandlerFor()` collapses a find-first `foreach` into PHP 8.4's `array_find()`, the same rewrite family as the existing `array_any` conversions in `Handler` and `FormRequest`. All 228 Image tests pass.
+- Nothing else in the window qualified: the new `Illuminate/Image` component already ships with readonly promoted properties, `match` expressions, first-class callables, and `once()` memoization; the remaining loops (`InterventionDriver::process()`, `ImageManager::applyTransformationHandlers()`) are side-effecting iterations with no clean array-function equivalent.
+
+## v13.20.0.1 - 2026-07-15
+
+### Synced
+- Merged upstream Laravel v13.19.0 -> v13.20.0 (80 source files changed, 1,677 insertions, 186 deletions). The headline upstream feature is the new `Illuminate/Image` component (26 files: `Image`, `ImageManager`, `ImagePipeline`, GD/Imagick/Intervention drivers, 13 transformation value objects, `config/image.php`, `Facades\Image`, and `Request::image()` integration), backed by an optional `intervention/image ^4.0` dependency. Other upstream changes: `Model::incrementEachQuietly()`/`decrementEachQuietly()`; `WorkerStopping` event now carries the worker's memory usage via a new `Worker::currentMemoryUsage()` helper; `#[\SensitiveParameter]` on the HTTP client auth methods; the `WithoutMiddleware` controller attribute; and an operator-precedence bugfix in the `SqsQueue` size methods (`(int) (... ?? 0)`).
+- Upstream again adopted Fledge idioms this window: `Model::isIgnoringTouch()`, `Handler::shouldStopRetries()`, `PendingRequest::isAllowedRequestUrl()`, and `ValidatesAttributes::validateRequiredArrayKeys()` all moved to `array_any`/`array_all` upstream, converging with rewrites Fledge already carried.
+- Fledge-modified files that conflicted, all resolved small:
+  - `Foundation/Application.php`: VERSION constant (typed-constant conflict, see Preserved) plus upstream's new `image` container alias, both kept.
+  - `Foundation/Exceptions/Handler.php`: kept Fledge's first-class-callable `dontRetryWhen()` and `array_any` `shouldStopRetries()`; upstream's version of the latter still used the older `Arr::first` null check.
+  - `Queue/Worker.php`: took upstream's `currentMemoryUsage()` argument on both `WorkerStopping` dispatches; disjoint from Fledge's Revolt signal watchers and `sleep()` suspension.
+  - `Queue/SqsQueue.php`: the auto-merge duplicated `MAX_MESSAGES_PER_BATCH` (Fledge's `const int` next to upstream's untyped re-add); dropped the untyped duplicate. Caught by the first test run fataling on class load.
+- Squash merge-base drift again produced conflicts in files upstream did NOT change this window; kept Fledge's `composer.json` (php ^8.5, `webpatser/fledge-fiber`, no polyfills, plus upstream's new `intervention/image` dev dependency and `illuminate/image` replace entry), `Collections/Arr.php`, `Foundation/DevCommand.php`, `Support/NodePackageManager.php`, and `Support/NodePackageManagers/Bun.php`; took upstream's versions of files Fledge does not modify (`rector.php` PHPUnit set-list rework, `Foundation/DevCommands.php`, `Queue/Events/WorkerStopping.php`, `Support/Facades/Queue.php`, `Support/Testing/Fakes/QueueFake.php`, `CHANGELOG.md`, and eight test files).
+- `.github/workflows/*`: kept Fledge's CI customizations; the squash re-added upstream's `databases-nightly.yml`, removed again to keep Fledge's no-nightly-CI policy.
+- `Image/composer.json`: bumped the new package's PHP requirement from upstream's `^8.3` to `^8.5`, aligning it with the other 37 Illuminate sub-packages.
+- Tests: 14,047 passing (14,572 total, 521 skipped). The only failures are the four known-environmental `RedisConnectionTest::*scansForKeys` "ERR invalid cursor" errors (phpredis cursor typing under PHP 8.5).
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.20.0`.
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.19.0.2 - 2026-07-07
 
 ### Optimized

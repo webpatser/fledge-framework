@@ -142,12 +142,9 @@ abstract class InterventionDriver implements Driver
      */
     protected function transformationHandlerFor(object $transformation): ?callable
     {
-        foreach ($this->transformationHandlers as $class => $handler) {
-            if ($transformation instanceof $class) {
-                return $handler;
-            }
-        }
-
-        return null;
+        return array_find(
+            $this->transformationHandlers,
+            fn ($handler, $class) => $transformation instanceof $class,
+        );
     }
 }

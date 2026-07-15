@@ -10,7 +10,7 @@ Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requir
 
 Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension. That swap is the single biggest performance win.
 
-**133 files changed** on top of Laravel 13.19.0. The full framework test suite passes under CI's `--fail-on-deprecation`, including against symfony 8.1.
+**135 files changed** on top of Laravel 13.20.0. The full framework test suite passes under CI's `--fail-on-deprecation`, including against symfony 8.1.
 
 ## Why?
 
@@ -174,11 +174,12 @@ Worth knowing before going to production:
 | Native `Uri\Rfc3986\Uri` replacing `league/uri` | 3 | ~100x faster URI ops |
 | RFC 3986 normalization layer (IDN, unicode, brackets) | 1 | Compatibility bridge |
 | Remove `symfony/polyfill-php84` and `polyfill-php85` | 7 | Cleaner autoloading |
-| Bump PHP to `^8.5` | 37 | Drop compatibility code |
+| Bump PHP to `^8.5` | 38 | Drop compatibility code |
 | Remove `version_compare` PHP 8.4 guards | 3 | No runtime branching |
 | `array_all`/`array_any` in `Arr::hasAll`/`hasAny` | 1 | Faster array checks |
 | `array_any` in `Handler::shouldntReport` | 1 | Replace `Arr::first` null check |
 | `array_any` in `FormRequest::isKnownField` | 1 | Replace foreach early-return |
+| `array_find` in `InterventionDriver::transformationHandlerFor` | 1 | Replace foreach early-return |
 | Pipe operator in `Pipeline::then()` | 1 | Cleaner code |
 | `#[\NoDiscard]` on Pipeline, Cache, Container, Validation | 4 | Developer safety |
 | Persistent cURL share manager | 3 | Connection pooling |
@@ -244,17 +245,17 @@ That is why the canonical install line targets `webpatser/fledge-framework` dire
 
 ### Constraint compatibility
 
-All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.19.0.2` as of 2026-07-07):
+All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.20.0.2` as of 2026-07-15):
 
 | Constraint | Resolves to | Notes |
 |------------|------------|-------|
-| `^13.3` | v13.19.0.2 | Recommended, accepts any 13.x release |
-| `^13.19` | v13.19.0.2 | Pins to current minor |
-| `~13.19.0` | v13.19.0.2 | Pins to 13.19.x patches and Fledge revisions |
-| `13.19.*` | v13.19.0.2 | Wildcard, identical resolution |
-| `^13.19.0.1` | v13.19.0.2 | Pin to a specific Fledge revision |
-| `~13.19.0.1` | v13.19.0.2 | Same, accepts higher Fledge patches |
-| `>=13.0` | v13.19.0.2 | Open-ended |
+| `^13.3` | v13.20.0.2 | Recommended, accepts any 13.x release |
+| `^13.20` | v13.20.0.2 | Pins to current minor |
+| `~13.20.0` | v13.20.0.2 | Pins to 13.20.x patches and Fledge revisions |
+| `13.20.*` | v13.20.0.2 | Wildcard, identical resolution |
+| `^13.20.0.1` | v13.20.0.2 | Pin to a specific Fledge revision |
+| `~13.20.0.1` | v13.20.0.2 | Same, accepts higher Fledge patches |
+| `>=13.0` | v13.20.0.2 | Open-ended |
 | `dev-fledge-13` | (does not resolve cleanly) | Dev branches need a `branch-alias` to satisfy `^13.0` constraints from other Laravel packages |
 
 Use `^13.7` in production. The 4-segment `v13.X.Y.N` versioning is fully Composer-compatible: the resolver treats the fourth segment as a regular patch component.
