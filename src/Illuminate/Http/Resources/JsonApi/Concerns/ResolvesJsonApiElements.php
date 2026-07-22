@@ -37,7 +37,7 @@ trait ResolvesJsonApiElements
     /**
      * Cached loaded relationships map.
      *
-     * @var array<int, array{0: \Illuminate\Http\Resources\JsonApi\JsonApiResource, 1: string, 2: string, 3: bool}|null
+     * @var array<int, array{0: \Illuminate\Http\Resources\JsonApi\JsonApiResource, 1: string, 2: string, 3: bool}>|null
      */
     public $loadedRelationshipsMap;
 
@@ -255,10 +255,8 @@ trait ResolvesJsonApiElements
 
                 return transform(
                     [$relatedResource->resolveResourceType($request), $relatedResource->resolveResourceIdentifier($request)],
-                    function ($uniqueKey) use ($request, $relatedModel, $relatedResource, $isUnique) {
+                    function ($uniqueKey) use ($relatedResource, $isUnique) {
                         $this->loadedRelationshipsMap[] = [$relatedResource, ...$uniqueKey, $isUnique];
-
-                        $this->compileIncludedNestedRelationshipsMap($request, $relatedModel, $relatedResource);
 
                         return [
                             'id' => $uniqueKey[1],
@@ -289,10 +287,8 @@ trait ResolvesJsonApiElements
 
         yield $relationName => ['data' => transform(
             [$relatedResource->resolveResourceType($request), $relatedResource->resolveResourceIdentifier($request)],
-            function ($uniqueKey) use ($relatedModel, $relatedResource, $request) {
+            function ($uniqueKey) use ($relatedResource) {
                 $this->loadedRelationshipsMap[] = [$relatedResource, ...$uniqueKey, true];
-
-                $this->compileIncludedNestedRelationshipsMap($request, $relatedModel, $relatedResource);
 
                 return [
                     'id' => $uniqueKey[1],
@@ -300,20 +296,6 @@ trait ResolvesJsonApiElements
                 ];
             }
         )];
-    }
-
-    /**
-     * Compile included relationships map.
-     */
-    protected function compileIncludedNestedRelationshipsMap(JsonApiRequest $request, Model $relation, JsonApiResource $resource): void
-    {
-        (new Collection($resource->toRelationships($request)))
-            ->transform(fn ($value, $key) => is_int($key) ? new RelationResolver($value) : new RelationResolver($key, $value))
-            ->mapWithKeys(fn ($relationResolver) => [$relationResolver->relationName => $relationResolver])
-            ->filter(fn ($value, $key) => in_array($key, array_keys($relation->getRelations())))
-            ->each(function ($relationResolver, $key) use ($relation, $request) {
-                $this->compileResourceRelationshipUsingResolver($request, $relation, $relationResolver, $relationResolver->handle($relation));
-            });
     }
 
     /**

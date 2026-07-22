@@ -784,7 +784,7 @@ class PendingRequest
     /**
      * Add a new callback to execute after the response is built.
      *
-     * @param  (callable(\Illuminate\Http\Client\Response, \Illuminate\Http\Client\Request): \Illuminate\Http\Client\Response|null)  $callback
+     * @param  callable(\Illuminate\Http\Client\Response, \Illuminate\Http\Client\Request): (\Illuminate\Http\Client\Response|null)  $callback
      * @return $this
      */
     public function afterResponse(callable $callback)
@@ -1777,7 +1777,7 @@ class PendingRequest
      *
      * @return \Closure
      *
-     * @throws \Illuminate\Http\Client\Exceptions\StrayRequestException
+     * @throws \Illuminate\Http\Client\StrayRequestException
      */
     public function buildStubHandler()
     {

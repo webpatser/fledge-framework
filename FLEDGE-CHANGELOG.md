@@ -2,6 +2,25 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.21.1.1 - 2026-07-22
+
+### Synced
+- Merged upstream Laravel v13.20.0 -> v13.21.1, two releases in one window (55 source files changed, 289 insertions, 88 deletions). Headline upstream changes: the `Image` component gained PNG/GIF/AVIF/BMP output (`toPng()`/`toGif()`/`toAvif()`/`toBmp()`, new Intervention encoders, wider `ImageOutputOptions::$format`); the `#[RouteKey]` Eloquent class attribute and `#[RequestAttribute]` container attribute; `validateBase64()` validation rule; `DatabaseTransactionsManager` now runs rollback callbacks for committed child transactions in level order; a swappable `Application::$applicationBuilder`; and `RedisTaggedCache` enum-key support via `enum_value()`.
+- Fledge-modified files that conflicted, all resolved small:
+  - `Foundation/Application.php`: keep the typed VERSION constant (bumped to `13.21.1`) and take upstream's `$applicationBuilder` property and `new static::$applicationBuilder(...)` in `configure()`.
+  - `Image/ImageOutputOptions.php`: keep Fledge's `const int DEFAULT_QUALITY`, take upstream's widened `$format` PHPDoc.
+  - `Image/Drivers/InterventionDriver.php`: keep Fledge's `array_find()` in `transformationHandlerFor()`, take upstream's four new encoders in the `match`.
+  - `Image/composer.json`: keep `php ^8.5`, take upstream's `ext-fileinfo` suggest.
+  - `Queue/SqsQueue.php`: drop the untyped `MAX_MESSAGES_PER_BATCH` duplicate the auto-merge re-added next to Fledge's `const int` (same artifact as the v13.20.0 sync; it fataled the queue tests until removed).
+  - `Database/Schema/MySqlSchemaState.php`: re-deleted the stale `@phpstan-ignore classConstant.notFound` the squash merge resurrected (caught by the phpstan gate, as in v13.20.0).
+- Squash merge-base drift conflicts resolved by ownership: kept Fledge's `composer.json`, `Collections/Arr.php`, `Foundation/Exceptions/Handler.php`, `Support/Facades/Request.php`, `Foundation/DevCommand.php`, and the NodePackageManager files; took upstream's versions of files Fledge does not modify (`Database/DatabaseTransactionsManager.php`, `Http/Resources/JsonApi/Concerns/ResolvesJsonApiElements.php`, `Image/Image.php`, `Image/ImageManager.php`, `Support/Facades/Image.php`, `CHANGELOG.md`, `bin/release.sh`, `rector.php`, and eight test files). Removed the re-added `databases-nightly.yml` (no-nightly-CI policy); merged upstream's `Image` facade entry and action SHA-pin bump into Fledge's `facades.yml`/`releases.yml`.
+- Tests: 14,098 passing (14,623 total, 521 skipped). Only the four known-environmental `RedisConnectionTest::*scansForKeys` "ERR invalid cursor" errors remain (phpredis cursor typing under PHP 8.5). Both phpstan configs clean.
+- Optimization scan over the window: nothing qualified. The two new attribute classes match the untyped promoted-property style of their 16 `Container/Attributes` siblings, upstream's new Image and transaction code already uses `match`/collections idioms, and `validateBase64()` has no array-function equivalent.
+
+### Preserved
+- `Application::VERSION` stays a typed class constant (`const string VERSION`), bumped to `13.21.1`.
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.20.0.2 - 2026-07-15
 
 ### Optimized
