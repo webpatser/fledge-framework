@@ -2,6 +2,32 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.22.0.2 - 2026-07-25
+
+### Optimized
+- `Queue/Console/ClearCommand.php`: rewrite the new multi-queue name parsing from a `collect()` chain to the pipe operator (`explode` |> `array_map(trim(...))` |> `array_filter` |> `array_unique` |> `array_values`), same family as the `Pipeline` rewrite, and replace the `(new Stringable('queue'))->plural(...)` allocation with the already-imported `Str::plural('queue', $queues)`.
+- `Validation/FakeDnsGetRecordWrapper.php`: add `#[\Override]` on `getRecords()` (overrides egulias' `DNSGetRecordWrapper`), matching the existing usage in `Eloquent\Collection`, `MorphTo`, and `SQLiteGrammar`.
+- Nothing else qualified: upstream's own delta already modernized in Fledge's direction (`Str::of()` -> `new Stringable(...)` across 12 files, `pow()` -> `**` in `Number`, and `Str::ucfirst`/`lcfirst` now delegate to PHP 8.4's `mb_ucfirst`/`mb_lcfirst`). The new `BindWhen` attribute keeps the unpromoted style of its `Bind` sibling.
+
+## v13.22.0.1 - 2026-07-25
+
+### Synced
+- Merge upstream Laravel v13.21.1 -> v13.22.0 (45 source files, 323 insertions, 108 deletions). Headline upstream changes: the `#[BindWhen]` container attribute (closure-conditional bindings, with `Container::resolveConcreteFromAttributes()` rewritten to honor declaration order); `Validator::fakeDnsLookups()` plus the `FakeDnsGetRecordWrapper` for DNS-free `active_url`/`email:dns` validation in tests; queue `bulk()` methods now honoring the `#[Delay]` job attribute (SQS, Redis, database, Beanstalkd); `queue:clear` accepting comma-separated queue names; `QueueFake` tracking job creation timestamps for `creationTimeOfOldestPendingJob()`; `JobReleasedAfterException` carrying the exception; `RateLimiter` becoming macroable; and `Http::fake()` accepting `StreamInterface`/resource bodies.
+- Carried the fix for upstream's `Arr::last()` regression: #60881 (merged the day before the tag) routes every input through `Arr::from()`, which throws on `null`, fataling five Cookie/Auth tests via `CookieJar::queued()` on a missing key. Applied the null-early-return from the still-open upstream PR #60887, so the next sync merges clean.
+- Conflicts in Fledge-modified files, all resolved small:
+  - `Foundation/Application.php`: keep the typed VERSION constant, bumped to `13.22.0`.
+  - `Collections/Arr.php`: keep Fledge's merged `hasAny()` guard; upstream's iterable restorations in `every()`/`some()`/`last()` auto-merged (they wrap Fledge's `array_all`/`array_any` with an `is_array` fast path).
+  - `Foundation/Exceptions/Handler.php`: keep Fledge's first-class-callable `dontRetryWhen()` and `array_any` `shouldStopRetries()`; upstream's `Stringable` swap in `renderForConsole()` auto-merged.
+  - `Http/Client/Factory.php`: keep Fledge's persistent-cURL and global-handler additions, take upstream's widened `psr7Response()` body types (flagged for fledge-fiber review).
+  - `Queue/SqsQueue.php`: take upstream's `#[Delay]` attribute support in `prepareBatchMessages()`; drop the untyped `MAX_MESSAGES_PER_BATCH` duplicate the auto-merge re-added next to Fledge's `const int` (third sync in a row; it fataled the queue tests until removed).
+  - `Database/Schema/MySqlSchemaState.php`: re-deleted the stale `@phpstan-ignore classConstant.notFound` the squash merge resurrected (caught by the phpstan gate, as in the last two syncs).
+- CI workflows: adopted upstream's new `setup-php-project` composite action (deduplicates PHP setup across all workflows) with Fledge's defaults baked in (PHP 8.5, newer `setup-php` pin), re-applied the `fledge-*` branch triggers, kept the trimmed PHP 8.5-only test matrix, and kept `databases-nightly.yml` deleted (no-nightly-CI policy).
+- Squash merge-base drift conflicts resolved by ownership: kept Fledge's `composer.json`, `Support/Facades/Request.php`, `Foundation/DevCommand.php`, the `Image` files, and the NodePackageManager files; took upstream's versions of files Fledge does not modify (`Foundation/Cloud/Queue.php`, `Foundation/Console/DevListCommand.php`, `Support/Number.php`, `Support/Testing/Fakes/QueueFake.php`, `rector.php`, `CHANGELOG.md`, and six test files).
+- Tests: 14,133 passing (14,658 total, 521 skipped). Only the four known-environmental `RedisConnectionTest::*scansForKeys` "ERR invalid cursor" errors remain. Both phpstan configs clean.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.21.1.1 - 2026-07-22
 
 ### Synced

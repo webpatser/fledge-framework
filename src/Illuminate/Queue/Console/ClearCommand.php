@@ -7,7 +7,6 @@ use Illuminate\Console\ConfirmableTrait;
 use Illuminate\Console\Prohibitable;
 use Illuminate\Contracts\Queue\ClearableQueue;
 use Illuminate\Support\Str;
-use Illuminate\Support\Stringable;
 use ReflectionClass;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Input\InputArgument;
@@ -64,19 +63,18 @@ class ClearCommand extends Command
 
         $count = 0;
 
-        $queues = collect(explode(',', $queueName))
-            ->map(fn ($queue) => trim($queue))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $queues = explode(',', $queueName)
+            |> (fn ($names) => array_map(trim(...), $names))
+            |> array_filter(...)
+            |> array_unique(...)
+            |> array_values(...);
 
         foreach ($queues as $name) {
             $count += $queue->clear($name);
         }
 
         $this->components->info(
-            sprintf('Cleared %s %s from the [%s] %s', $count, Str::plural('job', $count), implode(', ', $queues), (new Stringable('queue'))->plural($queues))
+            sprintf('Cleared %s %s from the [%s] %s', $count, Str::plural('job', $count), implode(', ', $queues), Str::plural('queue', $queues))
         );
 
         return self::SUCCESS;

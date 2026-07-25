@@ -14,6 +14,7 @@ class FakeDnsGetRecordWrapper extends DNSGetRecordWrapper
      * @param  int  $type
      * @return \Egulias\EmailValidator\Validation\DNSRecords
      */
+    #[\Override]
     public function getRecords(string $host, int $type): DNSRecords
     {
         return new DNSRecords([['type' => 'A']]);
