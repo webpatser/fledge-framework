@@ -45,7 +45,7 @@
         "league/commonmark": "^2.8.1",
         "league/flysystem": "^3.25.1",
         "league/flysystem-local": "^3.25.1",
-        "monolog/monolog": "^3.0",
+        "monolog/monolog": "^3.10",
         "nesbot/carbon": "^3.8.4",
         "nunomaduro/termwind": "^2.0",
         "psr/container": "^1.1.1 || ^2.0.1",
