@@ -437,7 +437,7 @@ class CronExpressionTimezoneConverter
             return static::collapseRuns($values);
         }
 
-        [$first, $last, $step] = [$values[0], end($values), $steps->first()];
+        [$first, $last, $step] = [$values[0], array_last($values), $steps->first()];
 
         if ($step === 1) {
             return "{$first}-{$last}";

@@ -2,6 +2,28 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.23.0.2 - 2026-07-30
+
+### Optimized
+- `Console/Scheduling/CronExpressionTimezoneConverter.php`: `end($values)` -> `array_last($values)` in `collapse()`, dropping the array-pointer mutation and matching the `array_last` usage in `Arr`.
+- Nothing else qualified: upstream's rewritten timezone converter already leans modern (first-class callables via `intval(...)`, `str_contains`, named arguments), and the `CookieJar`, `LogManager`, `SesV2Transport`, and `CallQueuedHandler` deltas are too thin to benefit.
+
+## v13.23.0.1 - 2026-07-30
+
+### Synced
+- Merge upstream Laravel v13.22.0 -> v13.23.0 (37 files, 847 insertions, 168 deletions; 24 of them under `src/`). Headline upstream changes: `CronExpressionTimezoneConverter` rewritten from scratch (full cron field expansion with ranges and steps, DST-aware offsets probed at the next two run dates, day-of-month shifting across month boundaries, bail-out to the original expression when a shift cannot be represented); a `monthly` log driver (`RotatingFileHandler::FILE_PER_MONTH` with `max_files`, and `daily` now also honoring `max_files`); SES v2 tenant support via the `X-SES-TENANT-NAME` header; unique job locks now released on every attempt, not just the first (`CallQueuedHandler` dropped its `attempts() <= 1` guards); path-aware `CookieJar::queued()` lookups; a Postgres `using()` clause for column type changes; monolog bumped to `^3.10`.
+- Conflicts in Fledge-modified files, all resolved small:
+  - `Foundation/Application.php`: keep the typed VERSION constant, bumped to `13.23.0`.
+  - `Collections/Arr.php`: upstream's `last()` null guard was already present (carried early from PR #60887 in the v13.22.0.1 sync), so it merged to no net change; dropped the redundant `$keys === []` re-check upstream added to `hasAny()`, which Fledge's guard already covers.
+  - `composer.json`: monolog `^3.10` taken; no `league/uri`, fledge-fiber and `laravel/pao` kept.
+  - `Queue/SqsQueue.php`: dropped the untyped `MAX_MESSAGES_PER_BATCH` duplicate the auto-merge re-added next to Fledge's `const int` (fourth sync in a row).
+  - `Database/Schema/MySqlSchemaState.php`: re-deleted the stale `@phpstan-ignore classConstant.notFound` the squash merge resurrected (same artifact as the last three syncs).
+- CI workflows: upstream's only workflow change (the `actions/checkout` v7.0.1 pin) was already on `fledge-13` via dependabot, so the trees matched, but the squash merge still resurrected `install-nightly.yml` (re-deleted, no-nightly-CI policy, `databases-nightly.yml` also kept deleted) and duplicated the top-level `permissions:` block in `tests.yml`. GitHub rejects the duplicate YAML key at workflow startup with zero jobs, which local phpunit and phpstan cannot catch; the CI gate caught it and the fix landed as a follow-up commit before tagging, so the tag points at a fully green run set.
+- Tests: 14,174 passing (14,698 total, 520 skipped). Only the four known-environmental `RedisConnectionTest::*scansForKeys` "ERR invalid cursor" errors remain. Both phpstan configs clean, all seven CI runs green.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.22.0.2 - 2026-07-25
 
 ### Optimized
