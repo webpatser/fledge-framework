@@ -2,6 +2,28 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.24.0.1 - 2026-08-04
+
+### Synced
+- Merge upstream Laravel v13.23.0 -> v13.24.0 (381 files, 7,398 insertions, 1,674 deletions; 192 of them under `src/`). Headline upstream changes: a new `array_keys` validation rule (`Rules\ArrayKeys` with enum support, `validateArrayKeys`, and an `:unexpected` message placeholder); owner-aware unique job locks (`UniqueLock::acquire()` stamps `uniqueLockOwner` on Queueable jobs so `release()` can `restoreLock()->release()` instead of `forceRelease()`, with `CallQueuedHandler::uniqueJobLockShouldBeReleased()` guarding retries); a big console sweep migrating commands from `$name` + `getArguments()`/`getOptions()` to `$signature`; memoized route-name caches in `CompiledRouteCollection` (`routeNamesByMethod`/`routeNameByAction`) so `get()` and `getByAction()` no longer materialize every route; Unicode-safe case-insensitive `Str::replace()`/`Str::remove()` via `replaceWhileIgnoringCase()`; HEIC encoding, avif/heic/heif input support, and dominant-color sampling in the image drivers; circular container alias detection (`getAlias()` now throws `LogicException` instead of recursing forever); `Relation::noConstraintsForRelation()` for nested relation attributes; and `laravel/prompts ^0.3.11`.
+- Conflicts in Fledge-modified files, all resolved small:
+  - `Foundation/Application.php`: keep the typed VERSION constant, bumped to `13.24.0`.
+  - `Collections/Arr.php`: dropped the redundant `$keys === []` re-check upstream still carries in `hasAny()` (Fledge's merged guard covers it); upstream's `forget()` reset-ordering fix taken. Upstream now ships `array_any()` in `hasAny()` itself, matching Fledge's earlier optimization.
+  - `Foundation/Exceptions/Handler.php`: kept the first-class-callable and `array_any()` forms in `dontRetryWhen()`/`shouldStopRetries()`; upstream's `Collection::diff()` rewrite of `stopIgnoring()` taken.
+  - `Queue/Console/ClearCommand.php`: kept the pipe-operator queue-name parsing from v13.22.0.2 while adopting upstream's `$signature` migration and dropped `getArguments()`/`getOptions()`; the now-unused `Stringable` import removed.
+  - `Cache/RedisTagSet.php`: kept the fiber-concurrent `addEntry()` (`async`/`await` over `zaddEntry()`); upstream's hoisted `$connection`/`$prefix` locals in `entries()` and `flushStaleEntries()` taken.
+  - `Container/Container.php`: upstream's `BindWhen` re-check in `getConcreteBindingFromAttributes()` and the new loop-based `getAlias()` taken; Fledge's `ReflectionClass` cache carried through.
+  - `Image/*`: upstream's HEIC/dominant-color rewrite taken wholesale, Fledge's `array_find()` in `transformationHandlerFor()` and the typed `DEFAULT_QUALITY` constant re-applied.
+  - `composer.json` (root + Image/Log/Pipeline packages): `laravel/prompts ^0.3.11` and the new `illuminate/conditionable`/`macroable` package deps taken; PHP 8.5 pins, no `league/uri`, fledge-fiber refs kept.
+  - `Queue/SqsQueue.php`: dropped the untyped `MAX_MESSAGES_PER_BATCH` duplicate the auto-merge re-added next to Fledge's `const int` (fifth sync in a row).
+  - `Database/Schema/MySqlSchemaState.php`: re-deleted the stale `@phpstan-ignore classConstant.notFound` the squash merge resurrected (same artifact as the last four syncs).
+- Squash-merge artifacts caught by a tree-level drift audit (every file the upstream delta did not touch must match `fledge-13`, every upstream-only file must match `v13.24.0`): `install-nightly.yml` resurrected (re-deleted), the `permissions:` block in `tests.yml` duplicated again (restored), and the auto-merge silently dropped upstream's new `$job->shouldReceive('attempts')` expectation from `QueuedEventsTest` (restored, it backs the new unique-lock release guard).
+- Tests: 14,387 passing (14,914 total, 523 skipped). Only the four known-environmental `RedisConnectionTest::*scansForKeys` "ERR invalid cursor" errors remain. Both phpstan configs clean.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through untouched (none were in the upstream delta). No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+- No `.2` optimization tag this round: upstream's new code already leans modern (`array_all()` in `Str::replaceWhileIgnoringCase()`, first-class callables, memoized caches in `CompiledRouteCollection`), and the remaining candidates are cold-path console commands.
+
 ## v13.23.0.2 - 2026-07-30
 
 ### Optimized
