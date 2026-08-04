@@ -70,12 +70,14 @@ class RedisTagSet extends TagSet
         };
 
         return new LazyCollection(function () use ($connection, $defaultCursorValue) {
+            $prefix = $this->store->getPrefix();
+
             foreach ($this->tagIds() as $tagKey) {
                 $cursor = $defaultCursorValue;
 
                 do {
                     $results = $connection->zscan(
-                        $this->store->getPrefix().$tagKey,
+                        $prefix.$tagKey,
                         $cursor,
                         ['match' => '*', 'count' => 1000]
                     );
@@ -111,9 +113,12 @@ class RedisTagSet extends TagSet
      */
     public function flushStaleEntries()
     {
-        $flushStaleEntries = function ($pipe) {
+        $prefix = $this->store->getPrefix();
+        $now = Carbon::now()->getTimestamp();
+
+        $flushStaleEntries = function ($pipe) use ($prefix, $now) {
             foreach ($this->tagIds() as $tagKey) {
-                $pipe->zremrangebyscore($this->store->getPrefix().$tagKey, 0, Carbon::now()->getTimestamp());
+                $pipe->zremrangebyscore($prefix.$tagKey, 0, $now);
             }
         };
 

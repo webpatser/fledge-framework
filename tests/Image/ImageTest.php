@@ -19,6 +19,7 @@ use Illuminate\Image\Transformations\Resize;
 use Illuminate\Image\Transformations\Rotate;
 use Illuminate\Image\Transformations\Scale;
 use Illuminate\Image\Transformations\Sharpen;
+use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\TestCase;
 
 class ImageTest extends TestCase
@@ -146,6 +147,13 @@ class ImageTest extends TestCase
         $this->assertNotSame($image, $image->toAvif());
     }
 
+    public function test_to_heic_returns_new_instance()
+    {
+        $image = $this->makeImage();
+
+        $this->assertNotSame($image, $image->toHeic());
+    }
+
     public function test_to_bmp_returns_new_instance()
     {
         $image = $this->makeImage();
@@ -249,12 +257,9 @@ class ImageTest extends TestCase
         $this->assertSame('jpg', $image->extension());
     }
 
-    public function test_extension_returns_avif_for_avif()
+    #[RequiresPhpExtension('imagick')]
+    public function test_extension_returns_avif_for_avif(): void
     {
-        if (! extension_loaded('imagick')) {
-            $this->markTestSkipped('The Imagick extension is not available.');
-        }
-
         $imagick = new \Imagick;
         $imagick->newImage(10, 10, 'red');
         $imagick->setImageFormat('avif');
@@ -399,6 +404,13 @@ class ImageTest extends TestCase
         $image = $this->makeImage();
 
         $this->assertSame('avif', $this->getOptions($image->toAvif())->format);
+    }
+
+    public function test_to_heic_sets_format()
+    {
+        $image = $this->makeImage();
+
+        $this->assertSame('heic', $this->getOptions($image->toHeic())->format);
     }
 
     public function test_to_bmp_sets_format()
@@ -788,6 +800,18 @@ class ImageTest extends TestCase
         $this->assertSame('#ffffff', $options->containBackground);
     }
 
+    public function test_contain_sets_dominant_background()
+    {
+        $image = $this->makeImage();
+        $result = $image->contain(1200, 800, 'dominant');
+
+        $options = $this->getOptions($result);
+
+        $this->assertSame(1200, $options->containWidth);
+        $this->assertSame(800, $options->containHeight);
+        $this->assertSame('dominant', $options->containBackground);
+    }
+
     public function test_crop_sets_dimensions_and_position()
     {
         $image = $this->makeImage();
@@ -853,6 +877,17 @@ class ImageTest extends TestCase
         $this->assertSame('#ffffff', $options->rotateBackground);
     }
 
+    public function test_rotate_sets_dominant_background()
+    {
+        $image = $this->makeImage();
+        $result = $image->rotate(45, 'dominant');
+
+        $options = $this->getOptions($result);
+
+        $this->assertSame(45.0, $options->rotateAngle);
+        $this->assertSame('dominant', $options->rotateBackground);
+    }
+
     public function test_scale_sets_width_only()
     {
         $image = $this->makeImage();
@@ -914,6 +949,20 @@ class ImageTest extends TestCase
         $result = $this->makeImage()->optimize('avif');
 
         $this->assertSame('avif', $this->getOptions($result)->format);
+    }
+
+    public function test_optimize_allows_heic()
+    {
+        $result = $this->makeImage()->optimize('heic');
+
+        $this->assertSame('heic', $this->getOptions($result)->format);
+    }
+
+    public function test_optimize_normalizes_heif_to_heic()
+    {
+        $result = $this->makeImage()->optimize('heif');
+
+        $this->assertSame('heic', $this->getOptions($result)->format);
     }
 
     public function test_optimize_allows_jpeg_spelling()

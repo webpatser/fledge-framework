@@ -9,8 +9,6 @@ use Illuminate\Contracts\Queue\ClearableQueue;
 use Illuminate\Support\Str;
 use ReflectionClass;
 use Symfony\Component\Console\Attribute\AsCommand;
-use Symfony\Component\Console\Input\InputArgument;
-use Symfony\Component\Console\Input\InputOption;
 
 #[AsCommand(name: 'queue:clear')]
 class ClearCommand extends Command
@@ -18,11 +16,14 @@ class ClearCommand extends Command
     use ConfirmableTrait, Prohibitable;
 
     /**
-     * The console command name.
+     * The name and signature of the console command.
      *
      * @var string
      */
-    protected $name = 'queue:clear';
+    protected $signature = 'queue:clear
+                    {connection? : The name of the queue connection to clear}
+                    {--queue= : The names of the queues to clear}
+                    {--force : Force the operation to run when in production}';
 
     /**
      * The console command description.
@@ -92,31 +93,5 @@ class ClearCommand extends Command
             "queue.connections.{$connection}.queue",
             'default'
         );
-    }
-
-    /**
-     *  Get the console command arguments.
-     *
-     * @return array
-     */
-    protected function getArguments()
-    {
-        return [
-            ['connection', InputArgument::OPTIONAL, 'The name of the queue connection to clear'],
-        ];
-    }
-
-    /**
-     * Get the console command options.
-     *
-     * @return array
-     */
-    protected function getOptions()
-    {
-        return [
-            ['queue', null, InputOption::VALUE_OPTIONAL, 'The names of the queues to clear'],
-
-            ['force', null, InputOption::VALUE_NONE, 'Force the operation to run when in production'],
-        ];
     }
 }

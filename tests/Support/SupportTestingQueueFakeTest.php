@@ -5,6 +5,7 @@ namespace Illuminate\Tests\Support;
 use BadMethodCallException;
 use Illuminate\Bus\Queueable;
 use Illuminate\Foundation\Application;
+use Illuminate\Queue\Attributes\Delay;
 use Illuminate\Queue\CallQueuedClosure;
 use Illuminate\Queue\Jobs\InspectedJob;
 use Illuminate\Queue\QueueManager;
@@ -28,7 +29,6 @@ class SupportTestingQueueFakeTest extends TestCase
 
     protected function setUp(): void
     {
-        parent::setUp();
         $this->fake = new QueueFake(new Application);
         $this->job = new JobStub;
     }
@@ -228,6 +228,31 @@ class SupportTestingQueueFakeTest extends TestCase
         $this->fake->assertPushedOn('foo', JobStub::class);
         $this->fake->assertPushedOn($queue, JobStub::class);
         $this->fake->assertPushed(JobStub::class, 2);
+    }
+
+    public function testBulkRespectsDelayAttribute()
+    {
+        $this->fake->bulk([
+            new JobWithDelayAttributeStub,
+            new JobStub,
+        ], ['foo' => 'bar'], 'redis');
+
+        $this->assertSame(1, $this->fake->delayedSize('redis'));
+        $this->fake->assertPushedOn('redis', JobWithDelayAttributeStub::class);
+        $this->fake->assertPushed(JobWithDelayAttributeStub::class, function ($job, $queue, $data) {
+            return $queue === 'redis' && $data === ['foo' => 'bar'];
+        });
+        $this->fake->assertPushedOn('redis', JobStub::class);
+    }
+
+    public function testBulkRespectsRuntimeDelay()
+    {
+        $job = (new JobWithRuntimeDelayStub)->delay(30);
+
+        $this->fake->bulk([$job], '', 'redis');
+
+        $this->assertSame(1, $this->fake->delayedSize('redis'));
+        $this->fake->assertPushedOn('redis', JobWithRuntimeDelayStub::class);
     }
 
     public function testPushOnAndLaterOnAcceptUnitEnums()
@@ -793,6 +818,27 @@ class JobStub
 
 class JobToFakeStub
 {
+    public function handle()
+    {
+        //
+    }
+}
+
+#[Delay(15)]
+class JobWithDelayAttributeStub
+{
+    use Queueable;
+
+    public function handle()
+    {
+        //
+    }
+}
+
+class JobWithRuntimeDelayStub
+{
+    use Queueable;
+
     public function handle()
     {
         //
