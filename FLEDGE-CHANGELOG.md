@@ -2,6 +2,31 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.25.0.2 - 2026-08-17
+
+### Optimized
+- `Foundation/DevCommands.php`: `resolveSource()` foreach-with-early-return -> `array_find()` with a `?? []` fallback, matching the `array_find` usage in `NodePackageManager` and `InterventionDriver`.
+- `Foundation/Console/DevCommand.php`: typed the new `MULTIPLEX_VERSION` constant (`const string`).
+- Nothing else qualified: the `artisan dev` machinery is cold-path console code that already leans modern (enums, first-class callables), `Str::substrReplace()`'s new array handling is closure-driven, and the `DatabaseQueue`/`CallQueuedHandler` after-commit changes carry no replaceable loop shapes.
+
+## v13.25.0.1 - 2026-08-17
+
+### Synced
+- Merge upstream Laravel v13.24.0 -> v13.25.0 (449 files, 10,576 insertions, 9,096 deletions; 54 of them under `src/`). Headline upstream changes: the new `artisan dev` command suite (`DevCommands` registry with priorities and backtrace-resolved sources, `DevCommandMode` enum for tabs/stream/inline output, `Console/DevCommand` orchestrating via `@laravel/multiplex`); queue pause/resume controls with `QueuesPaused`/`QueuesResumed`/`UniqueJobSkipped` events; `Http::withoutGlobalConfiguration()` for callback-scoped middleware/option suppression; `\UnitEnum` queue names across `SqsQueue` via `enum_value()` (and `partitionJobsByAfterCommit()` hoisted out); after-commit-aware bulk inserts in `DatabaseQueue`; `Image` driver `dimensions()`; array-aware `Str::substrReplace()`; `Response::withoutCookies()`; the HTTP retry callback now receiving the request method; a stricter stream-resource check in `Factory::psr7Response()`; and `brick/math ^0.19`.
+- Conflicts: 121 files conflicted off the ancient squash base; 97 non-Fledge files taken from upstream wholesale, 24 Fledge-modified files hand-merged:
+  - `Foundation/Application.php`: keep the typed VERSION constant, bumped to `13.25.0`.
+  - `Http/Client/Factory.php`: upstream's `withoutGlobalConfiguration()` and the stream-resource `psr7Response()` check taken; persistent-cURL wiring (`persistentConnections()`, `newPendingRequest()` hook) and the fiber `globalHandler` API kept. `Facades/Http.php` docblock merged for both sides.
+  - `Queue/SqsQueue.php`: upstream's `enum_value()` refactor taken wholesale, Fledge's three typed constants re-applied.
+  - `Image/Drivers/InterventionDriver.php`: upstream's `dimensions()` taken, Fledge's `array_find()` in `transformationHandlerFor()` re-applied.
+  - `Collections/Arr.php`: upstream's `prependKeysWith()` docblock generics taken, the merged `hasAny()` guard kept.
+  - `composer.json` (root + Database/Image/Log/Pipeline/Validation packages): `brick/math ^0.19` taken; PHP 8.5 pins, polyfill removals, no `league/uri`, fledge-fiber and `laravel/pao` kept.
+  - `RedisTagSet`, `Exceptions/Handler`, `Queue/Console/ClearCommand`, `NodePackageManager(s)`, `Facades/Request`: outside the upstream delta, Fledge's versions kept.
+- Squash-merge artifacts (tree-level drift audit clean afterwards): `install-nightly.yml` resurrected (re-deleted), the `permissions:` block in `tests.yml` duplicated again and caught by CI (restored, sixth sync in a row), the stale `@phpstan-ignore` in `MySqlSchemaState.php` resurrected again (re-deleted), and `CacheFailoverStoreTest` broke because upstream renamed `use Mockery as m;` to `use Mockery;` while the auto-merge kept Fledge's fiber-concurrency tests calling `m::mock()` (aligned to `Mockery::`).
+- Tests: 14,455 passing (14,985 total, 523 skipped). Only the four known-environmental `RedisConnectionTest::*scansForKeys` "ERR invalid cursor" errors remain. Both phpstan configs clean.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.24.0.1 - 2026-08-04
 
 ### Synced

@@ -362,19 +362,10 @@ class DevCommands
      */
     protected static function resolveSource(array $trace): array
     {
-        foreach ($trace as $frame) {
-            if (($frame['file'] ?? null) === __FILE__) {
-                continue;
-            }
-
-            if (($frame['class'] ?? null) === self::class) {
-                continue;
-            }
-
-            return $frame;
-        }
-
-        return [];
+        return array_find(
+            $trace,
+            fn ($frame) => ($frame['file'] ?? null) !== __FILE__ && ($frame['class'] ?? null) !== self::class,
+        ) ?? [];
     }
 
     /**

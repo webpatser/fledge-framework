@@ -10,7 +10,7 @@ Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requir
 
 Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension. That swap is the single biggest performance win.
 
-**141 files changed** on top of Laravel 13.24.0. The full framework test suite passes under CI's `--fail-on-deprecation`, including against symfony 8.1.
+**140 files changed** on top of Laravel 13.25.0. The full framework test suite passes under CI's `--fail-on-deprecation`, including against symfony 8.1.
 
 ## Why?
 
@@ -245,7 +245,7 @@ That is why the canonical install line targets `webpatser/fledge-framework` dire
 
 ### Constraint compatibility
 
-All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.24.0.1` as of 2026-08-04):
+All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.25.0.2` as of 2026-08-17):
 
 | Constraint | Resolves to | Notes |
 |------------|------------|-------|
