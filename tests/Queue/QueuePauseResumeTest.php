@@ -8,9 +8,10 @@ use Illuminate\Events\Dispatcher;
 use Illuminate\Queue\Console\Concerns\ParsesQueue;
 use Illuminate\Queue\Events\QueuePaused;
 use Illuminate\Queue\Events\QueueResumed;
+use Illuminate\Queue\Events\QueuesPaused;
 use Illuminate\Queue\QueueManager;
 use Illuminate\Support\Carbon;
-use Mockery as m;
+use Mockery;
 use PHPUnit\Framework\TestCase;
 
 class QueuePauseResumeTest extends TestCase
@@ -23,7 +24,7 @@ class QueuePauseResumeTest extends TestCase
         $this->cache = new Repository(new ArrayStore);
 
         // Mock the cache facade to return our cache repository
-        $cacheMock = m::mock();
+        $cacheMock = Mockery::mock();
         $cacheMock->shouldReceive('store')->andReturn($this->cache);
 
         $app = [
@@ -168,6 +169,38 @@ class QueuePauseResumeTest extends TestCase
             ['emails', 'notifications'],
             $this->manager->getPausedQueues('redis', ['default', 'emails', 'notifications'])
         );
+    }
+
+    public function testPauseAllPausesEveryQueueAndResumeAllResumesThem()
+    {
+        $this->manager->pauseAll();
+
+        $this->assertTrue($this->manager->isPaused('redis', 'default'));
+        $this->assertTrue($this->manager->isPaused('database', 'emails'));
+        $this->assertSame(
+            ['default', 'emails'],
+            $this->manager->getPausedQueues('redis', ['default', 'emails'])
+        );
+
+        $this->manager->resumeAll();
+
+        $this->assertFalse($this->manager->isPaused('redis', 'default'));
+        $this->assertSame([], $this->manager->getPausedQueues('redis', ['default', 'emails']));
+    }
+
+    public function testPauseAllDispatchesQueuesPausedEvent()
+    {
+        $dispatchedEvent = null;
+
+        $dispatcher = $this->manager->getApplication()['events'];
+
+        $dispatcher->listen(QueuesPaused::class, function ($event) use (&$dispatchedEvent) {
+            $dispatchedEvent = $event;
+        });
+
+        $this->manager->pauseAll();
+
+        $this->assertInstanceOf(QueuesPaused::class, $dispatchedEvent);
     }
 
     public function testParsingQueueString()

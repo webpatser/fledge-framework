@@ -435,8 +435,7 @@ class GdDriverTest extends TestCase
     {
         $driver = new GdDriver;
 
-        $this->expectException(ImageException::class);
-        $this->expectExceptionMessage('The image format [text/plain] is not supported.');
+        $this->expectExceptionObject(new ImageException('The image format [text/plain] is not supported.'));
 
         $driver->process('not-an-image', new ImagePipeline);
     }
@@ -475,6 +474,14 @@ class GdDriverTest extends TestCase
         $driver->ensureRequirementsAreMet();
 
         $this->assertTrue(true);
+    }
+
+    public function test_dimensions_returns_the_decoded_size()
+    {
+        $driver = new GdDriver;
+        $contents = $driver->process($this->fakeImageContents(320, 240), $this->pipeline(new Cover(200, 150), format: 'png'));
+
+        $this->assertSame([200, 150], $driver->dimensions($contents));
     }
 
     protected function fakeImageContents(int $width = 100, int $height = 100): string

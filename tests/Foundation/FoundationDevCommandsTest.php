@@ -5,6 +5,7 @@ namespace Illuminate\Tests\Foundation;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\DevCommand;
 use Illuminate\Foundation\DevCommandColor;
+use Illuminate\Foundation\DevCommandMode;
 use Illuminate\Foundation\DevCommands;
 use PHPUnit\Framework\Attributes\RequiresOperatingSystem;
 use PHPUnit\Framework\TestCase;
@@ -16,11 +17,19 @@ class FoundationDevCommandsTest extends TestCase
     {
         $ref = new ReflectionClass(DevCommands::class);
 
-        foreach (['commands', 'except', 'only'] as $prop) {
-            $ref->getProperty($prop)->setValue(null, []);
+        foreach ([
+            'commands' => [],
+            'except' => [],
+            'only' => [],
+            'colorCount' => 0,
+            'mode' => DevCommandMode::TABS,
+            'withTimestamps' => false,
+            'autoRestart' => true,
+            'bufferSize' => null,
+            'streamBufferSize' => null,
+        ] as $prop => $value) {
+            $ref->getProperty($prop)->setValue(null, $value);
         }
-
-        $ref->getProperty('colorCount')->setValue(null, 0);
 
         $app = new Application(__DIR__);
         $app['env'] = 'testing';
@@ -302,6 +311,7 @@ class FoundationDevCommandsTest extends TestCase
 
         $names = array_column($commands, 'name');
         $this->assertContains('server', $names);
+        $this->assertSame('php artisan serve', collect($commands)->firstWhere('name', 'server')['command']);
         $this->assertContains('queue', $names);
         $this->assertContains('logs', $names);
         $this->assertContains('vite', $names);

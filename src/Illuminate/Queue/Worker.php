@@ -314,7 +314,7 @@ class Worker
                 );
 
                 $this->events->dispatch(new JobTimedOut(
-                    $job->getConnectionName(), $job
+                    $job->getConnectionName(), $job, $this->timeoutForJob($job, $options)
                 ));
             }
 

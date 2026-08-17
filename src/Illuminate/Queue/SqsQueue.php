@@ -13,6 +13,8 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
+use function Illuminate\Support\enum_value;
+
 class SqsQueue extends Queue implements QueueContract, ClearableQueue
 {
     /**
@@ -94,7 +96,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     /**
      * Get the size of the queue.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return int
      */
     public function size($queue = null)
@@ -118,7 +120,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     /**
      * Get the number of pending jobs.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return int
      */
     public function pendingSize($queue = null)
@@ -134,7 +136,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     /**
      * Get the number of delayed jobs.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return int
      */
     public function delayedSize($queue = null)
@@ -150,7 +152,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     /**
      * Get the number of reserved jobs.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return int
      */
     public function reservedSize($queue = null)
@@ -166,7 +168,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     /**
      * Get the pending jobs for the given queue.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return \Illuminate\Support\Collection
      */
     public function pendingJobs($queue = null): Collection
@@ -177,7 +179,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     /**
      * Get the delayed jobs for the given queue.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return \Illuminate\Support\Collection
      */
     public function delayedJobs($queue = null): Collection
@@ -188,7 +190,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     /**
      * Get the reserved jobs for the given queue.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return \Illuminate\Support\Collection
      */
     public function reservedJobs($queue = null): Collection
@@ -231,7 +233,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
      *
      * Not supported by SQS, returns null.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return int|null
      */
     public function creationTimeOfOldestPendingJob($queue = null)
@@ -245,14 +247,14 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
      *
      * @param  string  $job
      * @param  mixed  $data
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return mixed
      */
     public function push($job, $data = '', $queue = null)
     {
         return $this->enqueueUsing(
             $job,
-            $this->createPayload($job, $queue ?: $this->default, $data),
+            $this->createPayload($job, enum_value($queue) ?: $this->default, $data),
             $queue,
             null,
             function ($payload, $queue) use ($job) {
@@ -265,7 +267,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
      * Push a raw payload onto the queue.
      *
      * @param  string  $payload
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @param  array  $options
      * @return mixed
      */
@@ -286,14 +288,14 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
      * @param  \DateTimeInterface|\DateInterval|int  $delay
      * @param  string  $job
      * @param  mixed  $data
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return mixed
      */
     public function later($delay, $job, $data = '', $queue = null)
     {
         return $this->enqueueUsing(
             $job,
-            $this->createPayload($job, $queue ?: $this->default, $data, $delay),
+            $this->createPayload($job, enum_value($queue) ?: $this->default, $data, $delay),
             $queue,
             $delay,
             function ($payload, $queue, $delay) use ($job) {
@@ -307,7 +309,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
      *
      * @param  array  $jobs
      * @param  mixed  $data
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return void
      */
     public function bulk($jobs, $data = '', $queue = null)
@@ -338,24 +340,6 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     }
 
     /**
-     * Partition the given jobs by whether they should be deferred until the active database transaction commits.
-     *
-     * @param  array  $jobs
-     * @return array{0: array, 1: array}
-     */
-    protected function partitionJobsByAfterCommit(array $jobs)
-    {
-        if (! $this->container->bound('db.transactions')) {
-            return [[], $jobs];
-        }
-
-        return (new Collection($jobs))
-            ->partition(fn ($job) => $this->shouldDispatchAfterCommit($job))
-            ->map(fn ($jobs) => $jobs->values()->all())
-            ->all();
-    }
-
-    /**
      * Create the payload for each of the given jobs.
      *
      * Payloads are created at dispatch time, even for jobs deferred until after the transaction commits.
@@ -374,7 +358,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
                 return [
                     'job' => $job,
                     'delay' => $delay,
-                    'payload' => $this->createPayload($job, $queue ?: $this->default, $data, $delay),
+                    'payload' => $this->createPayload($job, enum_value($queue) ?: $this->default, $data, $delay),
                 ];
             })
             ->all();
@@ -549,7 +533,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     public function getQueueableOptions($job, $queue, $payload, $delay = null): array
     {
         // Make sure we have a queue name to properly determine if it's a FIFO queue...
-        $queue ??= $this->default;
+        $queue = enum_value($queue) ?? $this->default;
 
         $isObject = is_object($job);
         $isFifo = str_ends_with((string) $queue, '.fifo');
@@ -606,7 +590,7 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     /**
      * Pop the next job off of the queue.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return \Illuminate\Contracts\Queue\Job|null
      */
     public function pop($queue = null)
@@ -649,12 +633,12 @@ class SqsQueue extends Queue implements QueueContract, ClearableQueue
     /**
      * Get the queue or return the default.
      *
-     * @param  string|null  $queue
+     * @param  \UnitEnum|string|null  $queue
      * @return string
      */
     public function getQueue($queue)
     {
-        $queue = $queue ?: $this->default;
+        $queue = enum_value($queue) ?: $this->default;
 
         return filter_var($queue, FILTER_VALIDATE_URL) === false
             ? $this->suffixQueue($queue, $this->suffix)

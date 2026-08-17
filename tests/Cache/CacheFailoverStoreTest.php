@@ -9,7 +9,7 @@ use Illuminate\Cache\FailoverStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Cache\CanFlushLocks;
 use Illuminate\Contracts\Events\Dispatcher;
-use Mockery as m;
+use Mockery;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -32,11 +32,11 @@ class CacheFailoverStoreTest extends TestCase
         $storeA->lock('lock-a', 60)->get();
         $storeB->lock('lock-b', 60)->get();
 
-        $cache = m::mock(CacheManager::class);
-        $cache->shouldReceive('store')->with('store-a')->andReturn(new Repository($storeA));
-        $cache->shouldReceive('store')->with('store-b')->andReturn(new Repository($storeB));
+        $cache = Mockery::mock(CacheManager::class);
+        $cache->expects('store')->with('store-a')->andReturn(new Repository($storeA));
+        $cache->expects('store')->with('store-b')->andReturn(new Repository($storeB));
 
-        $failover = new FailoverStore($cache, m::mock(Dispatcher::class), ['store-a', 'store-b']);
+        $failover = new FailoverStore($cache, Mockery::mock(Dispatcher::class), ['store-a', 'store-b']);
 
         $result = $failover->flushLocks();
 
@@ -60,11 +60,11 @@ class CacheFailoverStoreTest extends TestCase
         $primary->put('key', 'primary-value', 60);
         $secondary->put('key', 'stale-value', 60);
 
-        $cache = m::mock(CacheManager::class);
+        $cache = Mockery::mock(CacheManager::class);
         $cache->shouldReceive('store')->with('primary')->andReturn(new Repository($primary));
         $cache->shouldReceive('store')->with('secondary')->andReturn(new Repository($secondary));
 
-        $failover = new FailoverStore($cache, m::mock(Dispatcher::class), ['primary', 'secondary']);
+        $failover = new FailoverStore($cache, Mockery::mock(Dispatcher::class), ['primary', 'secondary']);
 
         // Read inside a Fiber so the concurrent read path is exercised.
         $value = async(fn () => $failover->get('key'))->await();
@@ -82,11 +82,11 @@ class CacheFailoverStoreTest extends TestCase
         // not corrupted by a faster secondary returning a present value.
         $secondary->put('key', 'stale-value', 60);
 
-        $cache = m::mock(CacheManager::class);
+        $cache = Mockery::mock(CacheManager::class);
         $cache->shouldReceive('store')->with('primary')->andReturn(new Repository($primary));
         $cache->shouldReceive('store')->with('secondary')->andReturn(new Repository($secondary));
 
-        $failover = new FailoverStore($cache, m::mock(Dispatcher::class), ['primary', 'secondary']);
+        $failover = new FailoverStore($cache, Mockery::mock(Dispatcher::class), ['primary', 'secondary']);
 
         $value = async(fn () => $failover->get('key'))->await();
 
@@ -95,18 +95,18 @@ class CacheFailoverStoreTest extends TestCase
 
     public function testSecondaryIsConsultedWhenPrimaryReadThrows()
     {
-        $primary = m::mock(Repository::class);
+        $primary = Mockery::mock(Repository::class);
         $primary->shouldReceive('get')->with('key')->andThrow(new RuntimeException('primary down'));
 
         $secondary = new ArrayStore;
         $secondary->put('key', 'secondary-value', 60);
 
-        $cache = m::mock(CacheManager::class);
+        $cache = Mockery::mock(CacheManager::class);
         $cache->shouldReceive('store')->with('primary')->andReturn($primary);
         $cache->shouldReceive('store')->with('secondary')->andReturn(new Repository($secondary));
 
-        $events = m::mock(Dispatcher::class);
-        $events->shouldReceive('dispatch')->once()->with(m::type(CacheFailedOver::class));
+        $events = Mockery::mock(Dispatcher::class);
+        $events->shouldReceive('dispatch')->once()->with(Mockery::type(CacheFailedOver::class));
 
         $failover = new FailoverStore($cache, $events, ['primary', 'secondary']);
 
@@ -118,8 +118,8 @@ class CacheFailoverStoreTest extends TestCase
     protected function makeFailoverStore(array $stores): FailoverStore
     {
         return new FailoverStore(
-            m::mock(CacheManager::class),
-            m::mock(Dispatcher::class),
+            Mockery::mock(CacheManager::class),
+            Mockery::mock(Dispatcher::class),
             $stores
         );
     }

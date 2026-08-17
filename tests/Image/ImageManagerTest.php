@@ -15,7 +15,7 @@ use Illuminate\Image\ImageException;
 use Illuminate\Image\ImageManager;
 use Illuminate\Image\ImagePipeline;
 use InvalidArgumentException;
-use Mockery as m;
+use Mockery;
 use PHPUnit\Framework\TestCase;
 
 class ImageManagerTest extends TestCase
@@ -42,7 +42,7 @@ class ImageManagerTest extends TestCase
     {
         $app = $this->makeApp(['images.default' => 'custom']);
 
-        $mockDriver = m::mock(Driver::class);
+        $mockDriver = Mockery::mock(Driver::class);
 
         $manager = new ImageManager($app);
         $manager->extend('custom', function ($app) use ($mockDriver) {
@@ -56,7 +56,7 @@ class ImageManagerTest extends TestCase
     {
         $app = $this->makeApp([]);
 
-        $mockDriver = m::mock(Driver::class);
+        $mockDriver = Mockery::mock(Driver::class);
 
         $manager = new ImageManager($app);
         $manager->extend('custom', function () use ($mockDriver) {
@@ -75,8 +75,7 @@ class ImageManagerTest extends TestCase
 
         $manager = new ImageManager($app);
 
-        $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('Image driver [nonexistent] is not supported.');
+        $this->expectExceptionObject(new InvalidArgumentException('Image driver [nonexistent] is not supported.'));
 
         $manager->driver('nonexistent');
     }
@@ -98,14 +97,13 @@ class ImageManagerTest extends TestCase
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
         $path = $file->getRealPath();
 
-        $filesystem = m::mock(Filesystem::class);
-        $filesystem->shouldReceive('get')
-            ->once()
+        $filesystem = Mockery::mock(Filesystem::class);
+        $filesystem->expects('get')
             ->with($path)
             ->andReturn(file_get_contents($path));
 
         $app = $this->makeApp([]);
-        $app->shouldReceive('make')
+        $app->expects('make')
             ->with(Filesystem::class)
             ->andReturn($filesystem);
 
@@ -118,13 +116,10 @@ class ImageManagerTest extends TestCase
 
     public function test_from_path_is_lazy()
     {
-        $filesystem = m::mock(Filesystem::class);
+        $filesystem = Mockery::mock(Filesystem::class);
         $filesystem->shouldNotReceive('get');
 
         $app = $this->makeApp([]);
-        $app->shouldReceive('make')
-            ->with(Filesystem::class)
-            ->andReturn($filesystem);
 
         $manager = new ImageManager($app);
         $image = $manager->fromPath('/some/path.jpg');
@@ -136,20 +131,18 @@ class ImageManagerTest extends TestCase
     {
         $contents = $this->fakeImageContents();
 
-        $disk = m::mock();
-        $disk->shouldReceive('get')
-            ->once()
+        $disk = Mockery::mock();
+        $disk->expects('get')
             ->with('images/avatar.jpg')
             ->andReturn($contents);
 
-        $filesystem = m::mock(FilesystemFactory::class);
-        $filesystem->shouldReceive('disk')
-            ->once()
+        $filesystem = Mockery::mock(FilesystemFactory::class);
+        $filesystem->expects('disk')
             ->with('public')
             ->andReturn($disk);
 
         $app = $this->makeApp([]);
-        $app->shouldReceive('make')
+        $app->expects('make')
             ->with(FilesystemFactory::class)
             ->andReturn($filesystem);
 
@@ -164,20 +157,18 @@ class ImageManagerTest extends TestCase
     {
         $contents = $this->fakeImageContents();
 
-        $disk = m::mock();
-        $disk->shouldReceive('get')
-            ->once()
+        $disk = Mockery::mock();
+        $disk->expects('get')
             ->with('images/avatar.jpg')
             ->andReturn($contents);
 
-        $filesystem = m::mock(FilesystemFactory::class);
-        $filesystem->shouldReceive('disk')
-            ->once()
+        $filesystem = Mockery::mock(FilesystemFactory::class);
+        $filesystem->expects('disk')
             ->with('public')
             ->andReturn($disk);
 
         $app = $this->makeApp([]);
-        $app->shouldReceive('make')
+        $app->expects('make')
             ->with(FilesystemFactory::class)
             ->andReturn($filesystem);
 
@@ -190,18 +181,63 @@ class ImageManagerTest extends TestCase
 
     public function test_from_storage_is_lazy()
     {
-        $filesystem = m::mock(FilesystemFactory::class);
+        $filesystem = Mockery::mock(FilesystemFactory::class);
         $filesystem->shouldNotReceive('disk');
 
         $app = $this->makeApp([]);
-        $app->shouldReceive('make')
-            ->with(FilesystemFactory::class)
-            ->andReturn($filesystem);
 
         $manager = new ImageManager($app);
         $image = $manager->fromStorage('images/avatar.jpg', 'public');
 
         $this->assertInstanceOf(Image::class, $image);
+    }
+
+    public function test_from_stream_returns_image()
+    {
+        $contents = $this->fakeImageContents();
+        $stream = fopen('php://memory', 'r+');
+        fwrite($stream, $contents);
+        rewind($stream);
+
+        $app = $this->makeApp([]);
+        $manager = new ImageManager($app);
+        $image = $manager->fromStream($stream);
+
+        $this->assertInstanceOf(Image::class, $image);
+        $this->assertSame($contents, $image->toBytes());
+
+        fclose($stream);
+    }
+
+    public function test_from_stream_is_lazy()
+    {
+        $contents = $this->fakeImageContents();
+        $stream = fopen('php://memory', 'r+');
+        fwrite($stream, $contents);
+        rewind($stream);
+
+        $app = $this->makeApp([]);
+        $manager = new ImageManager($app);
+        $image = $manager->fromStream($stream);
+
+        $this->assertInstanceOf(Image::class, $image);
+        $this->assertSame(0, ftell($stream));
+
+        fclose($stream);
+    }
+
+    public function test_from_stream_throws_for_invalid_data()
+    {
+        $stream = fopen('php://memory', 'r+');
+
+        $app = $this->makeApp([]);
+        $manager = new ImageManager($app);
+
+        $this->expectExceptionObject(new ImageException('Invalid stream image data.'));
+
+        $manager->fromStream($stream)->toBytes();
+
+        fclose($stream);
     }
 
     public function test_from_upload_returns_image_from_uploaded_file()
@@ -213,7 +249,7 @@ class ImageManagerTest extends TestCase
         $image = $manager->fromUpload($file);
 
         $this->assertInstanceOf(Image::class, $image);
-        $this->assertSame(file_get_contents($file->getRealPath()), $image->toBytes());
+        $this->assertStringEqualsFile($file->getRealPath(), $image->toBytes());
         $this->assertSame($file, $image->file());
     }
 
@@ -221,13 +257,13 @@ class ImageManagerTest extends TestCase
     {
         $contents = $this->fakeImageContents();
 
-        $http = m::mock(HttpFactory::class);
-        $response = m::mock();
-        $response->shouldReceive('body')->andReturn($contents);
-        $http->shouldReceive('get')->with('https://example.com/photo.jpg')->andReturn($response);
+        $http = Mockery::mock(HttpFactory::class);
+        $response = Mockery::mock();
+        $response->expects('body')->andReturn($contents);
+        $http->expects('get')->with('https://example.com/photo.jpg')->andReturn($response);
 
         $app = $this->makeApp([]);
-        $app->shouldReceive('make')
+        $app->expects('make')
             ->with(HttpFactory::class)
             ->andReturn($http);
 
@@ -240,13 +276,10 @@ class ImageManagerTest extends TestCase
 
     public function test_from_url_is_lazy()
     {
-        $http = m::mock(HttpFactory::class);
+        $http = Mockery::mock(HttpFactory::class);
         $http->shouldNotReceive('get');
 
         $app = $this->makeApp([]);
-        $app->shouldReceive('make')
-            ->with(HttpFactory::class)
-            ->andReturn($http);
 
         $manager = new ImageManager($app);
         $image = $manager->fromUrl('https://example.com/photo.jpg');
@@ -273,8 +306,7 @@ class ImageManagerTest extends TestCase
         $app = $this->makeApp([]);
         $manager = new ImageManager($app);
 
-        $this->expectException(ImageException::class);
-        $this->expectExceptionMessage('Invalid base64 image data.');
+        $this->expectExceptionObject(new ImageException('Invalid base64 image data.'));
 
         $manager->fromBase64('!!!not-base64!!!')->toBytes();
     }
@@ -283,8 +315,8 @@ class ImageManagerTest extends TestCase
     {
         $app = $this->makeApp([]);
 
-        $firstDriver = m::mock(Driver::class);
-        $secondDriver = m::mock(Driver::class);
+        $firstDriver = Mockery::mock(Driver::class);
+        $secondDriver = Mockery::mock(Driver::class);
 
         $manager = new ImageManager($app);
         $manager->extend('custom', fn () => $firstDriver);
@@ -297,8 +329,8 @@ class ImageManagerTest extends TestCase
     {
         $app = $this->makeApp([]);
 
-        $driver1 = m::mock(Driver::class);
-        $driver2 = m::mock(Driver::class);
+        $driver1 = Mockery::mock(Driver::class);
+        $driver2 = Mockery::mock(Driver::class);
 
         $manager = new ImageManager($app);
         $manager->extend('one', fn () => $driver1);
@@ -324,6 +356,11 @@ class ImageManagerTest extends TestCase
             public function dominantColor(string $contents): string
             {
                 return '#000000';
+            }
+
+            public function dimensions(string $contents): array
+            {
+                return [0, 0];
             }
 
             public function transformUsing(string $transformation, callable $callback): static
@@ -362,6 +399,11 @@ class ImageManagerTest extends TestCase
                 return '#000000';
             }
 
+            public function dimensions(string $contents): array
+            {
+                return [0, 0];
+            }
+
             public function transformUsing(string $transformation, callable $callback): static
             {
                 $this->handlers[$transformation] = $callback;
@@ -391,7 +433,7 @@ class ImageManagerTest extends TestCase
 
     protected function makeApp(array $config): Application
     {
-        $app = m::mock(Application::class, \ArrayAccess::class);
+        $app = Mockery::mock(Application::class, \ArrayAccess::class);
 
         $configRepo = new Repository($config);
 

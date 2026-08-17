@@ -8,7 +8,7 @@ use Illuminate\Foundation\Testing\Concerns\InteractsWithRedis;
 use Illuminate\Redis\Connections\PhpRedisClusterConnection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Sleep;
-use Mockery as m;
+use Mockery;
 use Orchestra\Testbench\TestCase;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\Attributes\TestWith;
@@ -19,8 +19,6 @@ class RedisStoreTest extends TestCase
 {
     use InteractsWithRedis;
 
-    /** {@inheritdoc} */
-    #[\Override]
     protected function setUp(): void
     {
         $this->afterApplicationCreated(function () {
@@ -259,8 +257,8 @@ class RedisStoreTest extends TestCase
 
     public function testPutManyCallsPutWhenClustered()
     {
-        $store = m::mock(RedisStore::class)->makePartial();
-        $store->expects('connection')->andReturn(m::mock(PhpRedisClusterConnection::class));
+        $store = Mockery::mock(RedisStore::class)->makePartial();
+        $store->expects('connection')->andReturn(Mockery::mock(PhpRedisClusterConnection::class));
         $store->expects('put')
             ->twice()
             ->andReturn(true);
