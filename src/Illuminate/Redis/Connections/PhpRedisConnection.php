@@ -22,7 +22,7 @@ class PhpRedisConnection extends Connection implements ConnectionContract
      *
      * @var list<string>
      */
-    protected const RETRYABLE_COMMANDS = [
+    protected const array RETRYABLE_COMMANDS = [
         'bitcount',
         'bitpos',
         'dbsize',

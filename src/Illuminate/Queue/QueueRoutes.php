@@ -122,13 +122,9 @@ class QueueRoutes
             class_uses_recursive($queueable)
         );
 
-        foreach ($classes as $class) {
-            if (isset($this->routes[$class])) {
-                return $this->routes[$class];
-            }
-        }
+        $match = array_find($classes, fn ($class) => isset($this->routes[$class]));
 
-        return null;
+        return $match !== null ? $this->routes[$match] : null;
     }
 
     /**

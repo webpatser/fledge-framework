@@ -2,6 +2,32 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.26.1.2 - 2026-08-19
+
+### Optimized
+- `Redis/Connections/PhpRedisConnection.php`: typed the new `RETRYABLE_COMMANDS` constant (`const array`), matching the typed-constant pattern used across Fledge.
+- `Queue/QueueRoutes.php`: `getRoute()` foreach-with-early-return -> `array_find()` over the class/parent/interface/trait list, matching the `array_find` usage in `DevCommands` and `NodePackageManager`.
+- Nothing else qualified: `Worker::raisePausedQueueEvents()` is already minimal `array_diff` work, the Guzzle 7/8 `responseFromException()` shim in `PendingRequest` deliberately uses runtime capability checks, and the new `ReadThroughFilesystem`/`FluentPromise`/`LazyPromise` classes already use promoted constructor properties and first-class callables.
+
+## v13.26.1.1 - 2026-08-19
+
+### Synced
+- Merge upstream Laravel v13.25.0 -> v13.26.1 (62 commits, 113 files; 112 files changed in the squash, 3,634 insertions, 367 deletions). Headline upstream changes: Guzzle 8 support (constraints widened to `guzzlehttp/guzzle ^7.8.2 || ^8.0` with `promises ^3`, `psr7 ^3`, `uri-template ^2`, and the `PendingRequest` exception marshaling rewritten around `responseFromException()` / `marshalTransportException*()` to cover Guzzle 8's `ResponseException`); a PhpRedis command-retry mechanism (`RETRYABLE_COMMANDS` allow-list, `command_retries` config, retry loop on dropped connections, `discard()` cleanup when `pipeline()`/`transaction()` callbacks throw); `WorkerQueuePaused`/`WorkerQueueResumed`/`JobReleased` queue events; a read-through filesystem driver (`ReadThroughFilesystem` + adapter); process idle timeouts (`ProcessIdleTimedOutException`); lazy/fluent HTTP client promises; `throwUnless()` accepting callables; an `expandUrlParameters()` fast path; and `artisan dev` refinements (unpinned `@laravel/multiplex`, Pail/`package.json` presence checks).
+- Conflicts: 67 files conflicted off the ancient squash base; 15 outside the upstream delta kept from Fledge, 43 inside the delta but untouched by Fledge taken from upstream wholesale, 9 hand-merged:
+  - `Foundation/Application.php`: keep the typed VERSION constant, bumped to `13.26.1`.
+  - `Http/Client/PendingRequest.php`: upstream's Guzzle 8 marshaling rewrite taken (only the `ResponseInterface` import conflicted); persistent-cURL wiring lives in `Factory`/`PersistentCurlShareManager` and carried through untouched.
+  - `Queue/SqsQueue.php`: upstream's `resolveQueue()` calls in `getQueueableOptions()`/`getQueue()` taken; Fledge's typed constants kept (the auto-merge duplicated `MAX_MESSAGES_PER_BATCH`, caught by the test suite and de-duplicated).
+  - `Cache/RedisTagSet.php`: kept the fiber-concurrent `addEntry()`; upstream's stringified cursor comparison in `entries()` auto-merged.
+  - `Cache/RedisStore.php`: upstream's new `flushStaleTags` cursor test mocks `_prefix('')` directly, so `currentTags()` returns to upstream's per-client prefix `match` with Fledge's polymorphic `$connection->getPrefix()` as the default arm for fiber connections.
+  - `Foundation/Console/DevCommand.php` / `Foundation/DevCommands.php`: upstream's multiplex unpinning and Pail/`package.json` guards taken; Fledge's `array_find()` in `resolveSource()` kept.
+  - `composer.json` (root + Http package): Guzzle 8 constraint widening and `psr/http-message` promotion to `require` taken; PHP 8.5 pins, polyfill removals, no `league/uri`, fledge-fiber and `laravel/pao` kept.
+  - `.github/workflows/databases.yml` / `tests.yml`: upstream's MySQL 8.4 + 9.7 matrix and 9.7 image bump taken onto the PHP 8.5-only Fledge matrices.
+- Squash-merge artifacts (the usual suspects): `install-nightly.yml` resurrected (re-deleted), the `permissions:` block in `tests.yml` duplicated again and caught by CI (restored, seventh sync in a row), the stale `@phpstan-ignore` in `MySqlSchemaState.php` resurrected again (re-deleted).
+- Tests: 14,550 passing (15,085 total, 526 skipped). Besides the four known-environmental `RedisConnectionTest::*scansForKeys` cursor errors, four failures from dev-dependency drift appeared (`DatabaseEloquentBelongsToManyCreateOrFirstTest` partial-mock constructor with current Mockery, `DatabaseMigrationRefreshCommandTest` x3 on symfony/console's uninitialized `$defaultCommand`); all four reproduce identically on a pristine v13.25.0.2 worktree with fresh dependencies and on upstream laravel/framework's own 13.x CI (red since 2026-08-19). Root cause: Mockery 1.6.13/1.6.14 (released 2026-08-15/18) broke partial-mock constructors; `mockery/mockery` is capped at `^1.6.10 <1.6.13` in require-dev until a fixed release lands. With the cap, the suite is fully green except the four known cursor errors. Both phpstan configs clean.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.25.0.2 - 2026-08-17
 
 ### Optimized
