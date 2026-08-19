@@ -405,7 +405,11 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
         $connection = $this->connection();
 
         // Connections can have a global prefix...
-        $connectionPrefix = $connection->getPrefix();
+        $connectionPrefix = match (true) {
+            $connection instanceof PhpRedisConnection => $connection->_prefix(''),
+            $connection instanceof PredisConnection => $connection->getOptions()->prefix ?: '',
+            default => $connection->getPrefix(),
+        };
 
         $defaultCursorValue = match (true) {
             $connection instanceof PhpRedisConnection && version_compare(phpversion('redis'), '6.1.0', '>=') => null,
@@ -442,7 +446,7 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
                 foreach ($tagsChunk as $tag) {
                     yield $tag;
                 }
-            } while (((string) $cursor) !== $defaultCursorValue);
+            } while (((string) $cursor) !== ((string) $defaultCursorValue));
         }))->map(fn (string $tagKey) => Str::match('/^'.preg_quote($prefix, '/').'tag:(.*):entries$/', $tagKey));
     }
 

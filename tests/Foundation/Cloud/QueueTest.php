@@ -36,12 +36,14 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Sleep;
 use Illuminate\Support\Str;
 use Illuminate\Support\Testing\Fakes\QueueFake;
 use InvalidArgumentException;
 use Mockery\MockInterface;
 use Orchestra\Testbench\Attributes\WithMigration;
 use Orchestra\Testbench\TestCase;
+use PHPUnit\Framework\Attributes\TestWith;
 use Ramsey\Uuid\Uuid;
 use RuntimeException;
 use Throwable;
@@ -475,7 +477,8 @@ class QueueTest extends TestCase
         $job = $queue->pop();
         $job->fail();
         Str::createUuidsUsingSequence([Uuid::fromString('00dc709e-90c4-70c2-87c8-9b7127d20e8f')]);
-        $failedJobProvider->log('cloud', 'default', ['payload' => 'here'], new RuntimeException('Whoops!'));
+        $line = __LINE__ + 1;
+        $failedJobProvider->log('cloud', 'default', json_encode(['payload' => 'here', 'displayName' => 'App\\Jobs\\ProcessPodcast']), new RuntimeException('Whoops!'));
         Str::createUuidsNormally();
         $queue->pop();
 
@@ -493,9 +496,9 @@ class QueueTest extends TestCase
                 'queue' => 'default',
                 'started_at' => '2000-01-02 03:04:05.060708',
                 'attempts' => 1,
-                'payload' => [
-                    'payload' => 'here',
-                ],
+                'payload' => json_encode(['payload' => 'here', 'displayName' => 'App\\Jobs\\ProcessPodcast']),
+                'exception_preview' => 'RuntimeException: Whoops! in '.__FILE__.':'.$line,
+                'job_name' => 'App\\Jobs\\ProcessPodcast',
             ],
             [
                 '_cloud_event' => 'queue',
@@ -505,6 +508,170 @@ class QueueTest extends TestCase
                 'duration_ms' => 0,
             ],
         ], $eventsFake->emitted);
+    }
+
+    public function testItEmitsFailedJobEventsWithExceptionPreviewWithMessage()
+    {
+        $this->travelTo('2000-01-02 03:04:05.060708');
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $failerFake = $this->fakeFailer();
+        $failedJobProvider = new FailedJobProvider($failerFake, $eventsFake, $this->app['encrypter']);
+        $failedJobProvider->setQueue($queue);
+        $this->app[FailedJobProvider::class] = $failedJobProvider;
+
+        $agent->pushJob();
+        $job = $queue->pop();
+        $job->fail();
+        Str::createUuidsUsingSequence([Uuid::fromString('00dc709e-90c4-70c2-87c8-9b7127d20e8f')]);
+        $line = __LINE__ + 1;
+        $failedJobProvider->log('cloud', 'default', json_encode(['payload' => 'here']), new RuntimeException('Whoops!'));
+        Str::createUuidsNormally();
+        $queue->pop();
+
+        $this->assertSame(
+            'RuntimeException: Whoops! in '.__FILE__.':'.$line,
+            $eventsFake->emitted[1]['exception_preview'],
+        );
+    }
+
+    public function testItEmitsFailedJobEventsWithExceptionPreviewWithoutMessage()
+    {
+        $this->travelTo('2000-01-02 03:04:05.060708');
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $failerFake = $this->fakeFailer();
+        $failedJobProvider = new FailedJobProvider($failerFake, $eventsFake, $this->app['encrypter']);
+        $failedJobProvider->setQueue($queue);
+        $this->app[FailedJobProvider::class] = $failedJobProvider;
+
+        $agent->pushJob();
+        $job = $queue->pop();
+        $job->fail();
+        Str::createUuidsUsingSequence([Uuid::fromString('00dc709e-90c4-70c2-87c8-9b7127d20e8f')]);
+        $line = __LINE__ + 1;
+        $failedJobProvider->log('cloud', 'default', json_encode(['payload' => 'here']), new RuntimeException);
+        Str::createUuidsNormally();
+        $queue->pop();
+
+        $this->assertSame(
+            'RuntimeException in '.__FILE__.':'.$line,
+            $eventsFake->emitted[1]['exception_preview'],
+        );
+    }
+
+    public function testItTruncatesLongExceptionPreviews()
+    {
+        $this->travelTo('2000-01-02 03:04:05.060708');
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $failerFake = $this->fakeFailer();
+        $failedJobProvider = new FailedJobProvider($failerFake, $eventsFake, $this->app['encrypter']);
+        $failedJobProvider->setQueue($queue);
+        $this->app[FailedJobProvider::class] = $failedJobProvider;
+
+        $agent->pushJob();
+        $job = $queue->pop();
+        $job->fail();
+        $failedJobProvider->log('cloud', 'default', json_encode(['payload' => 'here']), new RuntimeException(str_repeat('a', 2000)));
+        $queue->pop();
+
+        $this->assertSame(1001, mb_strlen($eventsFake->emitted[1]['exception_preview']));
+        $this->assertSame('RuntimeException: '.str_repeat('a', 1001 - strlen('RuntimeException: ')), $eventsFake->emitted[1]['exception_preview']);
+    }
+
+    public function testItTruncatesExceptionPreviewsByWidthNotByteCountForMultibyteMessages()
+    {
+        $this->travelTo('2000-01-02 03:04:05.060708');
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $failerFake = $this->fakeFailer();
+        $failedJobProvider = new FailedJobProvider($failerFake, $eventsFake, $this->app['encrypter']);
+        $failedJobProvider->setQueue($queue);
+        $this->app[FailedJobProvider::class] = $failedJobProvider;
+
+        $message = str_repeat('😎', 4).str_repeat('a', 2000);
+
+        $agent->pushJob();
+        $job = $queue->pop();
+        $job->fail();
+        $failedJobProvider->log('cloud', 'default', json_encode(['payload' => 'here']), new RuntimeException($message));
+        $queue->pop();
+
+        $this->assertSame(1001, mb_strlen($eventsFake->emitted[1]['exception_preview']));
+        $this->assertSame('RuntimeException: '.str_repeat('😎', 4).str_repeat('a', 1001 - 4 - strlen('RuntimeException: ')), $eventsFake->emitted[1]['exception_preview']);
+    }
+
+    public function testItSanitizesInvalidUtf8InTheExceptionField()
+    {
+        $this->travelTo('2000-01-02 03:04:05.060708');
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $failerFake = $this->fakeFailer();
+        $failedJobProvider = new FailedJobProvider($failerFake, $eventsFake, $this->app['encrypter']);
+        $failedJobProvider->setQueue($queue);
+        $this->app[FailedJobProvider::class] = $failedJobProvider;
+
+        $agent->pushJob();
+        $job = $queue->pop();
+        $job->fail();
+        Str::createUuidsUsingSequence([Uuid::fromString('00dc709e-90c4-70c2-87c8-9b7127d20e8f')]);
+        $failedJobProvider->log('cloud', 'default', json_encode(['payload' => 'here']), new RuntimeException("Bad byte: \xFF"));
+        Str::createUuidsNormally();
+        $queue->pop();
+
+        $this->assertTrue(mb_check_encoding($eventsFake->stream, 'UTF-8'));
+        $this->assertTrue(mb_check_encoding($eventsFake->emitted[1]['exception'], 'UTF-8'));
+        $this->assertStringContainsString('Bad byte: �', $eventsFake->emitted[1]['exception']);
+        $this->assertStringContainsString('Bad byte: ?', $eventsFake->emitted[1]['exception_preview']);
+    }
+
+    public function testItEmitsFailedJobEventsWithJobDisplayName()
+    {
+        $this->travelTo('2000-01-02 03:04:05.060708');
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $failerFake = $this->fakeFailer();
+        $failedJobProvider = new FailedJobProvider($failerFake, $eventsFake, $this->app['encrypter']);
+        $failedJobProvider->setQueue($queue);
+        $this->app[FailedJobProvider::class] = $failedJobProvider;
+
+        $agent->pushJob();
+        $job = $queue->pop();
+        $job->fail();
+        Str::createUuidsUsingSequence([Uuid::fromString('00dc709e-90c4-70c2-87c8-9b7127d20e8f')]);
+        $failedJobProvider->log('cloud', 'default', json_encode(['displayName' => 'App\\Jobs\\ProcessPodcast']), new RuntimeException('Whoops!'));
+        Str::createUuidsNormally();
+        $queue->pop();
+
+        $this->assertSame(
+            'App\\Jobs\\ProcessPodcast',
+            $eventsFake->emitted[1]['job_name'],
+        );
+    }
+
+    public function testItEmitsFailedJobEventsWithoutJobDisplayName()
+    {
+        $this->travelTo('2000-01-02 03:04:05.060708');
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $failerFake = $this->fakeFailer();
+        $failedJobProvider = new FailedJobProvider($failerFake, $eventsFake, $this->app['encrypter']);
+        $failedJobProvider->setQueue($queue);
+        $this->app[FailedJobProvider::class] = $failedJobProvider;
+
+        $agent->pushJob();
+        $job = $queue->pop();
+        $job->fail();
+        Str::createUuidsUsingSequence([Uuid::fromString('00dc709e-90c4-70c2-87c8-9b7127d20e8f')]);
+        $failedJobProvider->log('cloud', 'default', json_encode(['payload' => 'here']), new RuntimeException('Whoops!'));
+        Str::createUuidsNormally();
+        $queue->pop();
+
+        $this->assertSame(
+            '',
+            $eventsFake->emitted[1]['job_name'],
+        );
     }
 
     public function testItEmitsReleasedJobEvents()
@@ -896,6 +1063,7 @@ class QueueTest extends TestCase
 
     public function testPopThrowsWhenTheAgentSocketIsUnreachable()
     {
+        Sleep::fake();
         $this->fakeEvents();
         [$queue] = $this->fakeQueue();
 
@@ -905,6 +1073,53 @@ class QueueTest extends TestCase
         $this->expectException(AgentUnreachableException::class);
 
         $queue->pop();
+    }
+
+    public function testPopRetriesATimedOutLongPollImmediately()
+    {
+        Sleep::fake();
+        $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+
+        // A worker that scaled to zero mid long-poll wakes with its request
+        // deadline lapsed, so the poll times out even though the agent is
+        // healthy. The poll is retried transparently - and without any backoff,
+        // since the agent typically answers the fresh attempt at once.
+        $agent->nextExceptions = [$this->pollTimeoutException()];
+        $agent->pushJob(['messageId' => 'message-id', 'body' => 'job-body']);
+
+        $job = $queue->pop();
+
+        $this->assertInstanceOf(CloudJob::class, $job);
+        $this->assertSame('message-id', $job->getJobId());
+        $this->assertSame(2, $agent->nextRequests);
+        Sleep::assertNeverSlept();
+    }
+
+    public function testPopThrowsWhenEveryLongPollAttemptTimesOut()
+    {
+        Sleep::fake();
+        $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+
+        // Timeouts across the original attempt and both retries mean the agent is
+        // live but wedged - the socket accepts, yet nothing answers - so it
+        // escalates to restart the pod. The second retry backs off to give an
+        // agent that is itself still waking a moment to recover.
+        $agent->nextExceptions = [
+            $this->pollTimeoutException(),
+            $this->pollTimeoutException(),
+            $this->pollTimeoutException(),
+        ];
+
+        try {
+            $queue->pop();
+
+            $this->fail('AgentUnreachableException was not thrown.');
+        } catch (AgentUnreachableException) {
+            $this->assertSame(3, $agent->nextRequests);
+            Sleep::assertSequence([Sleep::usleep(500_000)]);
+        }
     }
 
     public function testAgentAwareDetectorTreatsAnUnreachableAgentAsALostConnection()
@@ -1539,6 +1754,17 @@ class QueueTest extends TestCase
         $this->assertSame('orders.fifo', $eventsFake->emitted[0]['queue']);
     }
 
+    #[TestWith([['default', 'emails']], 'standard list')]
+    #[TestWith([['default' => ['timeout' => 10], 'emails' => ['timeout' => 1]]], 'map keyed by name')]
+    public function testManagedQueuesReturnsTheConfiguredQueueNames($queues)
+    {
+        config(['queue.connections.cloud.queues' => $queues]);
+        $this->fakeEvents();
+        [$queue] = $this->mockedQueue();
+
+        $this->assertSame(['default', 'emails'], $queue->managedQueues());
+    }
+
     /**
      * @return array{Queue, MockInterface<SqsClient>}
      */
@@ -1577,13 +1803,20 @@ class QueueTest extends TestCase
         return $this->app->instance(Events::class, new class('test-socket') extends Events
         {
             public array $emitted = [];
+            public string $stream = '';
 
-            public function emitMany(array $payloads): void
+            protected function connected(): bool
             {
-                $this->emitted = [
-                    ...$this->emitted,
-                    ...$payloads,
-                ];
+                return true;
+            }
+
+            protected function write(string $payload): void
+            {
+                $this->stream .= $payload;
+
+                foreach (explode("\n", rtrim($payload, "\n")) as $write) {
+                    $this->emitted[] = json_decode($write, associative: true);
+                }
             }
         });
     }
@@ -1694,6 +1927,16 @@ class QueueTest extends TestCase
 
             public $nextResponse = null;
 
+            /**
+             * Exceptions GET /next throws, one per request, before serving jobs.
+             */
+            public array $nextExceptions = [];
+
+            /**
+             * The number of GET /next requests the agent has received.
+             */
+            public int $nextRequests = 0;
+
             public function pushJob(array $job = []): array
             {
                 $job = array_merge([
@@ -1714,6 +1957,12 @@ class QueueTest extends TestCase
 
         Http::fake(function ($request) use ($agent) {
             if (str_ends_with($request->url(), '/next')) {
+                $agent->nextRequests++;
+
+                if ($exception = array_shift($agent->nextExceptions)) {
+                    throw $exception;
+                }
+
                 if ($agent->nextResponse !== null) {
                     return $agent->nextResponse;
                 }
@@ -1737,6 +1986,18 @@ class QueueTest extends TestCase
         });
 
         return $agent;
+    }
+
+    /**
+     * Build the exception a timed-out GET /next long-poll surfaces as. The
+     * message mirrors the curl handler's format, which the client preserves
+     * when wrapping Guzzle's ConnectException.
+     */
+    private function pollTimeoutException(): ConnectionException
+    {
+        return new ConnectionException(
+            'cURL error 28: Operation timed out after 76900 milliseconds with 0 bytes received (see https://curl.se/libcurl/c/libcurl-errors.html) for http://localhost/next'
+        );
     }
 
     private function fakeFailer()

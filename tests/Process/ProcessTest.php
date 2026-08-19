@@ -5,9 +5,11 @@ namespace Illuminate\Tests\Process;
 use Carbon\CarbonInterval;
 use Illuminate\Contracts\Process\ProcessResult;
 use Illuminate\Process\Exceptions\ProcessFailedException;
+use Illuminate\Process\Exceptions\ProcessIdleTimedOutException;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
 use Illuminate\Process\Factory;
 use OutOfBoundsException;
+use PHPUnit\Framework\AssertionFailedError;
 use PHPUnit\Framework\Attributes\RequiresOperatingSystem;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -112,6 +114,48 @@ class ProcessTest extends TestCase
         $this->assertInstanceOf(ProcessResult::class, $poolResults[1]);
         $this->assertStringContainsString('ProcessTest.php', $poolResults[0]->output());
         $this->assertStringContainsString('ProcessTest.php', $poolResults[1]->output());
+    }
+
+    public function testInvokedProcessPoolCanBeIterated()
+    {
+        $factory = new Factory;
+
+        $pool = $factory->pool(function ($pool) {
+            return [
+                $pool->as('first')->path(__DIR__)->command($this->ls()),
+                $pool->as('second')->path(__DIR__)->command($this->ls()),
+            ];
+        })->start();
+
+        $keys = [];
+
+        foreach ($pool as $key => $process) {
+            $keys[] = $key;
+        }
+
+        $pool->wait();
+
+        $this->assertSame(['first', 'second'], $keys);
+    }
+
+    public function testProcessPoolResultsCanBeIterated()
+    {
+        $factory = new Factory;
+
+        $results = $factory->pool(function ($pool) {
+            return [
+                $pool->as('first')->path(__DIR__)->command($this->ls()),
+                $pool->as('second')->path(__DIR__)->command($this->ls()),
+            ];
+        })->wait();
+
+        $iterated = [];
+
+        foreach ($results as $key => $result) {
+            $iterated[$key] = $result->successful();
+        }
+
+        $this->assertSame(['first' => true, 'second' => true], $iterated);
     }
 
     public function testProcessPoolResultsCanBeEvaluatedByName()
@@ -652,6 +696,58 @@ class ProcessTest extends TestCase
     }
 
     #[RequiresOperatingSystem('Linux|Darwin')]
+    public function testGeneralTimeoutsThrowTheBaseException()
+    {
+        $factory = new Factory;
+
+        try {
+            $factory->timeout(1)->path(__DIR__)->run('sleep 2;');
+
+            $this->fail('The process did not time out.');
+        } catch (ProcessTimedOutException $e) {
+            $this->assertNotInstanceOf(ProcessIdleTimedOutException::class, $e);
+            $this->assertSame(1.0, $e->exceededTimeout());
+        }
+    }
+
+    #[RequiresOperatingSystem('Linux|Darwin')]
+    public function testIdleTimeoutsThrowTheIdleException()
+    {
+        $factory = new Factory;
+
+        try {
+            $factory->timeout(10)->idleTimeout(1)->path(__DIR__)->run('sleep 5;');
+
+            $this->fail('The process did not time out.');
+        } catch (ProcessIdleTimedOutException $e) {
+            $this->assertSame(1.0, $e->exceededTimeout());
+        }
+    }
+
+    #[RequiresOperatingSystem('Linux|Darwin')]
+    public function testIdleTimeoutsAreStillCaughtByTheBaseException()
+    {
+        $this->expectException(ProcessTimedOutException::class);
+
+        $factory = new Factory;
+        $factory->timeout(10)->idleTimeout(1)->path(__DIR__)->run('sleep 5;');
+    }
+
+    #[RequiresOperatingSystem('Linux|Darwin')]
+    public function testTimedOutProcessesStillExposeTheirResult()
+    {
+        $factory = new Factory;
+
+        try {
+            $factory->timeout(1)->path(__DIR__)->run('echo "Hello World"; sleep 2;');
+
+            $this->fail('The process did not time out.');
+        } catch (ProcessTimedOutException $e) {
+            $this->assertStringContainsString('Hello World', $e->result->output());
+        }
+    }
+
+    #[RequiresOperatingSystem('Linux|Darwin')]
     public function testRealProcessesCanThrowIfTrue()
     {
         $this->expectException(ProcessFailedException::class);
@@ -1076,6 +1172,61 @@ class ProcessTest extends TestCase
         $factory->start('0')->wait();
 
         $factory->assertRan('0');
+    }
+
+    public function testAssertingProcessesRanInOrder()
+    {
+        $factory = new Factory;
+        $factory->fake();
+
+        $factory->run('git fetch');
+        $factory->run('git reset --hard origin/main');
+        $factory->run('composer install --no-dev');
+
+        $factory->assertRanInOrder([
+            'git fetch',
+            'git reset --hard origin/main',
+            fn ($process) => str_starts_with($process->command, 'composer install'),
+        ]);
+    }
+
+    public function testAssertingProcessesRanInOrderFailsWhenOutOfOrder()
+    {
+        $this->expectException(AssertionFailedError::class);
+
+        $factory = new Factory;
+        $factory->fake();
+
+        $factory->run('composer install');
+        $factory->run('git fetch');
+
+        $factory->assertRanInOrder(['git fetch', 'composer install']);
+    }
+
+    public function testAssertingProcessesRanInOrderFailsWhenCountDiffers()
+    {
+        $this->expectException(AssertionFailedError::class);
+
+        $factory = new Factory;
+        $factory->fake();
+
+        $factory->run('git fetch');
+
+        $factory->assertRanInOrder(['git fetch', 'composer install']);
+    }
+
+    public function testFakeAssertionsWithArrayCommands()
+    {
+        $factory = new Factory;
+        $factory->fake();
+
+        $factory->run(['php', 'artisan', 'migrate']);
+
+        $factory->assertRan(['php', 'artisan', 'migrate']);
+        $factory->assertRanTimes(['php', 'artisan', 'migrate'], 1);
+        $factory->assertNotRan(['php', 'artisan', 'migrate:rollback']);
+        $factory->assertDidntRun(['php', 'artisan', 'migrate:rollback']);
+        $factory->assertRanInOrder([['php', 'artisan', 'migrate']]);
     }
 
     public function testAssertingThatNothingRan()
