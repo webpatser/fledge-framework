@@ -1,8 +1,9 @@
 <?php
 
-namespace Tests\Tests\Foundation;
+namespace Illuminate\Tests\Foundation\Cloud;
 
 use Aws\CommandInterface;
+use Aws\Credentials\Credentials;
 use Aws\Exception\AwsException;
 use Aws\HandlerList;
 use Aws\MockHandler;
@@ -10,7 +11,6 @@ use Aws\Result;
 use Aws\Sqs\SqsClient;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\LostConnectionDetector;
-use Illuminate\Foundation\Cloud;
 use Illuminate\Foundation\Cloud\AgentAwareLostConnectionDetector;
 use Illuminate\Foundation\Cloud\AgentUnreachableException;
 use Illuminate\Foundation\Cloud\CloudJob;
@@ -19,6 +19,7 @@ use Illuminate\Foundation\Cloud\FailedJobProvider;
 use Illuminate\Foundation\Cloud\ManagedQueueNotFoundException;
 use Illuminate\Foundation\Cloud\Queue;
 use Illuminate\Foundation\Cloud\QueueConnector;
+use Illuminate\Foundation\CloudBootstrapper;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -112,7 +113,7 @@ class QueueTest extends TestCase
         $_SERVER['argv'] = ['artisan', 'queue:work'];
 
         try {
-            Cloud::bootManagedQueues($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
             $this->assertTrue(Worker::$restartable);
 
             $this->app['queue']->connection('cloud');
@@ -128,7 +129,7 @@ class QueueTest extends TestCase
         $_SERVER['argv'] = ['artisan', 'queue:work'];
 
         try {
-            Cloud::bootManagedQueues($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
             $this->assertTrue(Worker::$pausable);
 
             $this->app['queue']->connection('cloud');
@@ -142,7 +143,7 @@ class QueueTest extends TestCase
     {
         $this->app['config']->set('queue.connections.cloud', null);
 
-        Cloud::configureManagedQueues($this->app);
+        CloudBootstrapper::configureManagedQueues($this->app);
 
         $expected = json_decode($_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES_CONFIG'], true);
         $expected['connection']['after_commit'] = false;
@@ -151,6 +152,11 @@ class QueueTest extends TestCase
             'store' => null,
             'always' => false,
             'delete_after_processing' => true,
+        ];
+        $expected['connection']['credential_cache'] = [
+            'enabled' => false,
+            'store' => null,
+            'fallback_store' => 'file',
         ];
 
         $this->assertSame(
@@ -164,7 +170,7 @@ class QueueTest extends TestCase
         unset($_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES_CONFIG']);
         $this->app['config']->set('queue.connections.cloud', null);
 
-        Cloud::configureManagedQueues($this->app);
+        CloudBootstrapper::configureManagedQueues($this->app);
 
         $this->assertNull($this->app['config']->get('queue.connections.cloud'));
     }
@@ -172,21 +178,21 @@ class QueueTest extends TestCase
     public function testItBindsQueueConnectorAndNewsUpSqsConnector()
     {
         $this->app->bind(SqsConnector::class, fn () => throw new RuntimeException('Should not be resolved'));
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
 
         $this->app[QueueConnector::class];
     }
 
     public function testItBindsCloudQueue()
     {
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
 
         $this->assertInstanceOf(Queue::class, $this->app['queue']->connection('cloud'));
     }
 
     public function testItBindsCloudEventsAsSingleton()
     {
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
 
         $this->assertFalse($this->app->resolved(Events::class));
         $this->assertSame($this->app[Events::class], $this->app[Events::class]);
@@ -194,7 +200,7 @@ class QueueTest extends TestCase
 
     public function testItBindsTheQueueFailer()
     {
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
 
         $this->assertInstanceOf(FailedJobProvider::class, $this->app['queue.failer']);
     }
@@ -203,7 +209,7 @@ class QueueTest extends TestCase
     {
         $this->app['config']->set('queue.connections.cloud', null);
 
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
 
         $this->expectExceptionObject(new InvalidArgumentException('The [cloud] queue connection has not been configured.'));
         $this->app['queue']->connection('cloud');
@@ -214,10 +220,69 @@ class QueueTest extends TestCase
         $this->app['config']->set('queue.connections.cloud.driver', 'sqs');
         $originalFailer = $this->app['queue.failer'];
 
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
 
         $this->assertFalse($this->app->bound(Events::class));
         $this->assertSame($originalFailer, $this->app['queue.failer']);
+    }
+
+    public function testCredentialCachingIsInertWhenTheDriverIsNotCloud()
+    {
+        $this->app['config']->set('queue.connections.cloud.driver', 'sqs');
+
+        CloudBootstrapper::bootManagedQueues($this->app);
+
+        // The cloud connector - and with it the managed queue credential cache
+        // defaults - is never registered when the driver is not "cloud".
+        $this->assertFalse($this->app->bound(QueueConnector::class));
+    }
+
+    public function testItDefaultsCredentialCachingForAppLevelSqsConnections()
+    {
+        $this->app['config']->set('queue.connections.sqs', ['driver' => 'sqs', 'region' => 'us-east-1', 'queue' => 'default']);
+        $this->app['config']->set('queue.connections.redis', ['driver' => 'redis', 'queue' => 'default']);
+        $this->app['config']->set('queue.connections.other-sqs', ['driver' => 'sqs', 'credential_cache' => ['enabled' => false]]);
+
+        CloudBootstrapper::configureQueueCredentialCaching($this->app);
+
+        // App-level SQS connections receive the credential cache configuration,
+        // but caching remains disabled until it is explicitly enabled.
+        $this->assertSame(
+            ['enabled' => false, 'store' => null, 'fallback_store' => 'file'],
+            $this->app['config']->get('queue.connections.sqs.credential_cache'),
+        );
+
+        // Non-SQS connections and explicit configuration are left untouched.
+        $this->assertArrayNotHasKey('credential_cache', $this->app['config']->get('queue.connections.redis'));
+        $this->assertSame(['enabled' => false], $this->app['config']->get('queue.connections.other-sqs.credential_cache'));
+    }
+
+    public function testManagedQueueCredentialsAreServedFromTheSharedCacheWithoutFetching()
+    {
+        $_SERVER['AWS_CONTAINER_CREDENTIALS_FULL_URI'] = 'http://169.254.170.23/v1/credentials';
+
+        try {
+            CloudBootstrapper::configureManagedQueues($this->app);
+            config([
+                'queue.connections.cloud.connection.credential_cache.enabled' => true,
+                'queue.connections.cloud.connection.credential_cache.store' => 'array',
+            ]);
+            CloudBootstrapper::bootManagedQueues($this->app);
+
+            Cache::store('array')->forever(
+                SqsConnector::credentialsCacheKey(config('queue.connections.cloud.connection')),
+                new Credentials('cached-key', 'cached-secret', 'cached-token', time() + 3600),
+            );
+
+            // A cache hit resolves the fleet-shared credentials without the
+            // provider ever contacting the Pod Identity Agent.
+            $credentials = $this->app['queue']->connection('cloud')->getSqs()->getCredentials()->wait();
+
+            $this->assertSame('cached-key', $credentials->getAccessKeyId());
+            $this->assertSame('cached-secret', $credentials->getSecretKey());
+        } finally {
+            unset($_SERVER['AWS_CONTAINER_CREDENTIALS_FULL_URI']);
+        }
     }
 
     public function testItDoesNotEmitEventsWhilePoppingWhenNoJobsAreProcessingAndNoJobsAreAvailableToPop()
@@ -1155,8 +1220,8 @@ class QueueTest extends TestCase
     public function testItEmitsJobQueuedEvent()
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
-        Cloud::configureManagedQueues($this->app);
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::configureManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
         $eventsFake = $this->fakeEvents();
         [$queue, $client] = $this->mockedQueue();
         $client->expects('sendMessage')->times(5)->andReturn(new Result());
@@ -1224,8 +1289,8 @@ class QueueTest extends TestCase
 
         try {
             $this->travelTo('2000-01-02 03:04:05.060708');
-            Cloud::configureManagedQueues($this->app);
-            Cloud::bootManagedQueues($this->app);
+            CloudBootstrapper::configureManagedQueues($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
             $eventsFake = $this->fakeEvents();
             [$queue, $agent] = $this->fakeQueue();
 
@@ -1272,8 +1337,8 @@ class QueueTest extends TestCase
 
         try {
             $this->travelTo('2000-01-02 03:04:05.060708');
-            Cloud::configureManagedQueues($this->app);
-            Cloud::bootManagedQueues($this->app);
+            CloudBootstrapper::configureManagedQueues($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
             $eventsFake = $this->fakeEvents();
             [$queue, $agent] = $this->fakeQueue();
 
@@ -1303,8 +1368,8 @@ class QueueTest extends TestCase
 
         try {
             $this->travelTo('2000-01-02 03:04:05.060708');
-            Cloud::configureManagedQueues($this->app);
-            Cloud::bootManagedQueues($this->app);
+            CloudBootstrapper::configureManagedQueues($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
             $eventsFake = $this->fakeEvents();
             [$queue, $agent] = $this->fakeQueue();
 
@@ -1340,8 +1405,8 @@ class QueueTest extends TestCase
 
         try {
             $this->travelTo('2000-01-02 03:04:05.060708');
-            Cloud::configureManagedQueues($this->app);
-            Cloud::bootManagedQueues($this->app);
+            CloudBootstrapper::configureManagedQueues($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
             $eventsFake = $this->fakeEvents();
             [$queue, $agent] = $this->fakeQueue();
 
@@ -1364,8 +1429,8 @@ class QueueTest extends TestCase
 
         try {
             $this->travelTo('2000-01-02 03:04:05.060708');
-            Cloud::configureManagedQueues($this->app);
-            Cloud::bootManagedQueues($this->app);
+            CloudBootstrapper::configureManagedQueues($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
             $eventsFake = $this->fakeEvents();
             [$queue, $agent] = $this->fakeQueue();
 
@@ -1387,8 +1452,8 @@ class QueueTest extends TestCase
         $_SERVER['argv'] = ['artisan', 'queue:work'];
 
         try {
-            Cloud::configureManagedQueues($this->app);
-            Cloud::bootManagedQueues($this->app);
+            CloudBootstrapper::configureManagedQueues($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
             $eventsFake = $this->fakeEvents();
             $this->fakeQueue();
 
@@ -1408,8 +1473,8 @@ class QueueTest extends TestCase
 
         try {
             $this->travelTo('2000-01-02 03:04:05.060708');
-            Cloud::configureManagedQueues($this->app);
-            Cloud::bootManagedQueues($this->app);
+            CloudBootstrapper::configureManagedQueues($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
             $eventsFake = $this->fakeEvents();
             [$queue, $agent] = $this->fakeQueue();
 
@@ -1434,8 +1499,8 @@ class QueueTest extends TestCase
     public function testItRespectsDispatchAfterTransaction()
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
-        Cloud::configureManagedQueues($this->app);
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::configureManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
         $eventsFake = $this->fakeEvents();
         $this->app['config']->set('queue.connections.cloud.connection.after_commit', true);
         [$queue, $client] = $this->mockedQueue();
@@ -1680,8 +1745,8 @@ class QueueTest extends TestCase
 
     public function testItThrowsManagedQueueNotFoundExceptionWhenQueueDoesNotExist()
     {
-        Cloud::configureManagedQueues($this->app);
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::configureManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
         $this->fakeEvents();
 
         $mock = new MockHandler();
@@ -1726,8 +1791,8 @@ class QueueTest extends TestCase
 
     public function testItUsesConfigValuesToNormalizeQueueName()
     {
-        Cloud::configureManagedQueues($this->app);
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::configureManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
         $eventsFake = $this->fakeEvents();
         [$queue, $client] = $this->mockedQueue();
         $client->expects('sendMessage')->times(1)->andReturn(new Result());
@@ -1741,8 +1806,8 @@ class QueueTest extends TestCase
 
     public function testItNormalizesFifoQueueNamesWithoutLeakingTheSuffix()
     {
-        Cloud::configureManagedQueues($this->app);
-        Cloud::bootManagedQueues($this->app);
+        CloudBootstrapper::configureManagedQueues($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
         $eventsFake = $this->fakeEvents();
         [$queue, $client] = $this->mockedQueue();
         $client->expects('sendMessage')->times(1)->andReturn(new Result());
