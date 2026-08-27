@@ -14,24 +14,18 @@ class AwsCredentialCache
 {
     /**
      * The number of seconds before expiration that credentials should be refreshed.
-     *
-     * @var int
      */
-    protected const REFRESH_WINDOW = 60;
+    protected const int REFRESH_WINDOW = 60;
 
     /**
      * The number of seconds the credential refresh lock should be maintained.
-     *
-     * @var int
      */
-    protected const LOCK_SECONDS = 15;
+    protected const int LOCK_SECONDS = 15;
 
     /**
      * The number of seconds to wait for another process to refresh credentials.
-     *
-     * @var int
      */
-    protected const LOCK_WAIT_SECONDS = 5;
+    protected const int LOCK_WAIT_SECONDS = 5;
 
     /**
      * The resolver for the backing cache repository.

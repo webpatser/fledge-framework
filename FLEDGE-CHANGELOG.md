@@ -2,6 +2,29 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.29.0.2 - 2026-08-27
+
+### Optimized
+- `Queue/AwsCredentialCache.php`: typed the three new class constants (`const int REFRESH_WINDOW`/`LOCK_SECONDS`/`LOCK_WAIT_SECONDS`), matching the typed-constant pattern used across Fledge.
+- Nothing else qualified: `AsVector` already uses first-class callables and named arguments, `NotificationSkipped` uses promoted constructor properties, `CloudManager` is thin macro plumbing, and the new `FormRequest::dotInputKeys()` / `QueueFake::totalPendingSize()` additions carry no replaceable loop shapes.
+
+## v13.29.0.1 - 2026-08-27
+
+### Synced
+- Merge upstream Laravel v13.26.1 -> v13.29.0 (63 commits, 329 files; 326 files changed in the squash, 4,186 insertions, 622 deletions). Note: upstream tagged v13.28.0 directly on a merge commit with no release notes, and v13.29.0 adds only the version-bump commit on top of it, so the v13.29.0 GitHub release looks empty; everything landed in v13.27.0/v13.28.0. Headline upstream changes: an AWS credential cache for SQS queues (`AwsCredentialCache`, cross-process refresh locking); `Model::refreshForUpdate()`; a `NotificationSkipped` event; the `AsVector` Eloquent cast plus a MariaDB vector-distance SQL fix; a macroable `CloudManager` with `Cloud` facade docblocks; opt-in query-binding masking in `QueryException` (`mask_bindings_in_exception_messages`); Postgres keepalive DSN options; PhpRedis `mget`/`hmget` false-guards; `FormRequest` unknown-field validation now escaping literal dots in keys; scoped singleton dedup in the container; and strict `in_array` in `validateDoesntContain`.
+- Conflicts: 76 files conflicted off the ancient squash base; 17 outside the upstream delta kept from Fledge, 46 inside the delta but untouched by Fledge taken from upstream wholesale, 7 hand-merged:
+  - `Foundation/Application.php`: keep the typed VERSION constant, bumped to `13.29.0`.
+  - `Queue/SqsQueue.php`: upstream's new `totalPendingSize()`/`totalDelayedSize()`/`totalReservedSize()` taken; the auto-merge duplicated `MAX_MESSAGES_PER_BATCH` again (typed Fledge constant + upstream's untyped addition), caught by the test suite and de-duplicated.
+  - `Redis/Connections/PhpRedisConnection.php`: kept the typed `RETRYABLE_COMMANDS` constant; upstream's `mget`/`hmget` guards auto-merged.
+  - `Validation/Concerns/ValidatesAttributes.php`: upstream's strict `in_array` taken into Fledge's `array_all` form of `validateDoesntContain`.
+  - `composer.json`: rector pinned to `2.6.3` and the test fixture path move taken; PHP 8.5 pins, polyfill removals, no `league/uri`, fledge-fiber and `laravel/pao` kept.
+  - `.github/workflows/databases.yml` / `redis.yml`: upstream's timeout bumps and the retry-wrapped Redis cluster setup taken onto the Fledge matrices.
+- Squash-merge artifacts (the usual suspects): `install-nightly.yml` resurrected (re-deleted), the `permissions:` block in `tests.yml` duplicated again (eighth sync in a row, this time caught locally), the stale `@phpstan-ignore` in `MySqlSchemaState.php` resurrected again (re-deleted, caught by phpstan).
+- Tests: 14,778 passing (15,318 total, 536 skipped); only the four known-environmental `RedisConnectionTest::*scansForKeys` cursor errors remain. Both phpstan configs clean. All 7 GitHub workflows green on the sync commit before tagging.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`, including upstream's `data_set` -> `Arr::set` swap in `withQuery()` carried into the Fledge implementation), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.26.1.2 - 2026-08-19
 
 ### Optimized
