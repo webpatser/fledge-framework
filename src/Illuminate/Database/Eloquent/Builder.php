@@ -126,6 +126,7 @@ class Builder implements BuilderContract
         'insert',
         'insertgetid',
         'insertorignore',
+        'insertorignorereturning',
         'insertusing',
         'insertorignoreusing',
         'max',
@@ -213,7 +214,7 @@ class Builder implements BuilderContract
      */
     public function withoutGlobalScope($scope)
     {
-        if (! is_string($scope)) {
+        if (is_object($scope)) {
             $scope = get_class($scope);
         }
 
