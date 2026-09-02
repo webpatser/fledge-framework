@@ -184,6 +184,8 @@ Worth knowing before going to production:
 | `#[\NoDiscard]` on Pipeline, Cache, Container, Validation | 4 | Developer safety |
 | Persistent cURL share manager | 3 | Connection pooling |
 | `json_validate()` fast path | 1 | Skip decode on invalid JSON |
+| `array_sum`/`array_map` in Cloud `Queue` totals | 1 | Drop per-call Collection allocation |
+| Shared `WhitespacePathNormalizer` in `FilesystemAdapter::path` | 1 | Reuse a stateless normalizer |
 | Fiber-based concurrency driver (Revolt + fledge-fiber) | 2 | Real async I/O in `Concurrency` facade |
 | fledge-fiber as default Redis driver | 5 | Non-blocking Redis I/O for all operations |
 | Fiber-aware cache layer (locks, failover, tags) | 8 | Concurrent cache ops inside Fibers |
@@ -245,7 +247,7 @@ That is why the canonical install line targets `webpatser/fledge-framework` dire
 
 ### Constraint compatibility
 
-All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.29.0.2` as of 2026-08-27):
+All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.30.1.2` as of 2026-09-02):
 
 | Constraint | Resolves to | Notes |
 |------------|------------|-------|

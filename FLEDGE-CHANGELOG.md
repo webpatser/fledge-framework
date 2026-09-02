@@ -2,6 +2,30 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.30.1.2 - 2026-09-02
+
+### Optimized
+- `Foundation/Cloud/Queue.php`: the three new `totalPendingSize()`/`totalDelayedSize()`/`totalReservedSize()` aggregates dropped the `new Collection(...)->sum(closure)` wrapper for `array_sum(array_map($this->pendingSize(...), ...))`, using first-class callables and removing a Collection allocation per call on what Cloud polls on a loop. The `Illuminate\Support\Collection` import went with it.
+- `Filesystem/FilesystemAdapter.php`: upstream's new `Storage::path()` root confinement allocated a `WhitespacePathNormalizer` on every call; the normalizer is stateless, so it now lives in a shared `static $pathNormalizer` populated with `??=`. `path()` is a hot local-disk call.
+- Nothing else qualified: upstream added no untyped class constants this cycle (`Application::VERSION` stays the typed Fledge constant), `WorkerStopReason::description()` is already a `match`, `SqlServerConnector::escapeSqlSrvDsnValue(...)` and `Cloud\Events::connect()` already use first-class callables, and the three `foreach` loops in the new `ParsesSqlServerConfigurationUrls` trait all build transformed maps rather than search for a single element, so `array_find`/`array_any` do not apply.
+
+## v13.30.1.1 - 2026-09-02
+
+### Synced
+- Merge upstream Laravel v13.29.0 -> v13.30.1 (42 commits, 73 files; 1,425 insertions, 67 deletions). Headline upstream changes: the queue worker stop reason now surfaces in `queue:work` output (`Worker::stop()` and the `WorkerStopping` event both gain `$connectionName`/`$queue`, plus `WorkerStopReason::description()`); `DevCommands::withoutVendorCommands()`/`withoutDefaultCommands()` opt-outs; `Storage::path()` confined to the configured disk root via Flysystem's `WhitespacePathNormalizer`; Microsoft SQL Server DSN connection strings (new `Support/Traits/ParsesSqlServerConfigurationUrls.php` trait wired into `ConfigurationUrlParser`, plus connection-string escaping in `SqlServerConnector`); `route:cache` restoring the facade application after booting a fresh one; `Collection::chunkBy()`; `dropVectorIndex()` on the Blueprint and the Postgres/MariaDB grammars; `spl_object_id` replacing `spl_object_hash` in the container, global scopes and `Onceable`; `RedisTaggedCache` only writing tag entries after the underlying store write succeeds; `Kernel::findCommand()`; `QueueManager::createPayloadUsing()`; `Handler::contextForException()`; a bool return and injectable socket factory on Cloud `Events::emit()`; a quadratic wildcard-rule expansion fix in validation; and a recaller hash check in `SessionGuard`.
+- Conflicts: 44 files conflicted off the ancient squash base; 23 outside the upstream delta kept from Fledge, 16 inside the delta but untouched by Fledge taken from upstream wholesale, 5 hand-merged:
+  - `Foundation/Application.php`: keep the typed VERSION constant, bumped to `13.30.1`.
+  - `Cache/RedisTaggedCache.php`: upstream's write-then-tag reordering taken across `add`/`put`/`increment`/`decrement`/`forever`; the `SuspendsFibers` trait, the polymorphic `$connection->getPrefix()` in `flush()`, and the fiber-concurrent `flushValues()`/`deleteChunk()` kept. The auto-merge left the old pre-call `addEntry()` in `decrement()` next to upstream's new post-call one, which would have double-counted every decrement; the stale copy was removed.
+  - `Foundation/DevCommands.php`: upstream's vendor/default command opt-outs taken; Fledge's `array_find()` in `resolveSource()` kept.
+  - `Foundation/Exceptions/Handler.php`: upstream's new `contextForException()` auto-merged; the first-class-callable conversions and `array_any` in `shouldStopRetries()`/`shouldntReport()` kept.
+  - `Queue/Worker.php`: upstream's wider `stop()` signature and its two `daemon()` call sites taken, along with the `int|float $startTime` docblock; the typed `EXIT_*` constants, `$signalWatchers`, the Revolt `listenForSignals()`/`sleep()` implementations and the pcntl SIGALRM rationale comment kept.
+- Squash-merge artifacts (the usual suspects): `install-nightly.yml` and `databases-nightly.yml` both resurrected (re-deleted), the `permissions:` block in `tests.yml` duplicated again (ninth sync in a row), the typed `MAX_MESSAGES_PER_BATCH` in `SqsQueue.php` duplicated by an untyped upstream copy, and the stale `@phpstan-ignore` in `MySqlSchemaState.php` resurrected again. All four were caught by a systematic sweep comparing the merged tree against `fledge-13` for files outside the upstream delta, which is a faster check than waiting for phpstan or the test suite to trip over them.
+- A rename/rename conflict on the test enum fixtures (`tests/Integration/Database/Enums.php` renamed on both sides) cross-wired the namespaces of `tests/Database/Fixtures/Enums/Enums.php` and `tests/Integration/Database/Fixtures/Enums.php`; both were restored from upstream, where the two layouts are already identical.
+- Tests: 14,834 passing (15,377 total, 539 skipped); only the four known-environmental `RedisConnectionTest::*scansForKeys` cursor errors remain. Both phpstan configs clean. All 7 GitHub workflows green on the sync commit before tagging.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, and the pipe-operator `Pipeline` all carried through. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.29.0.2 - 2026-08-27
 
 ### Optimized

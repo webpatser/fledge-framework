@@ -8,7 +8,6 @@ use Illuminate\Contracts\Queue\Queue as QueueContract;
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Stringable;
 use Illuminate\Support\Traits\ForwardsCalls;
@@ -102,7 +101,7 @@ class Queue implements QueueContract, ClearableQueue
      */
     public function totalPendingSize()
     {
-        return (new Collection($this->managedQueues()))->sum(fn ($queue) => $this->pendingSize($queue));
+        return array_sum(array_map($this->pendingSize(...), $this->managedQueues()));
     }
 
     /**
@@ -112,7 +111,7 @@ class Queue implements QueueContract, ClearableQueue
      */
     public function totalDelayedSize()
     {
-        return (new Collection($this->managedQueues()))->sum(fn ($queue) => $this->delayedSize($queue));
+        return array_sum(array_map($this->delayedSize(...), $this->managedQueues()));
     }
 
     /**
@@ -122,7 +121,7 @@ class Queue implements QueueContract, ClearableQueue
      */
     public function totalReservedSize()
     {
-        return (new Collection($this->managedQueues()))->sum(fn ($queue) => $this->reservedSize($queue));
+        return array_sum(array_map($this->reservedSize(...), $this->managedQueues()));
     }
 
     /**

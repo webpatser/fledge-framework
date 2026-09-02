@@ -79,6 +79,13 @@ class FilesystemAdapter implements CloudFilesystemContract
     protected $prefixer;
 
     /**
+     * The shared Flysystem path normalizer instance.
+     *
+     * @var \League\Flysystem\WhitespacePathNormalizer
+     */
+    protected static $pathNormalizer;
+
+    /**
      * The file server callback.
      *
      * @var \Closure|null
@@ -295,7 +302,9 @@ class FilesystemAdapter implements CloudFilesystemContract
      */
     public function path($path)
     {
-        return $this->prefixer->prefixPath((new WhitespacePathNormalizer)->normalizePath($path));
+        return $this->prefixer->prefixPath(
+            (static::$pathNormalizer ??= new WhitespacePathNormalizer)->normalizePath($path)
+        );
     }
 
     /**
