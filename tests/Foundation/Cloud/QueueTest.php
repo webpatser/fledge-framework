@@ -74,6 +74,7 @@ class QueueTest extends TestCase
 
         Worker::$restartable = true;
         Worker::$pausable = true;
+        Worker::$memoryExceededExitCode = null;
         $_SERVER['LARAVEL_CLOUD'] = '1';
         $_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES_CONFIG'] = json_encode([
             'driver' => 'cloud',
@@ -105,6 +106,7 @@ class QueueTest extends TestCase
         unset($_SERVER['LARAVEL_CLOUD'], $_SERVER['LARAVEL_CLOUD_MANAGED_QUEUES_CONFIG']);
         Worker::$restartable = true;
         Worker::$pausable = true;
+        Worker::$memoryExceededExitCode = null;
     }
 
     public function testItDisablesQueueRestartPollingForManagedQueues()
@@ -136,6 +138,25 @@ class QueueTest extends TestCase
 
             $this->app['queue']->connection('cloud');
             $this->assertFalse(Worker::$pausable);
+        } finally {
+            $_SERVER['argv'] = $argv;
+        }
+    }
+
+    public function testItDefaultsTheMemoryExceededExitCodeForManagedQueues()
+    {
+        $argv = $_SERVER['argv'];
+        $_SERVER['argv'] = ['artisan', 'queue:work'];
+
+        try {
+            CloudBootstrapper::registerEvents($this->app);
+            CloudBootstrapper::bootManagedQueues($this->app);
+
+            Worker::$memoryExceededExitCode = Worker::EXIT_SUCCESS;
+            $this->assertSame(Worker::EXIT_SUCCESS, Worker::$memoryExceededExitCode);
+
+            $this->app['queue']->connection('cloud');
+            $this->assertNull(Worker::$memoryExceededExitCode);
         } finally {
             $_SERVER['argv'] = $argv;
         }
@@ -1836,6 +1857,23 @@ class QueueTest extends TestCase
         [$queue] = $this->mockedQueue();
 
         $this->assertSame(['default', 'emails'], $queue->managedQueues());
+    }
+
+    public function testTotalSizeSumsAcrossManagedQueues()
+    {
+        config(['queue.connections.cloud.queues' => ['default', 'emails']]);
+        $this->fakeEvents();
+        [$queue, $client] = $this->mockedQueue();
+
+        $client->expects('getQueueAttributes')->twice()->andReturn(new Result([
+            'Attributes' => [
+                'ApproximateNumberOfMessages' => 2,
+                'ApproximateNumberOfMessagesDelayed' => 1,
+                'ApproximateNumberOfMessagesNotVisible' => 3,
+            ],
+        ]));
+
+        $this->assertSame(12, $queue->totalSize());
     }
 
     public function testTotalPendingSizeSumsAcrossManagedQueues()

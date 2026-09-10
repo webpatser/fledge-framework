@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\Interruptible;
 use Illuminate\Database\DetectsLostConnections;
 use Illuminate\Queue\Events\JobAttempted;
 use Illuminate\Queue\Events\JobExceptionOccurred;
+use Illuminate\Queue\Events\JobInterrupted;
 use Illuminate\Queue\Events\JobPopped;
 use Illuminate\Queue\Events\JobPopping;
 use Illuminate\Queue\Events\JobProcessed;
@@ -263,7 +264,7 @@ class Worker
             );
 
             if ($supportsAsyncSignals) {
-                $this->registerTimeoutHandler($job, $options);
+                $this->registerTimeoutHandler($connectionName, $queue, $job, $options);
             }
 
             // If the daemon should run (not in maintenance mode, etc.), then we can run
@@ -303,13 +304,15 @@ class Worker
     /**
      * Register the worker timeout handler.
      *
+     * @param  string|null  $connectionName
+     * @param  string|null  $queue
      * @param  \Illuminate\Contracts\Queue\Job|null  $job
      * @param  \Illuminate\Queue\WorkerOptions  $options
      * @return void
      */
-    protected function registerTimeoutHandler($job, WorkerOptions $options)
+    protected function registerTimeoutHandler($connectionName, $queue, $job, WorkerOptions $options)
     {
-        $timeoutHandler = function () use ($job, $options) {
+        $timeoutHandler = function () use ($job, $options, $connectionName, $queue) {
             if ($job) {
                 $this->markJobAsFailedIfWillExceedMaxAttempts(
                     $job->getConnectionName(), $job, (int) $options->maxTries, $e = $this->timeoutExceededException($job)
@@ -328,7 +331,10 @@ class Worker
                 ));
             }
 
-            $this->kill(static::$timedOutExitCode ?? static::EXIT_ERROR, $options, WorkerStopReason::TimedOut);
+            $this->kill(
+                static::$timedOutExitCode ?? static::EXIT_ERROR,
+                $options, WorkerStopReason::TimedOut, $connectionName, $queue
+            );
         };
 
         $timeout = max($this->timeoutForJob($job, $options), 0);
@@ -1015,6 +1021,10 @@ class Worker
 
         if ($job instanceof Interruptible) {
             $job->interrupted($signal);
+
+            $this->events->dispatch(new JobInterrupted(
+                $this->currentJob->getConnectionName(), $this->currentJob, $signal
+            ));
         }
     }
 
@@ -1073,12 +1083,15 @@ class Worker
      * @param  int  $status
      * @param  \Illuminate\Queue\WorkerOptions|null  $options
      * @param  \Illuminate\Queue\WorkerStopReason|null  $reason
+     * @param  string|null  $connectionName
+     * @param  string|null  $queue
      * @return never
      */
-    public function kill($status = 0, $options = null, $reason = null)
+    public function kill($status = 0, $options = null, $reason = null, $connectionName = null, $queue = null)
     {
         $this->events->dispatch(new WorkerStopping(
-            $status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt, $this->currentMemoryUsage()
+            $status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt, $this->currentMemoryUsage(),
+            $connectionName, $queue
         ));
 
         if (extension_loaded('posix')) {

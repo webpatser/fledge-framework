@@ -324,6 +324,21 @@ class DatabaseEloquentBuilderTest extends TestCase
         $this->assertEquals(['foo_table.column', 'foo_table.name'], $builder->qualifyColumns(['column', 'name']));
     }
 
+    public function testQualifyColumnWithTableAlias()
+    {
+        $query = Mockery::mock(BaseBuilder::class);
+        $query->expects('from')->with('foo_table');
+        $query->from = 'foo_table as alias';
+
+        $builder = new Builder($query);
+        $builder->setModel(new EloquentBuilderTestStubStringPrimaryKey);
+
+        $this->assertSame('alias.column', $builder->qualifyColumn('column'));
+        $this->assertSame('alias.column', $builder->qualifyColumn('foo_table.column'));
+        $this->assertSame('other_table.column', $builder->qualifyColumn('other_table.column'));
+        $this->assertEquals(['alias.column', 'alias.name'], $builder->qualifyColumns(['column', 'name']));
+    }
+
     public function testGetMethodLoadsModelsAndHydratesEagerRelations()
     {
         $builder = Mockery::mock(Builder::class.'[getModels,eagerLoadRelations]', [$this->getMockQueryBuilder()]);
@@ -547,12 +562,15 @@ class DatabaseEloquentBuilderTest extends TestCase
 
     public function testLazyWithLastChunkComplete()
     {
-        $builder = Mockery::mock(Builder::class.'[forPage,get]', [$this->getMockQueryBuilder()]);
+        $builder = Mockery::mock(Builder::class.'[getOffset,getLimit,offset,limit,get]', [$this->getMockQueryBuilder()]);
         $builder->getQuery()->orders[] = ['column' => 'foobar', 'direction' => 'asc'];
 
-        $builder->expects('forPage')->with(1, 2)->andReturnSelf();
-        $builder->expects('forPage')->with(2, 2)->andReturnSelf();
-        $builder->expects('forPage')->with(3, 2)->andReturnSelf();
+        $builder->expects('getOffset')->andReturnNull();
+        $builder->expects('getLimit')->andReturnNull();
+        $builder->expects('offset')->with(0)->andReturnSelf();
+        $builder->expects('offset')->with(2)->andReturnSelf();
+        $builder->expects('offset')->with(4)->andReturnSelf();
+        $builder->expects('limit')->times(3)->with(2)->andReturnSelf();
         $builder->expects('get')->times(3)->andReturn(
             new Collection(['foo1', 'foo2']),
             new Collection(['foo3', 'foo4']),
@@ -567,11 +585,14 @@ class DatabaseEloquentBuilderTest extends TestCase
 
     public function testLazyWithLastChunkPartial()
     {
-        $builder = Mockery::mock(Builder::class.'[forPage,get]', [$this->getMockQueryBuilder()]);
+        $builder = Mockery::mock(Builder::class.'[getOffset,getLimit,offset,limit,get]', [$this->getMockQueryBuilder()]);
         $builder->getQuery()->orders[] = ['column' => 'foobar', 'direction' => 'asc'];
 
-        $builder->expects('forPage')->with(1, 2)->andReturnSelf();
-        $builder->expects('forPage')->with(2, 2)->andReturnSelf();
+        $builder->expects('getOffset')->andReturnNull();
+        $builder->expects('getLimit')->andReturnNull();
+        $builder->expects('offset')->with(0)->andReturnSelf();
+        $builder->expects('offset')->with(2)->andReturnSelf();
+        $builder->expects('limit')->twice()->with(2)->andReturnSelf();
         $builder->expects('get')->times(2)->andReturn(
             new Collection(['foo1', 'foo2']),
             new Collection(['foo3'])
@@ -585,10 +606,13 @@ class DatabaseEloquentBuilderTest extends TestCase
 
     public function testLazyIsLazy()
     {
-        $builder = Mockery::mock(Builder::class.'[forPage,get]', [$this->getMockQueryBuilder()]);
+        $builder = Mockery::mock(Builder::class.'[getOffset,getLimit,offset,limit,get]', [$this->getMockQueryBuilder()]);
         $builder->getQuery()->orders[] = ['column' => 'foobar', 'direction' => 'asc'];
 
-        $builder->expects('forPage')->with(1, 2)->andReturnSelf();
+        $builder->expects('getOffset')->andReturnNull();
+        $builder->expects('getLimit')->andReturnNull();
+        $builder->expects('offset')->with(0)->andReturnSelf();
+        $builder->expects('limit')->with(2)->andReturnSelf();
         $builder->expects('get')->andReturn(new Collection(['foo1', 'foo2']));
 
         $this->assertEquals(['foo1', 'foo2'], $builder->lazy(2)->take(2)->all());
@@ -596,12 +620,14 @@ class DatabaseEloquentBuilderTest extends TestCase
 
     public function testLazyByIdWithLastChunkComplete()
     {
-        $builder = Mockery::mock(Builder::class.'[forPageAfterId,get]', [$this->getMockQueryBuilder()]);
+        $builder = Mockery::mock(Builder::class.'[getOffset,getLimit,forPageAfterId,get]', [$this->getMockQueryBuilder()]);
         $builder->getQuery()->orders[] = ['column' => 'foobar', 'direction' => 'asc'];
 
         $chunk1 = new Collection([(object) ['someIdField' => 1], (object) ['someIdField' => 2]]);
         $chunk2 = new Collection([(object) ['someIdField' => 10], (object) ['someIdField' => 11]]);
         $chunk3 = new Collection([]);
+        $builder->expects('getOffset')->andReturnNull();
+        $builder->expects('getLimit')->andReturnNull();
         $builder->expects('forPageAfterId')->with(2, 0, 'someIdField')->andReturnSelf();
         $builder->expects('forPageAfterId')->with(2, 2, 'someIdField')->andReturnSelf();
         $builder->expects('forPageAfterId')->with(2, 11, 'someIdField')->andReturnSelf();
@@ -620,11 +646,13 @@ class DatabaseEloquentBuilderTest extends TestCase
 
     public function testLazyByIdWithLastChunkPartial()
     {
-        $builder = Mockery::mock(Builder::class.'[forPageAfterId,get]', [$this->getMockQueryBuilder()]);
+        $builder = Mockery::mock(Builder::class.'[getOffset,getLimit,forPageAfterId,get]', [$this->getMockQueryBuilder()]);
         $builder->getQuery()->orders[] = ['column' => 'foobar', 'direction' => 'asc'];
 
         $chunk1 = new Collection([(object) ['someIdField' => 1], (object) ['someIdField' => 2]]);
         $chunk2 = new Collection([(object) ['someIdField' => 10]]);
+        $builder->expects('getOffset')->andReturnNull();
+        $builder->expects('getLimit')->andReturnNull();
         $builder->expects('forPageAfterId')->with(2, 0, 'someIdField')->andReturnSelf();
         $builder->expects('forPageAfterId')->with(2, 2, 'someIdField')->andReturnSelf();
         $builder->expects('get')->times(2)->andReturn($chunk1, $chunk2);
@@ -641,10 +669,12 @@ class DatabaseEloquentBuilderTest extends TestCase
 
     public function testLazyByIdIsLazy()
     {
-        $builder = Mockery::mock(Builder::class.'[forPageAfterId,get]', [$this->getMockQueryBuilder()]);
+        $builder = Mockery::mock(Builder::class.'[getOffset,getLimit,forPageAfterId,get]', [$this->getMockQueryBuilder()]);
         $builder->getQuery()->orders[] = ['column' => 'foobar', 'direction' => 'asc'];
 
         $chunk1 = new Collection([(object) ['someIdField' => 1], (object) ['someIdField' => 2]]);
+        $builder->expects('getOffset')->andReturnNull();
+        $builder->expects('getLimit')->andReturnNull();
         $builder->expects('forPageAfterId')->with(2, 0, 'someIdField')->andReturnSelf();
         $builder->expects('get')->andReturn($chunk1);
 
