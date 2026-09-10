@@ -247,7 +247,7 @@ That is why the canonical install line targets `webpatser/fledge-framework` dire
 
 ### Constraint compatibility
 
-All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.30.1.2` as of 2026-09-02):
+All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.31.0.2` as of 2026-09-10):
 
 | Constraint | Resolves to | Notes |
 |------------|------------|-------|

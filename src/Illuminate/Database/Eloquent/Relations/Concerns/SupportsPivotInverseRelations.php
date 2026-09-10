@@ -4,7 +4,6 @@ namespace Illuminate\Database\Eloquent\Relations\Concerns;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\RelationNotFoundException;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 trait SupportsPivotInverseRelations
@@ -87,7 +86,7 @@ trait SupportsPivotInverseRelations
             Str::camel(class_basename($model)),
         ]));
 
-        return Arr::first(
+        return array_find(
             $candidates,
             fn ($relation) => $pivotModel->isRelation($relation)
         );

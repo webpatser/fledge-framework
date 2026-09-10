@@ -313,7 +313,7 @@ class RedisQueue extends Queue implements QueueContract, ClearableQueue
             [$cursor, $batch] = $result;
 
             if (is_array($batch)) {
-                $keys = array_merge($keys, $batch);
+                array_push($keys, ...$batch);
             }
         } while (((string) $cursor) !== ((string) $defaultCursorValue));
 

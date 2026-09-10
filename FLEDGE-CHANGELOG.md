@@ -2,6 +2,29 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.31.0.2 - 2026-09-10
+
+### Optimized
+- `Testing/AssertableJsonString.php`: `assertMissingPath()` built two `Collection`s per call (one to walk the dotted keys, one to join the pattern) just to answer a yes/no question; both round-trips are gone in favour of `array_any()` over `array_keys(Arr::dot(...))` and a plain `implode()`/`array_map()` for the pattern.
+- `Database/Eloquent/Relations/Concerns/SupportsPivotInverseRelations.php`: upstream's new `guessPivotInverseRelation()` searched the candidate list with `Arr::first()` and a callback; replaced by native `array_find()`, and the now-unused `Arr` import dropped.
+- `Queue/RedisQueue.php`: `scanQueueKeys()` grew the result with `array_merge()` inside the SCAN loop, re-copying the accumulated array on every page; replaced by `array_push($keys, ...$batch)` so each page is appended in place.
+
+## v13.31.0.1 - 2026-09-10
+
+### Synced
+- Merge upstream Laravel v13.30.1 -> v13.31.0 (49 commits, 194 files). Headline upstream changes: `totalSize()` on every queue driver plus `Foundation/Cloud/Queue`; a new `Queue\Events\JobInterrupted` event dispatched from the worker signal path; `Worker::registerTimeoutHandler()`/`kill()` now carry the connection name and queue into `WorkerStopping`; `SupportsPivotInverseRelations` (pivot inverse relation guessing); cluster-safe `RedisQueue::bulk()` chunking; `Container::buildSelfBuildingInstance()` wrapped in try/finally; `Model::resolveCustomBuilderClass()` via `resolveClassAttribute()`; the `PhpRedisConnection::command()` retry also catching `ErrorException` and "Connection reset by peer"; `command_retries` on the `PhpRedisConnector` cluster path; `Database\Connection::getName()` returning `name::direct` for the direct read/write type; `assertSentOnDemandOnce`/`assertSentToOnce` on the Notification fake; and the `releases.yml` action-gh-release pin bumped to v3.0.3.
+- Conflicts: 5 hand-merged:
+  - `Queue/Worker.php`: upstream's `registerTimeoutHandler($connectionName, $queue, ...)` and 5-argument `kill()` taken; the Fledge SIGALRM closure now captures connection and queue and calls the new `kill()` arity, and the `JobInterrupted` dispatch in `notifyJobOfSignal()` added. The typed `EXIT_*` constants, `$signalWatchers` and the Revolt `listenForSignals()`/`sleep()` implementations kept.
+  - `Foundation/Application.php`: keep the typed `const string VERSION`, bumped to `13.31.0`.
+  - `Foundation/Cloud/Queue.php`: upstream's new `totalSize()` taken but written as `array_sum(array_map($this->size(...), ...))` to match the three v13.30.1.2 aggregates; the `Collection` import stays removed.
+  - `Queue/SqsQueue.php`: upstream's `totalSize()` added; exactly one typed `MAX_MESSAGES_PER_BATCH` after de-duplicating the squash copy.
+  - `Redis/Connections/PhpRedisConnection.php`: upstream's retry change merged; the typed `RETRYABLE_COMMANDS` constant kept.
+- Squash-merge artifacts (the usual suspects): `install-nightly.yml` and `databases-nightly.yml` both resurrected (re-deleted), the `permissions:` block in `tests.yml` duplicated again (tenth sync in a row), the stale `@phpstan-ignore` in `MySqlSchemaState.php` resurrected again (re-deleted), and a duplicated `use function enum_value` import in `Routing/RouteUrlGenerator.php` (removed). Upstream's test fixture move to `tests/Routing/Fixtures/` was taken as-is.
+- Tests: 14,904 passing (15,450 total, 542 skipped, 45,161 assertions); only the four known-environmental `RedisConnectionTest::*scansForKeys` cursor errors remain. Both phpstan configs (src and types) clean. All 7 GitHub workflows green on the sync commit before tagging.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, the pipe-operator `Pipeline`, typed class constants, `#[\NoDiscard]`, and the Fiber concurrency files all carried through. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.30.1.2 - 2026-09-02
 
 ### Optimized
