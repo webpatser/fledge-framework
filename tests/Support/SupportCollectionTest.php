@@ -1967,6 +1967,17 @@ class SupportCollectionTest extends TestCase
     }
 
     #[DataProvider('collectionClassProvider')]
+    public function testCollapseWithKeysWithStringKeys($collection)
+    {
+        $data = new $collection(['first' => ['a' => 1, 'b' => 2], 'second' => ['c' => 3]]);
+        $this->assertSame(['a' => 1, 'b' => 2, 'c' => 3], $data->collapseWithKeys()->all());
+
+        // Case with mixed integer and string keys
+        $data = new $collection([5 => ['a' => 1], 'second' => new $collection(['b' => 2, 'a' => 3])]);
+        $this->assertSame(['a' => 3, 'b' => 2], $data->collapseWithKeys()->all());
+    }
+
+    #[DataProvider('collectionClassProvider')]
     public function testJoin($collection)
     {
         $this->assertSame('a, b, c', (new $collection(['a', 'b', 'c']))->join(', '));
@@ -4147,6 +4158,10 @@ class SupportCollectionTest extends TestCase
     #[DataProvider('collectionClassProvider')]
     public function testContainsStrict($collection)
     {
+        $c = new $collection([1, null, 2]);
+        $this->assertTrue($c->containsStrict(fn ($value) => is_null($value)));
+        $this->assertFalse($c->containsStrict(fn ($value) => $value === 0));
+
         $c = new $collection([1, 3, 5, '02']);
 
         $this->assertTrue($c->containsStrict(1));
