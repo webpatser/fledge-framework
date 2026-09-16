@@ -447,18 +447,14 @@ class Builder
 
         $index = is_string($index) ? strtolower($index) : $index;
 
-        foreach ($this->getIndexes($table) as $value) {
+        return array_any($this->getIndexes($table), function ($value) use ($index, $type) {
             $typeMatches = is_null($type)
                 || ($type === 'primary' && $value['primary'])
                 || ($type === 'unique' && $value['unique'])
                 || $type === $value['type'];
 
-            if (($value['name'] === $index || $value['columns'] === $index) && $typeMatches) {
-                return true;
-            }
-        }
-
-        return false;
+            return ($value['name'] === $index || $value['columns'] === $index) && $typeMatches;
+        });
     }
 
     /**

@@ -91,7 +91,7 @@ class MercureBroadcaster extends Broadcaster
 
         if ($channelNames === [] ||
             count($channelNames) > 100 ||
-            $channelNames !== array_filter($channelNames, 'is_string')) {
+            ! array_all($channelNames, fn ($channelName) => is_string($channelName))) {
             throw new AccessDeniedHttpException;
         }
 

@@ -2,6 +2,32 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.32.0.2 - 2026-09-16
+
+### Optimized
+- `Broadcasting/Broadcasters/MercureBroadcaster.php`: `auth()` validated the channel list by building an `array_filter()` copy and comparing it back to the full array, allocating a second array and walking every name even when the first one already disqualified the request; replaced by a short-circuiting `! array_all($channelNames, fn ($name) => is_string($name))`. This runs on every `/broadcasting/auth` request.
+- `Database/Schema/Builder.php`: `hasIndex()` searched the index list with a `foreach` and an early return; replaced by `array_any()`, matching the `array_any()` form `hasColumns()` already uses in the same file.
+- `Foundation/Console/EnvironmentEncryptCommand.php`: `encryptWhileMaintainingReadability()` located the matching line with a nested `foreach` and a `break`; replaced by `array_find_key()`.
+- Nothing else qualified: the four new Mercure classes declare no class constants to type, upstream's `containsStrict()` rewrite already uses `array_any()`, `QueueManager`'s pause/resume enum support already goes through `enum_value()`, and the new `once()` memoisation in `Job::payload()` is left exactly as upstream wrote it.
+- Tests: unchanged by the rewrites at 15,051 passing (15,597 total, 542 skipped); only the four known-environmental `RedisConnectionTest::*scansForKeys` cursor errors remain. Both phpstan configs clean. All 7 GitHub workflows green.
+
+## v13.32.0.1 - 2026-09-16
+
+### Synced
+- Merge upstream Laravel v13.31.0 -> v13.32.0 (37 commits, 42 files under `src/`, 76 files in the full delta). Headline upstream changes: a Mercure broadcast driver (`Broadcasting/Broadcasters/MercureBroadcaster.php` plus `Broadcasting/Mercure/{CachingTokenProvider,ChannelEncrypter,CreatesMercureDrivers}.php`, wired into `broadcasting:install` with an `echo-js-mercure` stub); `\UnitEnum` queue names accepted by queue pause/resume; the exception now passed as a third argument to the Eloquent violation callbacks; `copyToDisk()`/`moveToDisk()` on the filesystem adapter; `RedisTaggedCache::touch()` re-syncing the tag entry TTL; `collapseWithKeys()` no longer dropping outer string keys; `containsStrict()` matching nulls correctly; multibyte fixes in `Str::password()` and `Str::camel()`; an `addToMiddlewarePriorityAfter()` placement fix; lowercase comparison in `hasIndex`; `Factory::raw()` with a zero count; `SessionHandlerInterface` stubs for PHP 9; `Authorizable` accepting a `UnitEnum`; `isManagedQueue` on `CloudManager`; the SQS FIFO message group id; `Job::payload()` memoised with `once()`; and `env:encrypt` preserving unchanged values.
+- Conflicts: 28 outside the upstream delta restored from `fledge-13`, 15 inside the delta but untouched by Fledge taken from upstream wholesale, 5 auto-merged and verified by hand (`Collections/Collection.php`, `Collections/Traits/EnumeratesValues.php`, `Database/Eloquent/Concerns/HasAttributes.php`, `Foundation/Http/Kernel.php`, `Broadcasting/composer.json`), 6 hand-merged:
+  - `composer.json` (root): phpstan raised to `^2.2.14` and the new `symfony/mercure ^0.8.0` / `web-token/jwt-library ^4.1` require-dev entries plus their matching `suggest` lines taken; `php: ^8.5`, the fledge-fiber deps, the absent `league/uri` and the removed polyfills kept.
+  - `Cache/RedisTaggedCache.php`: upstream's new `touch($key, $ttl)` override added, re-writing the tag entry with the new TTL; the Fledge body (`SuspendsFibers`, the polymorphic `$connection->getPrefix()` in `flush()`, the fiber-concurrent `flushValues()`/`deleteChunk()`) kept.
+  - `Database/Eloquent/Model.php`: the three third-argument docblocks for the violation callbacks taken; upstream's `fill()` rewrite auto-merged cleanly.
+  - `Filesystem/FilesystemAdapter.php`: upstream's `copyToDisk()`/`moveToDisk()` and the `FilesystemFactory` import landed; the shared `static $pathNormalizer` from v13.30.1.2 kept.
+  - `Foundation/Application.php`: keep the typed `const string VERSION`, bumped to `13.32.0`.
+  - `Queue/SqsQueue.php`: upstream's separate `if ($isFifo && is_null($messageGroupId))` FIFO branch taken; exactly one typed `MAX_MESSAGES_PER_BATCH` after de-duplicating the squash copy.
+- Squash-merge artifacts (the usual suspects): `install-nightly.yml` and `databases-nightly.yml` both resurrected (re-deleted), the `permissions:` block in `tests.yml` duplicated again (eleventh sync in a row, reduced back to a single block), and `Database/Schema/MySqlSchemaState.php` and `Routing/RouteUrlGenerator.php` checked back to identical with `fledge-13`. One new variant: `Session/ArraySessionHandler.php` came out of the merge with a duplicated `create_sid()` stub and was reset to upstream, which Fledge had never touched. `config/broadcasting.php` takes the upstream Mercure connection. The three between-sync v13.31.0.2 optimizations (`SupportsPivotInverseRelations.php`, `RedisQueue.php`, `AssertableJsonString.php`) all survived the squash.
+- Tests: 15,051 passing (15,597 total, 542 skipped); only the four known-environmental `RedisConnectionTest::*scansForKeys` cursor errors remain. Both phpstan configs (src and types) clean. All 7 GitHub workflows green on the sync commit before tagging.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, the pipe-operator `Pipeline`, typed class constants, `#[\NoDiscard]`, and the Fiber concurrency files all carried through. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.31.0.2 - 2026-09-10
 
 ### Optimized

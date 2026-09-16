@@ -179,13 +179,12 @@ class EnvironmentEncryptCommand extends Command
 
             $existingEntry = null;
 
-            foreach ($existing[$name] ?? [] as $index => $candidate) {
-                if ($candidate['value'] === $value) {
-                    $existingEntry = $candidate;
-                    unset($existing[$name][$index]);
+            $index = array_find_key($existing[$name] ?? [], fn ($candidate) => $candidate['value'] === $value);
 
-                    break;
-                }
+            if ($index !== null) {
+                $existingEntry = $existing[$name][$index];
+
+                unset($existing[$name][$index]);
             }
 
             $result .= $name.'='.($existingEntry !== null
