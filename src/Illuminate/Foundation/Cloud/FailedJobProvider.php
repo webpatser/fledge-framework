@@ -136,16 +136,20 @@ class FailedJobProvider implements FailedJobProviderInterface, CountableFailedJo
     {
         $payload = $this->resolveFailedJobsPayload($url);
 
-        while ($job = array_shift($payload->data)) {
-            $key = $payload->links->self.':'.$job->id;
+        while ($payload->data !== []) {
+            foreach ($payload->data as $job) {
+                $key = $payload->links->self.':'.$job->id;
 
-            $this->loadedFailedJobs[$key] = $job;
+                $this->loadedFailedJobs[$key] = $job;
 
-            yield $key => $job;
-
-            if ($payload->data === [] && $payload->links->next !== null) {
-                $payload = $this->resolveFailedJobsPayload($payload->links->next);
+                yield $key => $job;
             }
+
+            if ($payload->links->next === null) {
+                break;
+            }
+
+            $payload = $this->resolveFailedJobsPayload($payload->links->next);
         }
     }
 

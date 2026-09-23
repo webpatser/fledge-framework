@@ -2,6 +2,30 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.33.0.2 - 2026-09-23
+
+### Optimized
+- `Cache/MemoizedTaggedCache.php`: `many()` called `array_is_list($defaults)` on every iteration of its `foreach`; hoisted to `$isList` once before the loop.
+- `Database/Connectors/PostgresConnector.php`: `getDsn()`'s nested `addServerOptions(addKeepaliveOptions(addSslOptions(...)))` calls rewritten as a `|>` pipe chain, reading top to bottom in the order the options are applied.
+- `Foundation/Cloud/FailedJobProvider.php`: `failedJobsIterator()`'s `while (array_shift($payload->data))` popped and re-indexed the whole array on every job; replaced by a `foreach` over the current page, with an outer `while ($payload->data !== [])` handling pagination.
+- `Foundation/Http/FormRequest.php`: `nearestClassWithAttribute()`'s two inner `foreach` loops with early returns replaced by `array_any()`.
+- `Queue/Worker.php`: `$killOnTimeout`/`$killCallback` typed (`bool`, `?Closure`); `killUsing()` now wraps its argument in `Closure::fromCallable()`; `kill()` invokes `(static::$killCallback)($status)` directly instead of `call_user_func()`.
+- `Redis/Connections/PhpRedisConnection.php`: `causedByLostConnection()`'s inline message array moved to `protected const array LOST_CONNECTION_MESSAGES` so it is not rebuilt on every call.
+- `Redis/Connections/PredisConnection.php`: `getPrefix()` moved back above `parseParametersForEvent()`, so that method's docblock sits on the method it documents again (the two had drifted apart in an earlier merge).
+- Tests: unchanged by the rewrites at 15,162 passing (15,705 total, 543 skipped); only the four known-environmental `RedisConnectionTest::*scansForKeys` cursor errors remain. Both phpstan configs clean. All 7 GitHub workflows green.
+
+## v13.33.0.1 - 2026-09-23
+
+### Synced
+- Merge upstream Laravel v13.32.0 -> v13.33.0 (49 commits, 44 files under `src/`, 137 files in the full delta).
+- Conflicts (4): `composer.json` kept `webpatser/fledge-fiber`, took upstream's `brick/math ^0.20 || ^1.0` widening; `Foundation/Application.php` bumped the typed `const string VERSION` to `13.33.0`; `Queue/Worker.php` kept Fledge's closure form for the SIGALRM `$timeoutHandler`, folded in upstream's `killOnTimeout`/`killUsing()` support inside it, and dropped the `true` restart_syscalls argument from `pcntl_signal(SIGALRM, $timeoutHandler)` per upstream #61590 (the callback itself gets typed in v13.33.0.2); `.github/workflows/databases-nightly.yml` stays deleted (no-nightly-CI policy).
+- `phpstan/phpstan` pinned to `2.2.14`: `2.2.15` loosens inferred types on `Arr`/`Collection`/`LazyCollection` and breaks 7 assertions in `types/Support`; this is an upstream phpstan issue, the pin lifts once upstream adapts.
+- Companion release: `webpatser/fledge-fiber` v13.33.0.0 adds pgsql `server_options` support to `FledgePostgresConnector`, mirroring upstream `PostgresConnector::addServerOptions()`.
+- Tests: 15,162 passing (15,705 total, 543 skipped); only the four known-environmental `RedisConnectionTest::*scansForKeys` cursor errors remain. Both phpstan configs clean (after pinning to 2.2.14). All 7 GitHub workflows green on the sync commit before tagging.
+
+### Preserved
+- Native URI (`Uri\Rfc3986\Uri`), persistent cURL, `Arr` `array_all`/`array_any`, the pipe-operator `Pipeline`, typed class constants, `#[\NoDiscard]`, and the Fiber concurrency files all carried through. No `league/uri` or `symfony/polyfill-php8[45]` reintroduced.
+
 ## v13.32.0.2 - 2026-09-16
 
 ### Optimized

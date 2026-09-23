@@ -104,12 +104,6 @@ class PredisConnection extends Connection implements ConnectionContract
     }
 
     /**
-     * Parse the command's parameters for event dispatching.
-     *
-     * @param  array  $parameters
-     * @return array
-     */
-    /**
      * Get the key prefix for this connection.
      *
      * @return string
@@ -119,6 +113,12 @@ class PredisConnection extends Connection implements ConnectionContract
         return $this->client->getOptions()->prefix ?: '';
     }
 
+    /**
+     * Parse the command's parameters for event dispatching.
+     *
+     * @param  array  $parameters
+     * @return array
+     */
     protected function parseParametersForEvent(array $parameters)
     {
         return (new Collection($parameters))

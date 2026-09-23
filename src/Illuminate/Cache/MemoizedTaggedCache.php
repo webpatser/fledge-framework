@@ -82,13 +82,14 @@ class MemoizedTaggedCache extends TaggedCache
         $keys = [];
         $memoized = [];
         $missing = [];
+        $isList = array_is_list($defaults);
 
         foreach ($defaults as $key => $value) {
-            $key = array_is_list($defaults)
+            $key = $isList
                 ? enum_value($value)
                 : enum_value($key);
 
-            $keys[$key] = array_is_list($defaults) ? null : $value;
+            $keys[$key] = $isList ? null : $value;
 
             $prefixedKey = $this->itemKey($key);
 

@@ -83,6 +83,22 @@ class PhpRedisConnection extends Connection implements ConnectionContract
     ];
 
     /**
+     * The exception messages that indicate a lost connection to the Redis server.
+     *
+     * @var list<string>
+     */
+    protected const array LOST_CONNECTION_MESSAGES = [
+        'went away',
+        'socket',
+        'Error while reading',
+        'read error on connection',
+        'READONLY',
+        'Connection lost',
+        'Error processing response from Redis node',
+        'Connection reset by peer',
+    ];
+
+    /**
      * The connection creation callback.
      *
      * @var callable
@@ -721,16 +737,7 @@ class PhpRedisConnection extends Connection implements ConnectionContract
             return false;
         }
 
-        return Str::contains($e->getMessage(), [
-            'went away',
-            'socket',
-            'Error while reading',
-            'read error on connection',
-            'READONLY',
-            'Connection lost',
-            'Error processing response from Redis node',
-            'Connection reset by peer',
-        ]);
+        return Str::contains($e->getMessage(), static::LOST_CONNECTION_MESSAGES);
     }
 
     /**

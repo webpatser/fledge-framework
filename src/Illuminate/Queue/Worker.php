@@ -2,6 +2,7 @@
 
 namespace Illuminate\Queue;
 
+use Closure;
 use Illuminate\Contracts\Cache\Repository as CacheContract;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -170,14 +171,14 @@ class Worker
      *
      * @var bool
      */
-    public static $killOnTimeout = true;
+    public static bool $killOnTimeout = true;
 
     /**
      * The callback used to kill the worker process.
      *
-     * @var (callable(int): mixed)|null
+     * @var (Closure(int): mixed)|null
      */
-    protected static $killCallback;
+    protected static ?Closure $killCallback = null;
 
     /**
      * Indicates if the worker should report job exceptions.
@@ -1113,7 +1114,7 @@ class Worker
         ));
 
         if (static::$killCallback) {
-            call_user_func(static::$killCallback, $status);
+            (static::$killCallback)($status);
         }
 
         if (extension_loaded('posix')) {
@@ -1214,7 +1215,7 @@ class Worker
      */
     public static function killUsing($callback)
     {
-        static::$killCallback = $callback;
+        static::$killCallback = is_null($callback) ? null : Closure::fromCallable($callback);
     }
 
     /**

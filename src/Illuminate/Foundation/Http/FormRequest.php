@@ -423,17 +423,13 @@ class FormRequest extends Request implements ValidatesWhenResolved
         $reflection = new ReflectionClass($this);
 
         do {
-            foreach ($attributes as $attribute) {
-                if ($reflection->getAttributes($attribute) !== []) {
-                    return $reflection;
-                }
+            if (array_any($attributes, fn ($attribute) => $reflection->getAttributes($attribute) !== [])) {
+                return $reflection;
             }
 
-            foreach ($properties as $property) {
-                if ($reflection->hasProperty($property) &&
-                    $reflection->getProperty($property)->class === $reflection->name) {
-                    return null;
-                }
+            if (array_any($properties, fn ($property) => $reflection->hasProperty($property) &&
+                $reflection->getProperty($property)->class === $reflection->name)) {
+                return null;
             }
         } while (($reflection = $reflection->getParentClass()) && $reflection->name !== self::class);
 
