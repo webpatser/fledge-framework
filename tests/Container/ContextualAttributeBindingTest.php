@@ -33,6 +33,7 @@ use Illuminate\Http\Request;
 use Illuminate\Log\Context\Repository as ContextRepository;
 use Illuminate\Log\LogManager;
 use Mockery;
+use PDO;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use ReflectionParameter;
@@ -186,15 +187,12 @@ class ContextualAttributeBindingTest extends TestCase
     public function testConfigAttribute()
     {
         $container = new Container;
-        $container->singleton('config', function () {
-            $repository = Mockery::mock(Repository::class);
-            $repository->expects('get')->with('foo', null)->andReturn('foo');
-            $repository->expects('get')->with('bar', null)->andReturn('bar');
+        $container->singleton('config', fn () => new Repository(['foo' => 'foo', 'bar' => 'bar']));
 
-            return $repository;
-        });
+        $resolved = $container->make(ConfigTest::class);
 
-        $container->make(ConfigTest::class);
+        $this->assertSame('foo', $resolved->foo);
+        $this->assertSame('bar', $resolved->bar);
     }
 
     public function testDatabaseAttribute()
@@ -202,8 +200,8 @@ class ContextualAttributeBindingTest extends TestCase
         $container = new Container;
         $container->singleton('db', function () {
             $manager = Mockery::mock(DatabaseManager::class);
-            $manager->expects('connection')->with('foo')->andReturn(Mockery::mock(Connection::class));
-            $manager->expects('connection')->with('bar')->andReturn(Mockery::mock(Connection::class));
+            $manager->expects('connection')->with('foo')->andReturn(new Connection(new PDO('sqlite::memory:')));
+            $manager->expects('connection')->with('bar')->andReturn(new Connection(new PDO('sqlite::memory:')));
 
             return $manager;
         });
@@ -274,13 +272,15 @@ class ContextualAttributeBindingTest extends TestCase
         $container = new Container;
 
         $container->singleton(ContextRepository::class, function () {
-            $context = Mockery::mock(ContextRepository::class);
-            $context->expects('get')->with('foo', null)->andReturn('foo');
+            $context = new ContextRepository(new \Illuminate\Events\Dispatcher);
+            $context->add('foo', 'foo');
 
             return $context;
         });
 
-        $container->make(ContextTest::class);
+        $resolved = $container->make(ContextTest::class);
+
+        $this->assertSame('foo', $resolved->foo);
     }
 
     public function testContextAttributeInteractingWithHidden(): void
@@ -587,14 +587,14 @@ final readonly class CacheTest
 
 final readonly class ConfigTest
 {
-    public function __construct(#[Config('foo')] string $foo, #[Config('bar')] string $bar)
+    public function __construct(#[Config('foo')] public string $foo, #[Config('bar')] public string $bar)
     {
     }
 }
 
 final readonly class ContextTest
 {
-    public function __construct(#[Context('foo')] string $foo)
+    public function __construct(#[Context('foo')] public string $foo)
     {
     }
 }

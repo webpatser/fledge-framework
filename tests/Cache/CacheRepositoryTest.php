@@ -13,7 +13,6 @@ use Illuminate\Cache\Lock;
 use Illuminate\Cache\MemcachedStore;
 use Illuminate\Cache\RedisStore;
 use Illuminate\Cache\Repository;
-use Illuminate\Cache\TaggableStore;
 use Illuminate\Cache\TaggedCache;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Cache\LockProvider;
@@ -393,7 +392,7 @@ class CacheRepositoryTest extends TestCase
         $store = Mockery::mock(ArrayStore::class);
         $repo = new Repository($store);
 
-        $taggedCache = Mockery::mock();
+        $taggedCache = Mockery::mock(TaggedCache::class);
         $taggedCache->expects('setDefaultCacheTime');
         $store->expects('tags')->with(['foo', 'bar', 'baz'])->andReturn($taggedCache);
         $repo->tags('foo', 'bar', 'baz');
@@ -461,7 +460,7 @@ class CacheRepositoryTest extends TestCase
 
     public function testTaggableRepositoriesSupportTags()
     {
-        $taggable = Mockery::mock(TaggableStore::class);
+        $taggable = new ArrayStore;
         $taggableRepo = new Repository($taggable);
 
         $this->assertTrue($taggableRepo->supportsTags());
@@ -469,7 +468,7 @@ class CacheRepositoryTest extends TestCase
 
     public function testNonTaggableRepositoryDoesNotSupportTags()
     {
-        $nonTaggable = Mockery::mock(FileStore::class);
+        $nonTaggable = new FileStore(new Filesystem, sys_get_temp_dir());
         $nonTaggableRepo = new Repository($nonTaggable);
 
         $this->assertFalse($nonTaggableRepo->supportsTags());
@@ -669,7 +668,7 @@ class CacheRepositoryTest extends TestCase
 
     protected function getRepository()
     {
-        $dispatcher = new Dispatcher(Mockery::mock(Container::class));
+        $dispatcher = new Dispatcher(new Container);
         $repository = new Repository(Mockery::mock(Store::class));
 
         $repository->setEventDispatcher($dispatcher);

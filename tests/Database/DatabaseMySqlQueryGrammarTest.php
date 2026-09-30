@@ -8,6 +8,7 @@ use Illuminate\Database\Query\Grammars\MySqlGrammar;
 use Illuminate\Database\Query\Processors\Processor;
 use InvalidArgumentException;
 use Mockery;
+use PDO;
 use PHPUnit\Framework\TestCase;
 
 class DatabaseMySqlQueryGrammarTest extends TestCase
@@ -74,11 +75,9 @@ class DatabaseMySqlQueryGrammarTest extends TestCase
 
     protected function getBuilder()
     {
-        $connection = Mockery::mock(Connection::class);
-        $connection->shouldReceive('getDatabaseName')->andReturn('database');
-        $connection->shouldReceive('getTablePrefix')->andReturn('');
+        $connection = new Connection(new PDO('sqlite::memory:'), 'database');
         $grammar = new MySqlGrammar($connection);
-        $processor = Mockery::mock(Processor::class);
+        $processor = new Processor;
 
         return new Builder($connection, $grammar, $processor);
     }

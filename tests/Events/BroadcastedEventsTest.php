@@ -2,6 +2,7 @@
 
 namespace Illuminate\Tests\Events;
 
+use Illuminate\Broadcasting\BroadcastManager;
 use Illuminate\Broadcasting\PendingBroadcast;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Broadcasting\Factory as BroadcastFactory;
@@ -13,9 +14,20 @@ use PHPUnit\Framework\TestCase;
 
 class BroadcastedEventsTest extends TestCase
 {
+    protected function exposedDispatcher(): Dispatcher
+    {
+        return new class extends Dispatcher
+        {
+            public function shouldBroadcast(array $payload)
+            {
+                return parent::shouldBroadcast($payload);
+            }
+        };
+    }
+
     public function testShouldBroadcastSuccess()
     {
-        $d = Mockery::mock(Dispatcher::class)->makePartial()->shouldAllowMockingProtectedMethods();
+        $d = $this->exposedDispatcher();
 
         $event = new BroadcastEvent;
 
@@ -31,7 +43,7 @@ class BroadcastedEventsTest extends TestCase
         unset($_SERVER['__event.test']);
         $container = Mockery::mock(Container::class);
         $d = new Dispatcher($container);
-        $broadcast = Mockery::mock(BroadcastFactory::class);
+        $broadcast = Mockery::mock(BroadcastManager::class);
         $broadcast->expects('queue');
         $container->expects('make')->with(BroadcastFactory::class)->andReturn($broadcast);
 
@@ -46,7 +58,7 @@ class BroadcastedEventsTest extends TestCase
 
     public function testShouldBroadcastFail()
     {
-        $d = Mockery::mock(Dispatcher::class)->makePartial()->shouldAllowMockingProtectedMethods();
+        $d = $this->exposedDispatcher();
 
         $event = new BroadcastFalseCondition;
 
@@ -61,7 +73,7 @@ class BroadcastedEventsTest extends TestCase
     {
         $container = Mockery::mock(Container::class);
         $d = new Dispatcher($container);
-        $broadcast = Mockery::mock(BroadcastFactory::class);
+        $broadcast = Mockery::mock(BroadcastManager::class);
         $broadcast->expects('queue');
         $container->expects('make')->with(BroadcastFactory::class)->andReturn($broadcast);
 
@@ -80,7 +92,7 @@ class BroadcastedEventsTest extends TestCase
     {
         $container = Mockery::mock(Container::class);
         $d = new Dispatcher($container);
-        $broadcast = Mockery::mock(BroadcastFactory::class);
+        $broadcast = Mockery::mock(BroadcastManager::class);
         $broadcast->expects('queue');
         $container->expects('make')->with(BroadcastFactory::class)->andReturn($broadcast);
 
@@ -101,7 +113,7 @@ class BroadcastedEventsTest extends TestCase
     {
         $container = Mockery::mock(Container::class);
         $d = new Dispatcher($container);
-        $broadcast = Mockery::mock(BroadcastFactory::class);
+        $broadcast = Mockery::mock(BroadcastManager::class);
         $broadcast->expects('queue');
         $container->expects('make')->with(BroadcastFactory::class)->andReturn($broadcast);
 
@@ -125,7 +137,7 @@ class BroadcastedEventsTest extends TestCase
     {
         $container = Mockery::mock(Container::class);
         $d = new Dispatcher($container);
-        $broadcast = Mockery::mock(BroadcastFactory::class);
+        $broadcast = Mockery::mock(BroadcastManager::class);
         $broadcast->expects('queue');
         $container->expects('make')->with(BroadcastFactory::class)->andReturn($broadcast);
 
@@ -150,7 +162,7 @@ class BroadcastedEventsTest extends TestCase
     public function testEventBroadcastsUsingNamedArguments()
     {
         $container = new Container;
-        $broadcast = Mockery::mock(BroadcastFactory::class);
+        $broadcast = Mockery::mock(BroadcastManager::class);
         $container->instance(BroadcastFactory::class, $broadcast);
 
         $originalContainer = Container::getInstance();

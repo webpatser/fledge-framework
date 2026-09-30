@@ -329,6 +329,12 @@ class Worker
     {
         $timeoutHandler = function () use ($job, $options, $connectionName, $queue) {
             if ($job) {
+                try {
+                    $this->notifyJobOfSignal(SIGALRM);
+                } catch (Throwable $exception) {
+                    $this->exceptions->report($exception);
+                }
+
                 $this->markJobAsFailedIfWillExceedMaxAttempts(
                     $job->getConnectionName(), $job, (int) $options->maxTries, $e = $this->timeoutExceededException($job)
                 );
@@ -347,6 +353,10 @@ class Worker
 
                 if (! static::$killOnTimeout) {
                     throw $e;
+                }
+
+                if ($this->cache && ($job->payload()['countCrashesAsExceptions'] ?? false)) {
+                    $this->cache->forget('job-processing:'.$job->uuid());
                 }
             }
 
@@ -417,7 +427,7 @@ class Worker
      * Pause the worker for the current loop.
      *
      * @param  \Illuminate\Queue\WorkerOptions  $options
-     * @param  int  $lastRestart
+     * @param  int|null  $lastRestart
      * @param  int|float  $startTime
      * @return array|null
      */
@@ -432,7 +442,7 @@ class Worker
      * Determine the exit code to stop the process if necessary.
      *
      * @param  \Illuminate\Queue\WorkerOptions  $options
-     * @param  int  $lastRestart
+     * @param  int|null  $lastRestart
      * @param  int|float  $startTime
      * @param  mixed  $job
      * @return array|null
@@ -628,6 +638,8 @@ class Worker
                 $connectionName, $job, (int) $options->maxTries
             );
 
+            $this->markJobAsFailedIfAlreadyExceedsMaxExceptions($connectionName, $job);
+
             if ($job->isDeleted()) {
                 return $this->raiseAfterJobEvent($connectionName, $job);
             }
@@ -635,9 +647,13 @@ class Worker
             // Here we will fire off the job and let it process. We will catch any exceptions, so
             // they can be reported to the developer's logs, etc. Once the job is finished the
             // proper events will be fired to let any listeners know this job has completed.
+            $startedAt = $this->currentTime();
+
             $job->fire();
 
-            $this->raiseAfterJobEvent($connectionName, $job);
+            $duration = round(($this->currentTime() - $startedAt) * 1000, 2);
+
+            $this->raiseAfterJobEvent($connectionName, $job, $duration);
 
             if ($job->isReleased() && ! $job->isDeleted()) {
                 $this->events->dispatch(new JobReleased(
@@ -649,6 +665,10 @@ class Worker
 
             $this->handleJobException($connectionName, $job, $options, $e);
         } finally {
+            if ($this->cache && ($job->payload()['countCrashesAsExceptions'] ?? false)) {
+                $this->cache->forget('job-processing:'.$job->uuid());
+            }
+
             $this->events->dispatch(new JobAttempted(
                 $connectionName, $job, $exceptionOccurred ?? null
             ));
@@ -736,6 +756,38 @@ class Worker
         $this->failJob($job, $e = $this->maxAttemptsExceededException($job));
 
         throw $e;
+    }
+
+    /**
+     * Mark the given job as failed if it has exceeded the maximum allowed exceptions.
+     *
+     * This will likely be because the worker previously died while processing the job.
+     *
+     * @param  string  $connectionName
+     * @param  \Illuminate\Contracts\Queue\Job  $job
+     * @return void
+     *
+     * @throws \Throwable
+     */
+    protected function markJobAsFailedIfAlreadyExceedsMaxExceptions($connectionName, $job)
+    {
+        if (! $this->cache || ! ($job->payload()['countCrashesAsExceptions'] ?? false) ||
+            is_null($uuid = $job->uuid()) || is_null($job->maxExceptions())) {
+            return;
+        }
+
+        // If the previous attempt's marker is still present, that attempt never finished...
+        if ($this->cache->add('job-processing:'.$uuid, true, Carbon::now()->addDay())) {
+            return;
+        }
+
+        $this->markJobAsFailedIfWillExceedMaxExceptions(
+            $connectionName, $job, $e = $this->maxAttemptsExceededException($job)
+        );
+
+        if ($job->hasFailed()) {
+            throw $e;
+        }
     }
 
     /**
@@ -905,12 +957,13 @@ class Worker
      *
      * @param  string  $connectionName
      * @param  \Illuminate\Contracts\Queue\Job  $job
+     * @param  float|null  $duration
      * @return void
      */
-    protected function raiseAfterJobEvent($connectionName, $job)
+    protected function raiseAfterJobEvent($connectionName, $job, $duration = null)
     {
         $this->events->dispatch(new JobProcessed(
-            $connectionName, $job
+            $connectionName, $job, $duration
         ));
     }
 

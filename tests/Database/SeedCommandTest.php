@@ -5,14 +5,15 @@ namespace Illuminate\Tests\Database;
 use Illuminate\Console\Command;
 use Illuminate\Console\OutputStyle;
 use Illuminate\Console\View\Components\Factory;
-use Illuminate\Container\Container;
-use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\ConnectionResolver;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Database\Console\Seeds\SeedCommand;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
+use Illuminate\Events\Dispatcher;
 use Illuminate\Events\NullDispatcher;
+use Illuminate\Foundation\Application;
 use Illuminate\Testing\Assert;
 use Mockery;
 use PHPUnit\Framework\TestCase;
@@ -33,11 +34,9 @@ class SeedCommandTest extends TestCase
         $seeder->expects('setCommand')->andReturnSelf();
         $seeder->expects('__invoke');
 
-        $resolver = Mockery::mock(ConnectionResolverInterface::class);
-        $resolver->expects('getDefaultConnection');
-        $resolver->expects('setDefaultConnection')->with('sqlite');
+        $resolver = new ConnectionResolver;
 
-        $container = Mockery::mock(Container::class);
+        $container = Mockery::mock(Application::class);
         $container->expects('call');
         $container->expects('environment')->andReturn('testing');
         $container->shouldReceive('runningUnitTests')->andReturn('true');
@@ -56,6 +55,7 @@ class SeedCommandTest extends TestCase
         $command->run($input, $output);
         $command->handle();
 
+        $this->assertSame('sqlite', $resolver->getDefaultConnection());
         $container->shouldHaveReceived('call')->with([$command, 'handle']);
     }
 
@@ -70,15 +70,10 @@ class SeedCommandTest extends TestCase
         $seeder->expects('setCommand')->andReturnSelf();
         $seeder->expects('__invoke')->andThrow(new RuntimeException('Seeding failed.'));
 
-        $connections = [];
+        $resolver = new SeedCommandTestConnectionResolver;
+        $resolver->default = 'mysql';
 
-        $resolver = Mockery::mock(ConnectionResolverInterface::class);
-        $resolver->expects('getDefaultConnection')->andReturn('mysql');
-        $resolver->shouldReceive('setDefaultConnection')->andReturnUsing(function ($name) use (&$connections) {
-            $connections[] = $name;
-        });
-
-        $container = Mockery::mock(Container::class);
+        $container = Mockery::mock(Application::class);
         $container->expects('call');
         $container->expects('environment')->andReturn('testing');
         $container->shouldReceive('runningUnitTests')->andReturn('true');
@@ -103,7 +98,7 @@ class SeedCommandTest extends TestCase
             //
         }
 
-        Assert::assertSame(['sqlite', 'mysql'], $connections);
+        Assert::assertSame(['sqlite', 'mysql'], $resolver->log);
     }
 
     public function testWithoutModelEvents()
@@ -122,11 +117,9 @@ class SeedCommandTest extends TestCase
         $seeder->expects('setContainer')->andReturnSelf();
         $seeder->expects('setCommand')->andReturnSelf();
 
-        $resolver = Mockery::mock(ConnectionResolverInterface::class);
-        $resolver->expects('getDefaultConnection');
-        $resolver->expects('setDefaultConnection')->with('sqlite');
+        $resolver = new ConnectionResolver;
 
-        $container = Mockery::mock(Container::class);
+        $container = Mockery::mock(Application::class);
         $container->expects('call');
         $container->expects('environment')->andReturn('testing');
         $container->shouldReceive('runningUnitTests')->andReturn('true');
@@ -141,7 +134,7 @@ class SeedCommandTest extends TestCase
         $command = new SeedCommand($resolver);
         $command->setLaravel($container);
 
-        $dispatcher = Mockery::mock(Dispatcher::class);
+        $dispatcher = new Dispatcher;
         Model::setEventDispatcher($dispatcher);
 
         // call run to set up IO, then fire manually.
@@ -149,7 +142,7 @@ class SeedCommandTest extends TestCase
         $command->handle();
 
         Assert::assertSame($dispatcher, Model::getEventDispatcher());
-
+        $this->assertSame('sqlite', $resolver->getDefaultConnection());
         $container->shouldHaveReceived('call')->with([$command, 'handle']);
     }
 
@@ -159,9 +152,9 @@ class SeedCommandTest extends TestCase
         $output = new NullOutput;
         $outputStyle = new OutputStyle($input, $output);
 
-        $resolver = Mockery::mock(ConnectionResolverInterface::class);
+        $resolver = new ConnectionResolver;
 
-        $container = Mockery::mock(Container::class);
+        $container = Mockery::mock(Application::class);
         $container->expects('call');
         $container->shouldReceive('runningUnitTests')->andReturn('true');
         $container->expects('make')->with(OutputStyle::class, Mockery::any())->andReturn(
@@ -197,5 +190,31 @@ class UserWithoutModelEventsSeeder extends Seeder
     public function run()
     {
         Assert::assertInstanceOf(NullDispatcher::class, Model::getEventDispatcher());
+    }
+}
+
+class SeedCommandTestConnectionResolver implements ConnectionResolverInterface
+{
+    public $default;
+
+    public $connections = [];
+
+    public $log = [];
+
+    public function connection($name = null)
+    {
+        return $this->connections[$name ?? $this->default];
+    }
+
+    public function getDefaultConnection()
+    {
+        return $this->default;
+    }
+
+    public function setDefaultConnection($name)
+    {
+        $this->log[] = $name;
+
+        $this->default = $name;
     }
 }

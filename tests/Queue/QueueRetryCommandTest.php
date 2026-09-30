@@ -8,6 +8,8 @@ use Illuminate\Foundation\Application;
 use Illuminate\Queue\Console\RetryCommand;
 use Illuminate\Queue\Events\JobRetryRequested;
 use Illuminate\Queue\Failed\FailedJobProviderInterface;
+use Illuminate\Queue\Failed\NullFailedJobProvider;
+use Illuminate\Queue\QueueManager;
 use Illuminate\Queue\SqsQueue;
 use Illuminate\Support\Collection;
 use Illuminate\Support\LazyCollection;
@@ -134,7 +136,7 @@ class QueueRetryCommandTest extends TestCase
 
     public function testDisplaysInfoWhenThereAreNoJobsToRetry()
     {
-        $failer = m::mock(FailedJobProviderInterface::class);
+        $failer = new NullFailedJobProvider;
 
         $output = $this->runRetryCommand(['id' => []], $failer, []);
 
@@ -661,7 +663,7 @@ class QueueRetryCommandTest extends TestCase
 
         $container->instance('queue.failer', $failer);
 
-        $manager = m::mock(\stdClass::class);
+        $manager = m::mock(QueueManager::class);
 
         foreach ($connections as $name => $queue) {
             $manager->shouldReceive('connection')->with($name)->andReturn($queue);

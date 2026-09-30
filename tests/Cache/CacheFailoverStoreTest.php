@@ -8,7 +8,7 @@ use Illuminate\Cache\Events\CacheFailedOver;
 use Illuminate\Cache\FailoverStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Cache\CanFlushLocks;
-use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Events\Dispatcher;
 use Mockery;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -36,7 +36,7 @@ class CacheFailoverStoreTest extends TestCase
         $cache->expects('store')->with('store-a')->andReturn(new Repository($storeA));
         $cache->expects('store')->with('store-b')->andReturn(new Repository($storeB));
 
-        $failover = new FailoverStore($cache, Mockery::mock(Dispatcher::class), ['store-a', 'store-b']);
+        $failover = new FailoverStore($cache, new Dispatcher, ['store-a', 'store-b']);
 
         $result = $failover->flushLocks();
 
@@ -119,7 +119,7 @@ class CacheFailoverStoreTest extends TestCase
     {
         return new FailoverStore(
             Mockery::mock(CacheManager::class),
-            Mockery::mock(Dispatcher::class),
+            new Dispatcher,
             $stores
         );
     }

@@ -10,6 +10,7 @@ use Illuminate\Contracts\Support\Renderable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Session\NullSessionHandler;
 use Illuminate\Session\Store;
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ViewErrorBag;
@@ -56,9 +57,14 @@ class HttpResponseTest extends TestCase
 
     public function testRenderablesAreRendered()
     {
-        $mock = Mockery::mock(Renderable::class);
-        $mock->expects('render')->andReturn('foo');
-        $response = new Response($mock);
+        $renderable = new class implements Renderable
+        {
+            public function render()
+            {
+                return 'foo';
+            }
+        };
+        $response = new Response($renderable);
         $this->assertSame('foo', $response->getContent());
     }
 
@@ -177,33 +183,40 @@ class HttpResponseTest extends TestCase
     {
         $response = new RedirectResponse('foo.bar');
         $response->setRequest(Request::create('/', 'GET', ['name' => 'Taylor', 'age' => 26]));
-        $session = Mockery::mock(Store::class);
-        $session->expects('flashInput')->with(['name' => 'Taylor']);
+        $session = new Store('test', new NullSessionHandler);
         $response->setSession($session);
         $response->onlyInput('name');
+
+        $this->assertSame(['name' => 'Taylor'], $session->getOldInput());
+        $this->assertContains('_old_input', $session->get('_flash.new', []));
     }
 
     public function testExceptInputOnRedirect()
     {
         $response = new RedirectResponse('foo.bar');
         $response->setRequest(Request::create('/', 'GET', ['name' => 'Taylor', 'age' => 26]));
-        $session = Mockery::mock(Store::class);
-        $session->expects('flashInput')->with(['name' => 'Taylor']);
+        $session = new Store('test', new NullSessionHandler);
         $response->setSession($session);
         $response->exceptInput('age');
+
+        $this->assertSame(['name' => 'Taylor'], $session->getOldInput());
+        $this->assertContains('_old_input', $session->get('_flash.new', []));
     }
 
     public function testFlashingErrorsOnRedirect()
     {
         $response = new RedirectResponse('foo.bar');
         $response->setRequest(Request::create('/', 'GET', ['name' => 'Taylor', 'age' => 26]));
-        $session = Mockery::mock(Store::class);
-        $session->expects('get')->with('errors', Mockery::type(ViewErrorBag::class))->andReturn(new ViewErrorBag);
-        $session->expects('flash')->with('errors', Mockery::type(ViewErrorBag::class));
+        $session = new Store('test', new NullSessionHandler);
         $response->setSession($session);
         $provider = Mockery::mock(MessageProvider::class);
-        $provider->expects('getMessageBag')->andReturn(new MessageBag);
+        $provider->expects('getMessageBag')->andReturn(new MessageBag(['name' => ['required']]));
         $response->withErrors($provider);
+
+        $this->assertContains('errors', $session->get('_flash.new', []));
+        $errors = $session->get('errors');
+        $this->assertInstanceOf(ViewErrorBag::class, $errors);
+        $this->assertSame(['required'], $errors->getBag('default')->get('name'));
     }
 
     public function testSettersGettersOnRequest()
@@ -213,7 +226,7 @@ class HttpResponseTest extends TestCase
         $this->assertNull($response->getSession());
 
         $request = Request::create('/', 'GET');
-        $session = Mockery::mock(Store::class);
+        $session = new Store('test', new NullSessionHandler);
         $response->setRequest($request);
         $response->setSession($session);
         $this->assertSame($request, $response->getRequest());
@@ -224,12 +237,15 @@ class HttpResponseTest extends TestCase
     {
         $response = new RedirectResponse('foo.bar');
         $response->setRequest(Request::create('/', 'GET', ['name' => 'Taylor', 'age' => 26]));
-        $session = Mockery::mock(Store::class);
-        $session->expects('get')->with('errors', Mockery::type(ViewErrorBag::class))->andReturn(new ViewErrorBag);
-        $session->expects('flash')->with('errors', Mockery::type(ViewErrorBag::class));
+        $session = new Store('test', new NullSessionHandler);
         $response->setSession($session);
         $provider = ['foo' => 'bar'];
         $response->withErrors($provider);
+
+        $this->assertContains('errors', $session->get('_flash.new', []));
+        $errors = $session->get('errors');
+        $this->assertInstanceOf(ViewErrorBag::class, $errors);
+        $this->assertSame(['bar'], $errors->getBag('default')->get('foo'));
     }
 
     public function testWithHeaders()
@@ -276,10 +292,12 @@ class HttpResponseTest extends TestCase
     {
         $response = new RedirectResponse('foo.bar');
         $response->setRequest(Request::create('/', 'GET', ['name' => 'Taylor', 'age' => 26]));
-        $session = Mockery::mock(Store::class);
-        $session->expects('flash')->with('foo', 'bar');
+        $session = new Store('test', new NullSessionHandler);
         $response->setSession($session);
         $response->withFoo('bar');
+
+        $this->assertSame('bar', $session->get('foo'));
+        $this->assertContains('foo', $session->get('_flash.new', []));
     }
 
     public function testMagicCallException()

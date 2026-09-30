@@ -4,6 +4,7 @@ namespace Illuminate\Tests\Queue;
 
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
+use Illuminate\Contracts\Cache\Factory as CacheFactory;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Queue\Console\Concerns\ParsesQueue;
 use Illuminate\Queue\Events\QueuePaused;
@@ -30,7 +31,7 @@ class QueuePauseResumeTest extends TestCase
     protected function createManager($cache)
     {
         // Mock the cache facade to return our cache repository
-        $cacheMock = Mockery::mock();
+        $cacheMock = Mockery::mock(CacheFactory::class);
         $cacheMock->shouldReceive('store')->andReturn($cache);
 
         $app = [
@@ -266,6 +267,15 @@ class QueuePauseResumeTest extends TestCase
 
         $this->manager->pauseFor(PauseQueueConnection::Redis, PauseQueueName::Emails, 30);
         $this->assertTrue($this->manager->isPaused('redis', 'emails'));
+    }
+
+    public function testEnumsAreAcceptedWhenCheckingIfAQueueIsPaused()
+    {
+        $this->assertFalse($this->manager->isPaused(PauseQueueConnection::Redis, PauseQueueName::Emails));
+
+        $this->manager->pause('redis', 'emails');
+
+        $this->assertTrue($this->manager->isPaused(PauseQueueConnection::Redis, PauseQueueName::Emails));
     }
 }
 

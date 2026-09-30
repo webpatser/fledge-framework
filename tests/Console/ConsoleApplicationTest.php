@@ -5,7 +5,6 @@ namespace Illuminate\Tests\Console;
 use Composer\Autoload\ClassLoader;
 use Illuminate\Console\Application;
 use Illuminate\Console\Command;
-use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Contracts\Foundation\Application as ApplicationContract;
 use Illuminate\Events\Dispatcher as EventsDispatcher;
 use Illuminate\Filesystem\Filesystem;
@@ -53,8 +52,7 @@ class ConsoleApplicationTest extends TestCase
     public function testLaravelNotSetOnSymfonyCommands()
     {
         $artisan = $this->getMockConsole(['addToParent']);
-        $command = Mockery::mock(SymfonyCommand::class);
-        $command->shouldReceive('setLaravel')->never();
+        $command = new SymfonyCommand('foo');
         $artisan->expects($this->once())->method('addToParent')->with($command)->willReturn($command);
         $result = $artisan->add($command);
 
@@ -64,8 +62,8 @@ class ConsoleApplicationTest extends TestCase
     public function testResolveAddsCommandViaApplicationResolution()
     {
         $artisan = $this->getMockConsole(['addToParent']);
-        $command = Mockery::mock(SymfonyCommand::class);
-        $artisan->getLaravel()->expects('make')->with('foo')->andReturn(Mockery::mock(SymfonyCommand::class));
+        $command = new SymfonyCommand('foo');
+        $artisan->getLaravel()->expects('make')->with('foo')->andReturn(new SymfonyCommand('foo'));
         $artisan->expects($this->once())->method('addToParent')->with($command)->willReturn($command);
         $result = $artisan->resolve('foo');
 
@@ -137,9 +135,9 @@ class ConsoleApplicationTest extends TestCase
     public function testCallFullyStringCommandLine()
     {
         $artisan = new Application(
-            $app = Mockery::mock(ApplicationContract::class, ['version' => '6.0']),
+            $app = new FoundationApplication,
             new EventsDispatcher($app),
-            'testing'
+            $app->version()
         );
 
         $codeOfCallingArrayInput = $artisan->call('help', [
@@ -304,7 +302,7 @@ class ConsoleApplicationTest extends TestCase
     protected function getMockConsole(array $methods)
     {
         $app = Mockery::mock(ApplicationContract::class, ['version' => '6.0']);
-        $events = Mockery::mock(Dispatcher::class, ['dispatch' => null]);
+        $events = new EventsDispatcher;
 
         return $this->getMockBuilder(Application::class)->onlyMethods($methods)->setConstructorArgs([
             $app, $events, 'test-version',

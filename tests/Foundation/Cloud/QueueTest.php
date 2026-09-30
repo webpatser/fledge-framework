@@ -15,11 +15,13 @@ use Illuminate\Foundation\Cloud\AgentAwareLostConnectionDetector;
 use Illuminate\Foundation\Cloud\AgentUnreachableException;
 use Illuminate\Foundation\Cloud\CloudJob;
 use Illuminate\Foundation\Cloud\Events;
+use Illuminate\Foundation\Cloud\ExceptionReporter;
 use Illuminate\Foundation\Cloud\FailedJobProvider;
 use Illuminate\Foundation\Cloud\ManagedQueueNotFoundException;
 use Illuminate\Foundation\Cloud\Queue;
 use Illuminate\Foundation\Cloud\QueueConnector;
 use Illuminate\Foundation\CloudBootstrapper;
+use Illuminate\Foundation\Exceptions\Renderer\Mappers\BladeMapper;
 use Illuminate\Foundation\Testing\DatabaseMigrations;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
@@ -239,7 +241,7 @@ class QueueTest extends TestCase
         CloudBootstrapper::registerEvents($this->app);
         CloudBootstrapper::bootManagedQueues($this->app);
 
-        $this->app[QueueConnector::class];
+        $this->assertInstanceOf(QueueConnector::class, $this->app[QueueConnector::class]);
     }
 
     public function testItBindsCloudQueue()
@@ -639,6 +641,65 @@ class QueueTest extends TestCase
         ], $eventsFake->emitted);
     }
 
+    public function testItEmitsTheExceptionIdWithFailedJobEvents()
+    {
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $reporter = new ExceptionReporter(
+            $eventsFake,
+            $this->app[BladeMapper::class],
+            $this->app->basePath().DIRECTORY_SEPARATOR,
+            ['stop' => true],
+        );
+        $failedJobProvider = new FailedJobProvider($this->fakeFailer(), $eventsFake, $this->app['encrypter'], $reporter);
+        $failedJobProvider->setQueue($queue);
+
+        $agent->pushJob();
+        $queue->pop()->fail();
+        $failedJobProvider->log('cloud', 'default', json_encode([]), $exception = new RuntimeException('Whoops!'));
+
+        // The exception is reported after the job is logged as failed, so the
+        // identifier the reporter will use must be the one emitted here.
+        $this->assertTrue(Str::isUuid($eventsFake->emitted[1]['exception_id']));
+        $this->assertSame($reporter->exceptionId($exception), $eventsFake->emitted[1]['exception_id']);
+    }
+
+    public function testTheQueueFailerReportsTheExceptionIdWhenExceptionReportingIsEnabled()
+    {
+        CloudBootstrapper::registerEvents($this->app);
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $_SERVER['LARAVEL_CLOUD_EXCEPTIONS'] = json_encode([]);
+        CloudBootstrapper::registerExceptionReporting($this->app);
+        CloudBootstrapper::bootManagedQueues($this->app);
+
+        $this->app['queue.failer']->setQueue($queue);
+        $agent->pushJob();
+        $queue->pop()->fail();
+        $this->app['queue.failer']->log('cloud', 'default', json_encode([]), $exception = new RuntimeException('Whoops!'));
+
+        $this->assertSame(
+            $this->app[ExceptionReporter::class]->exceptionId($exception),
+            $eventsFake->emitted[1]['exception_id'],
+        );
+    }
+
+    public function testItDoesNotEmitTheExceptionIdWhenExceptionReportingIsDisabled()
+    {
+        $eventsFake = $this->fakeEvents();
+        [$queue, $agent] = $this->fakeQueue();
+        $failedJobProvider = new FailedJobProvider($this->fakeFailer(), $eventsFake, $this->app['encrypter']);
+        $failedJobProvider->setQueue($queue);
+
+        $agent->pushJob();
+        $queue->pop()->fail();
+        $failedJobProvider->log('cloud', 'default', json_encode([]), new RuntimeException('Whoops!'));
+
+        // There is no reporter to identify the exception, so the failed job
+        // carries no reference to one.
+        $this->assertArrayNotHasKey('exception_id', $eventsFake->emitted[1]);
+    }
+
     public function testItEmitsFailedJobEventsWithExceptionPreviewWithMessage()
     {
         $this->travelTo('2000-01-02 03:04:05.060708');
@@ -858,9 +919,9 @@ class QueueTest extends TestCase
         // With the agent disabled (the default) the queue receives from SQS.
         Http::fake();
         $this->fakeEvents();
-        [$queue, $client] = $this->mockedQueue();
 
-        $client->expects('receiveMessage')->andReturn(new Result([
+        $mock = new MockHandler();
+        $mock->append(fn (CommandInterface $cmd) => new Result([
             'Messages' => [[
                 'MessageId' => 'message-id',
                 'ReceiptHandle' => 'receipt-handle',
@@ -868,6 +929,8 @@ class QueueTest extends TestCase
                 'Attributes' => ['ApproximateReceiveCount' => 1],
             ]],
         ]));
+
+        $queue = $this->getRealQueue($mock);
 
         $job = $queue->pop();
 
@@ -881,9 +944,11 @@ class QueueTest extends TestCase
     public function testPopReturnsNullWhenSqsHasNoMessageAndTheAgentIsDisabled()
     {
         $this->fakeEvents();
-        [$queue, $client] = $this->mockedQueue();
 
-        $client->expects('receiveMessage')->andReturn(new Result(['Messages' => null]));
+        $mock = new MockHandler();
+        $mock->append(fn (CommandInterface $cmd) => new Result(['Messages' => null]));
+
+        $queue = $this->getRealQueue($mock);
 
         $this->assertNull($queue->pop());
     }
@@ -2085,8 +2150,11 @@ class QueueTest extends TestCase
         CloudBootstrapper::configureManagedQueues($this->app);
         CloudBootstrapper::bootManagedQueues($this->app);
         $eventsFake = $this->fakeEvents();
-        [$queue, $client] = $this->mockedQueue();
-        $client->expects('sendMessage')->times(1)->andReturn(new Result());
+
+        $mock = new MockHandler();
+        $mock->append(fn (CommandInterface $cmd) => new Result());
+
+        $queue = $this->getRealQueue($mock);
 
         unset($_SERVER['SQS_PREFIX'], $_SERVER['SQS_SUFFIX']);
 
@@ -2100,8 +2168,11 @@ class QueueTest extends TestCase
         CloudBootstrapper::configureManagedQueues($this->app);
         CloudBootstrapper::bootManagedQueues($this->app);
         $eventsFake = $this->fakeEvents();
-        [$queue, $client] = $this->mockedQueue();
-        $client->expects('sendMessage')->times(1)->andReturn(new Result());
+
+        $mock = new MockHandler();
+        $mock->append(fn (CommandInterface $cmd) => new Result());
+
+        $queue = $this->getRealQueue($mock);
 
         $queue->push(new FakeJob, queue: 'orders.fifo');
 
@@ -2175,6 +2246,44 @@ class QueueTest extends TestCase
         ]));
 
         $this->assertSame(6, $queue->totalReservedSize());
+    }
+
+    /**
+     * Build a Cloud queue backed by a real SqsClient whose HTTP layer is
+     * stubbed via an Aws\MockHandler, instead of mocking the client itself.
+     */
+    private function getRealQueue(MockHandler $handler): Queue
+    {
+        $client = new SqsClient([
+            'region' => 'us-east-2',
+            'version' => 'latest',
+            'handler' => $handler,
+            'credentials' => false,
+        ]);
+
+        $this->app->instance(QueueConnector::class, new QueueConnector(new class($client) implements ConnectorInterface
+        {
+            public function __construct(private $client)
+            {
+                //
+            }
+
+            public function connect($config)
+            {
+                return new SqsQueue(
+                    $this->client,
+                    $config['queue'],
+                    $config['prefix'] ?? '',
+                    $config['suffix'] ?? '',
+                    $config['after_commit'] ?? null,
+                    $config['overflow'] ?? [],
+                );
+            }
+        }, $this->app));
+
+        $this->app['queue']->addConnector('cloud', $this->app->factory(QueueConnector::class));
+
+        return $this->app['queue']->connection('cloud');
     }
 
     /**
