@@ -2,6 +2,19 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.34.0.2 - 2026-09-30
+
+### Optimized
+- `Database/Schema/Builder.php`: `getColumn()` filtered the whole column list with `array_filter()` and then took `array_first()`; replaced by a single native `array_find()` that stops at the first match.
+- Tests: 15,944 passing in the full suite. Both phpstan configs clean.
+
+## v13.34.0.1 - 2026-09-30
+
+### Synced
+- Merge upstream Laravel v13.33.0 -> v13.34.0.
+- `phpstan/phpstan` moves to upstream's `2.2.15` (replacing the `2.2.14` pin) and `orchestra/testbench-core` to `^11.5.0`.
+- `.github/workflows/install-nightly.yml` and `databases-nightly.yml` stay deleted (no-nightly-CI policy).
+
 ## v13.33.0.2 - 2026-09-23
 
 ### Optimized
