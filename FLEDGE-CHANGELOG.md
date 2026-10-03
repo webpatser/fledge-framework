@@ -2,6 +2,12 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.34.0.3 - 2026-10-03
+
+### Fixed
+- `Support/Sleep.php` plus new `Support/Concerns/SuspendsFibers.php`: every `Sleep` (so `retry()`, sync `Http::retry()`, `Timebox`, the Redis limiters, `LazyCollection::throttle`) now suspends the current Revolt fiber instead of calling blocking `usleep()`, which froze every other fiber of a torque worker during a retry backoff; main-context and `Sleep::fake()` behaviour unchanged.
+- Tests: `tests/Support/SleepFiberTest.php` added, 5 tests.
+
 ## v13.34.0.2 - 2026-09-30
 
 ### Optimized

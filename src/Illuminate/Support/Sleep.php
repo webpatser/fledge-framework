@@ -5,6 +5,7 @@ namespace Illuminate\Support;
 use Carbon\CarbonInterval;
 use Closure;
 use DateInterval;
+use Illuminate\Support\Concerns\SuspendsFibers;
 use Illuminate\Support\Traits\Macroable;
 use PHPUnit\Framework\Assert as PHPUnit;
 use RuntimeException;
@@ -12,6 +13,7 @@ use RuntimeException;
 class Sleep
 {
     use Macroable;
+    use SuspendsFibers;
 
     /**
      * The fake sleep callbacks.
@@ -341,6 +343,14 @@ class Sleep
         };
 
         while ($while()) {
+            if ($this->inFiber()) {
+                $remaining = $remaining->subSeconds($seconds);
+
+                $this->suspendForMicroseconds($seconds * 1_000_000 + max(0, (int) $remaining->totalMicroseconds));
+
+                continue;
+            }
+
             if ($seconds > 0) {
                 sleep($seconds);
 
