@@ -2,6 +2,19 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.35.0.2 - 2026-10-07
+
+### Optimized
+- `Support/Testing/Fakes/MatchesProperties.php`: `resolveTruthTest()` wrapped the expected-properties array in a `Collection` just to call `every()`; replaced by a native `array_all()` (same value, key argument order), dropping the per-call Collection allocation and the now unused import.
+
+## v13.35.0.1 - 2026-10-07
+
+### Synced
+- Merge upstream Laravel v13.34.0 -> v13.35.0. Headline upstream changes: the `HasDefaultAttributes` Eloquent trait; the `MatchesProperties` fake helper; `Worker::memoryExceeded()` accepting a percentage; the QUERY HTTP verb on the router; and `Schedule::alwaysOnOneServer()`.
+- Conflicts (3): `Foundation/Application.php` kept the typed `const string VERSION`, bumped to `13.35.0`; `.github/workflows/databases-nightly.yml` and `install-nightly.yml` stay deleted (no-nightly-CI policy).
+- No new dependencies and no polyfills.
+- Tests: 16,056 passing in the full suite (47,946 assertions, 0 failures).
+
 ## v13.34.0.3 - 2026-10-03
 
 ### Fixed

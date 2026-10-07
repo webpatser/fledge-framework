@@ -179,6 +179,7 @@ Worth knowing before going to production:
 | `array_all`/`array_any` in `Arr::hasAll`/`hasAny` | 1 | Faster array checks |
 | `array_any` in `Handler::shouldntReport` | 1 | Replace `Arr::first` null check |
 | `array_any` in `FormRequest::isKnownField` | 1 | Replace foreach early-return |
+| `array_all` in `MatchesProperties::resolveTruthTest` | 1 | Drop per-call Collection allocation |
 | `array_find` in `InterventionDriver::transformationHandlerFor` | 1 | Replace foreach early-return |
 | Pipe operator in `Pipeline::then()` | 1 | Cleaner code |
 | `#[\NoDiscard]` on Pipeline, Cache, Container, Validation | 4 | Developer safety |

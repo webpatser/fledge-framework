@@ -3,7 +3,6 @@
 namespace Illuminate\Support\Testing\Fakes;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Collection;
 
 trait MatchesProperties
 {
@@ -17,7 +16,7 @@ trait MatchesProperties
             return $callback;
         }
 
-        return fn ($object) => (new Collection($callback))->every(function ($expected, $property) use ($object) {
+        return fn ($object) => array_all($callback, function ($expected, $property) use ($object) {
             if (! property_exists($object, $property) && ! isset($object->{$property})) {
                 return false;
             }
