@@ -429,7 +429,9 @@ class FilesystemAdapter implements CloudFilesystemContract
      */
     protected function fallbackName($name)
     {
-        return str_replace('%', '', Str::ascii($name));
+        $fallback = str_replace('%', '', Str::ascii($name));
+
+        return $fallback !== '' ? $fallback : str_repeat('_', mb_strlen($name));
     }
 
     /**
@@ -680,7 +682,7 @@ class FilesystemAdapter implements CloudFilesystemContract
     /**
      * Copy a file to another disk.
      *
-     * @param  string|\Illuminate\Contracts\Filesystem\Filesystem  $disk
+     * @param  \UnitEnum|string|\Illuminate\Contracts\Filesystem\Filesystem  $disk
      * @param  string  $from
      * @param  string|null  $to
      * @return bool
@@ -713,7 +715,7 @@ class FilesystemAdapter implements CloudFilesystemContract
     /**
      * Move a file to another disk.
      *
-     * @param  string|\Illuminate\Contracts\Filesystem\Filesystem  $disk
+     * @param  \UnitEnum|string|\Illuminate\Contracts\Filesystem\Filesystem  $disk
      * @param  string  $from
      * @param  string|null  $to
      * @return bool
