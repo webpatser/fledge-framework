@@ -385,7 +385,7 @@ class Builder
     }
 
     /**
-     *  Get the column for a given table.
+     * Get the column for a given table.
      *
      * @param  string  $table
      * @param  string  $column
@@ -393,9 +393,9 @@ class Builder
      */
     public function getColumn($table, $column)
     {
-        return array_find($this->getColumns($table), function ($col) use ($column) {
-            return $col['name'] === $column;
-        }) ?? [];
+        $column = strtolower($column);
+
+        return array_find($this->getColumns($table), fn ($col) => strtolower($col['name']) === $column) ?? [];
     }
 
     /**
