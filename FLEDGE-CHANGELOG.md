@@ -2,6 +2,25 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.36.0.2 - 2026-10-14
+
+### Optimized
+- `Broadcasting/Mercure/CreatesMercureDrivers.php`: `broadcastsToSynchronousMercureConnections()` foreach-with-early-return replaced by `array_all()` (empty list still false).
+- `Support/Number.php`: `pairs()` uses `array_last()` instead of `end()` (no internal pointer move).
+- `Validation/Rules/IpAddress.php`: allowed versions moved from a private array property to `private const array ALLOWED_VERSIONS`, with strict `in_array()`.
+- `View/Compilers/BladeCompiler.php`: `DEFAULT_ECHO_FORMAT` is now a typed `const string`; `#[\Override]` on `getCompiledPath()`.
+- `Database/Eloquent/Relations/HasOneOrManyThrough.php`: `#[\Override]` on `touch()`.
+- Tests: scoped Broadcasting, Support, View, Validation and Database suites green (2,942 passing); phpstan clean.
+
+## v13.36.0.1 - 2026-10-14
+
+### Synced
+- Merge upstream Laravel v13.35.0 -> v13.36.0. Headline upstream changes: parameterized validation rule classes for the remaining rules plus the `ParameterizedRule` contract; `Worker::$flushStickyConnections` to flush sticky connections between jobs; `MySqlConnection::olap()`; case-insensitive `Schema::getColumn()`; and the FrankenPHP Mercure hub guard with synchronous Mercure broadcasting by default.
+- Conflicts (5): `composer.json` (took `phpstan/phpstan 2.3.1`, up from Fledge's 2.2.15 pin; both phpstan configs clean on it); `Foundation/Application.php` typed `const string VERSION` bumped to `13.36.0`; `Redis/Connections/PhpRedisConnection.php` new "Can't communicate with any node in the cluster" message added to the typed `LOST_CONNECTION_MESSAGES` constant; `Database/Schema/Builder.php` `getColumn()` keeps `array_find()` with upstream's case-insensitive match; `Support/Facades/Blade.php` upstream docblock order. `install-nightly.yml` stays deleted.
+- Note: merged as a 3-way merge against v13.35.0 instead of git's ancient squash merge-base, which cut 67 noisy conflicts down to 5.
+- No new dependencies and no polyfills.
+- Tests: 15,684 passing in the full suite (16,242 tests, 48,620 assertions, 0 failures). Both phpstan configs clean.
+
 ## v13.35.0.2 - 2026-10-07
 
 ### Optimized
