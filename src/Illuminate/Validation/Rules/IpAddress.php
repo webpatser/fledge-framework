@@ -11,7 +11,8 @@ class IpAddress implements Stringable
      * @var 4|6|null
      */
     protected ?int $version = null;
-    private array $allowedVersions = [4, 6];
+
+    private const array ALLOWED_VERSIONS = [4, 6];
 
     /**
      * Set the IP version.
@@ -26,11 +27,11 @@ class IpAddress implements Stringable
      */
     public function version(int $version): static
     {
-        if (! in_array($version, $this->allowedVersions)) {
+        if (! in_array($version, self::ALLOWED_VERSIONS, true)) {
             throw new InvalidArgumentException(sprintf(
                 'The provided IP version %d is invalid. Please use one of these: %s',
                 $version,
-                implode(', ', $this->allowedVersions),
+                implode(', ', self::ALLOWED_VERSIONS),
             ));
         }
 

@@ -122,15 +122,11 @@ trait CreatesMercureDrivers
             ? $event->broadcastConnections()
             : [null];
 
-        foreach ($connections as $connection) {
+        return $connections !== [] && array_all($connections, function ($connection) {
             $config = $this->getConfig(enum_value($connection) ?: $this->getDefaultDriver());
 
-            if (($config['driver'] ?? null) !== 'mercure' || ! empty($config['async'])) {
-                return false;
-            }
-        }
-
-        return $connections !== [];
+            return ($config['driver'] ?? null) === 'mercure' && empty($config['async']);
+        });
     }
 
     /**

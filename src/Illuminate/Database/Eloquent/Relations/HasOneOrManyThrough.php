@@ -562,6 +562,7 @@ abstract class HasOneOrManyThrough extends Relation
      *
      * @return void
      */
+    #[\Override]
     public function touch()
     {
         $model = $this->getRelated();

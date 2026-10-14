@@ -41,7 +41,7 @@ class BladeCompiler extends Compiler implements CompilerInterface
         Concerns\CompilesUseStatements,
         ReflectsClosures;
 
-    const DEFAULT_ECHO_FORMAT = 'e(%s)';
+    const string DEFAULT_ECHO_FORMAT = 'e(%s)';
 
     /**
      * All of the registered extensions.
@@ -1039,6 +1039,7 @@ class BladeCompiler extends Compiler implements CompilerInterface
      * @param  string  $path
      * @return string
      */
+    #[\Override]
     public function getCompiledPath($path)
     {
         $compiled = parent::getCompiledPath($path);
