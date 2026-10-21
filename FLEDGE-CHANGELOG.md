@@ -2,6 +2,15 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.38.0.1 - 2026-10-21
+
+### Synced
+- Merge upstream Laravel v13.36.0 -> v13.38.0.
+- Conflicts: `Cache/Limiters/ConcurrencyLimiter.php` keeps the fiber-aware `SuspendsFibers` sleep and takes upstream's `Carbon::now()->getTimestamp()`; `Collections/Traits/EnumeratesValues.php` `whereBetween()` takes upstream's `getArrayableItems` and keeps native `array_first()`/`array_last()`; `composer.json` takes `intervention/image ^4.2`; `Foundation/Application.php` `VERSION` stays a typed `const string`; `Support/Facades/App.php` docblock regenerated with the facade documenter.
+- New upstream files accepted: `Foundation/Http/HealthCheck.php` and `Foundation/Http/Middleware/PreventStaleDatabaseReads.php`. `Foundation/LaravelCloudJsonFormatter.php` was removed upstream and is removed here too.
+- No new PHP 8.5 optimizations in this upstream range.
+- Tests: 16,350 tests in the full suite (15,777 passed, 573 skipped, 0 failures).
+
 ## v13.36.0.3 - 2026-10-21
 
 ### Fixed
