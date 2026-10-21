@@ -157,7 +157,7 @@ class RetryCommand extends Command
     {
         $queue = $this->laravel['queue']->connection($job->connection);
 
-        $this->laravel['queue']->connection($job->connection)->pushRaw(
+        (void) $queue->pushRaw(
             $this->refreshRetryUntil($this->resetAttempts($job->payload)),
             $job->queue,
             $this->getQueueableOptions($queue, $job)

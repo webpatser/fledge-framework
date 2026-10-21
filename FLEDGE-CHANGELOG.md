@@ -2,6 +2,12 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## Unreleased
+
+### Fixed
+- Queue: statement-level `push()`, `pushRaw()` and `later()` calls whose job id is ignored are now cast to `(void)`, so drivers that mark those methods `#[\NoDiscard]` (Torque up to 0.18.0) no longer turn a PHP 8.5 warning into an `ErrorException`. Affected for real: `queue:retry` (`Console/RetryCommand.php`, `pushRaw()`) and the base `Queue::bulk()` (`push()`, used by `Bus::batch()` and `Batch::add()` on drivers without their own `bulk()`). Hardened the same pattern in the `bulk()` loops of `RedisQueue`, `BeanstalkdQueue` and `FailoverQueue` for subclasses. Ternary call sites (`QueueFake`, `Events\Dispatcher`) and `pushOn()`/`laterOn()` callers do not trip the check and are unchanged.
+- Tests: `tests/Queue/QueueNoDiscardTest.php` runs `queue:retry all` and `Queue::bulk()` against a `#[\NoDiscard]` queue double with warnings promoted to exceptions.
+
 ## v13.36.0.2 - 2026-10-14
 
 ### Optimized

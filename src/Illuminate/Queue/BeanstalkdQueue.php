@@ -311,9 +311,9 @@ class BeanstalkdQueue extends Queue implements QueueContract
             $delay = is_object($job) ? $this->getAttributeValue($job, Delay::class, 'delay') : null;
 
             if (isset($delay)) {
-                $this->later($delay, $job, $data, $queue);
+                (void) $this->later($delay, $job, $data, $queue);
             } else {
-                $this->push($job, $data, $queue);
+                (void) $this->push($job, $data, $queue);
             }
         }
     }
