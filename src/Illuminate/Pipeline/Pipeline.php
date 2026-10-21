@@ -73,7 +73,6 @@ class Pipeline implements PipelineContract
      * @param  mixed  $passable
      * @return $this
      */
-    #[\NoDiscard("Pipeline chain should be continued")]
     public function send($passable)
     {
         $this->passable = $passable;
@@ -87,7 +86,6 @@ class Pipeline implements PipelineContract
      * @param  mixed  $pipes
      * @return $this
      */
-    #[\NoDiscard("Pipeline chain should be continued")]
     public function through($pipes)
     {
         $this->pipes = is_array($pipes) ? $pipes : func_get_args();
@@ -101,7 +99,6 @@ class Pipeline implements PipelineContract
      * @param  mixed  $pipes
      * @return $this
      */
-    #[\NoDiscard("Pipeline chain should be continued")]
     public function pipe($pipes)
     {
         array_push($this->pipes, ...(is_array($pipes) ? $pipes : func_get_args()));
@@ -115,7 +112,6 @@ class Pipeline implements PipelineContract
      * @param  string  $method
      * @return $this
      */
-    #[\NoDiscard("Pipeline chain should be continued")]
     public function via($method)
     {
         $this->method = $method;
