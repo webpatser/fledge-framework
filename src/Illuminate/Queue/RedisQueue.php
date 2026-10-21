@@ -356,9 +356,9 @@ class RedisQueue extends Queue implements QueueContract, ClearableQueue
                 $delay = is_object($job) ? $this->getAttributeValue($job, Delay::class, 'delay') : null;
 
                 if (isset($delay)) {
-                    (void) $this->later($delay, $job, $data, $queue);
+                    $this->later($delay, $job, $data, $queue);
                 } else {
-                    (void) $this->push($job, $data, $queue);
+                    $this->push($job, $data, $queue);
                 }
             }
         };
@@ -392,9 +392,9 @@ class RedisQueue extends Queue implements QueueContract, ClearableQueue
             $delay = is_object($job) ? $this->getAttributeValue($job, Delay::class, 'delay') : null;
 
             if (isset($delay)) {
-                (void) $this->later($delay, $job, $data, $queue);
+                $this->later($delay, $job, $data, $queue);
             } elseif ($this->shouldDispatchAfterCommit($job)) {
-                (void) $this->push($job, $data, $queue);
+                $this->push($job, $data, $queue);
             } else {
                 $this->enqueueUsing(
                     $job,

@@ -5,8 +5,9 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 ## v13.36.0.3 - 2026-10-21
 
 ### Fixed
-- Queue: statement-level `push()`, `pushRaw()` and `later()` calls whose job id is ignored are now cast to `(void)`, so drivers that mark those methods `#[\NoDiscard]` (Torque up to 0.18.0) no longer turn a PHP 8.5 warning into an `ErrorException`. Affected for real: `queue:retry` (`Console/RetryCommand.php`, `pushRaw()`) and the base `Queue::bulk()` (`push()`, used by `Bus::batch()` and `Batch::add()` on drivers without their own `bulk()`). Hardened the same pattern in the `bulk()` loops of `RedisQueue`, `BeanstalkdQueue` and `FailoverQueue` for subclasses. Ternary call sites (`QueueFake`, `Events\Dispatcher`) and `pushOn()`/`laterOn()` callers do not trip the check and are unchanged.
+- Queue: statement-level `push()`, `pushRaw()` and `later()` calls whose job id is ignored are now cast to `(void)`, so drivers that mark those methods `#[\NoDiscard]` (Torque up to 0.18.0) no longer turn a PHP 8.5 warning into an `ErrorException`. Affected for real: `queue:retry` (`Console/RetryCommand.php`, `pushRaw()`) and the base `Queue::bulk()` (`push()`, used by `Bus::batch()` and `Batch::add()` on drivers without their own `bulk()`). The `(void)` casts remain only in `Queue.php` and `Console/RetryCommand.php`; the concrete drivers' `bulk()` loops (`RedisQueue`, `BeanstalkdQueue`, `FailoverQueue`) keep plain calls because their methods carry no `#[\NoDiscard]` and PHPStan rejects the cast there (`method.inVoidCast`). Ternary call sites (`QueueFake`, `Events\Dispatcher`) and `pushOn()`/`laterOn()` callers do not trip the check and are unchanged.
 - Tests: `tests/Queue/QueueNoDiscardTest.php` runs `queue:retry all` and `Queue::bulk()` against a `#[\NoDiscard]` queue double with warnings promoted to exceptions.
+- Tests: `tests/Support/SleepFiberTest.php` `testSleepOutsideFiberStillBlocks` lower bound loosened by 1 ms (29 instead of 30) to tolerate Windows timer resolution.
 
 ## v13.36.0.2 - 2026-10-14
 

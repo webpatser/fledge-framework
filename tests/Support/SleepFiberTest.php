@@ -67,7 +67,8 @@ class SleepFiberTest extends TestCase
 
         $elapsed = (hrtime(true) - $start) / 1_000_000;
 
-        $this->assertGreaterThanOrEqual(30, $elapsed);
+        // 1 ms of slack: Windows timer resolution can report slightly under the requested sleep.
+        $this->assertGreaterThanOrEqual(29, $elapsed);
     }
 
     public function testFakeSleepInsideFiberDoesNotWait()
