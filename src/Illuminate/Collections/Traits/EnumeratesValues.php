@@ -54,7 +54,6 @@ use function Illuminate\Support\enum_value;
  * @property-read HigherOrderCollectionProxy<'takeWhile', TValue, static> $takeWhile
  * @property-read HigherOrderCollectionProxy<'unique', TValue, static> $unique
  * @property-read HigherOrderCollectionProxy<'unless', TValue, static> $unless
- * @property-read HigherOrderCollectionProxy<'until', TValue, static> $until
  * @property-read HigherOrderCollectionProxy<'when', TValue, static> $when
  */
 trait EnumeratesValues
@@ -105,7 +104,6 @@ trait EnumeratesValues
         'takeWhile',
         'unique',
         'unless',
-        'until',
         'when',
     ];
 
@@ -729,6 +727,8 @@ trait EnumeratesValues
      */
     public function whereBetween($key, $values)
     {
+        $values = $this->getArrayableItems($values);
+
         return $this->where($key, '>=', array_first($values))->where($key, '<=', array_last($values));
     }
 
@@ -741,6 +741,8 @@ trait EnumeratesValues
      */
     public function whereNotBetween($key, $values)
     {
+        $values = $this->getArrayableItems($values);
+
         return $this->filter(
             fn ($item) => data_get($item, $key) < array_first($values) || data_get($item, $key) > array_last($values)
         );
