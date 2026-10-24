@@ -6,6 +6,7 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 
 ### Security
 - Support: `Uri` now hardens IDN host handling against fullwidth delimiter smuggling (fullwidth lookalikes of `/`, `?`, `#`, `@` or `:` in a host could normalize into URI delimiters and change the effective host). IDNA conversion is nontransitional (so `ß` becomes `xn--strae-oqa.de`, not `strasse.de`), conversion errors reject the host, and IDN hosts containing `_` are rejected, matching `league/uri`. Plain ASCII hosts are unaffected.
+- Http: `RedirectResponse::enforceSameOrigin()` falls back instead of throwing `Uri\InvalidUriException` when the target host is rejected by the IDN hardening (e.g. `example.com／evil.com`).
 - Http: persistent cURL share handles now reject `CURL_LOCK_DATA_COOKIE`, so cookies can no longer leak between unrelated requests sharing a persistent handle.
 
 ### Added

@@ -13,6 +13,7 @@ use Illuminate\Support\Uri;
 use Illuminate\Support\ViewErrorBag;
 use Symfony\Component\HttpFoundation\File\UploadedFile as SymfonyUploadedFile;
 use Symfony\Component\HttpFoundation\RedirectResponse as BaseRedirectResponse;
+use Uri\InvalidUriException;
 
 class RedirectResponse extends BaseRedirectResponse implements Responsable
 {
@@ -177,7 +178,14 @@ class RedirectResponse extends BaseRedirectResponse implements Responsable
         bool $validateScheme = true,
         bool $validatePort = true,
     ): static {
-        $target = Uri::of($this->targetUrl);
+        try {
+            $target = Uri::of($this->targetUrl);
+        } catch (InvalidUriException) {
+            // A target whose host cannot be normalized safely (e.g. an IDN host
+            // smuggling a fullwidth URI delimiter) has no trustworthy origin.
+            return $this->setTargetUrl($fallback);
+        }
+
         $current = Uri::of($this->request->getSchemeAndHttpHost());
 
         if ($target->host() !== $current->host() ||

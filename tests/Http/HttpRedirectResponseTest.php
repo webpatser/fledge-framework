@@ -152,20 +152,27 @@ class HttpRedirectResponseTest extends TestCase
         $this->assertSame('https://example.com:1/foo/bar', $response->getTargetUrl());
     }
 
-    public function testEnforceSameOriginEmitsTheValidatedNormalizedTarget()
+    public function testEnforceSameOriginFallsBackWhenTheHostSmugglesAFullwidthDelimiter()
     {
-        // A fullwidth solidus (U+FF0F) folds to "/" under UTS-46 normalization,
-        // so the host validates as example.com while the raw bytes still carry
-        // the fullwidth character. The emitted Location header must be the
-        // normalized string we actually validated, not the raw input.
+        // A fullwidth solidus (U+FF0F) would fold to "/" under lenient UTS-46
+        // mapping and move the host boundary. Fledge's Uri rejects such hosts,
+        // so the redirect must fall back instead of throwing or emitting the
+        // raw fullwidth target.
         $response = new RedirectResponse("https://example.com\u{FF0F}evil.com/steal");
         $response->setRequest(Request::create('https://example.com/baz/buzz'));
         $response->enforceSameOrigin('fallback');
 
-        $target = $response->getTargetUrl();
+        $this->assertSame('fallback', $response->getTargetUrl());
+    }
 
-        $this->assertStringNotContainsString("\u{FF0F}", $target);
-        $this->assertSame('https://example.com/evil.com/steal', $target);
+    public function testEnforceSameOriginEmitsTheValidatedNormalizedTarget()
+    {
+        // A legitimate IDN host is emitted in the punycode form we validated.
+        $response = new RedirectResponse("https://b\u{E9}b\u{E9}.be/foo");
+        $response->setRequest(Request::create('https://xn--bb-bjab.be/baz/buzz'));
+        $response->enforceSameOrigin('fallback');
+
+        $this->assertSame('https://xn--bb-bjab.be/foo', $response->getTargetUrl());
     }
 
     public function testCanEnforceSameOriginWhenNotSameScheme()
