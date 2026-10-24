@@ -710,9 +710,13 @@ class PendingRequest
      *
      * @param  array  $options  CURL_LOCK_DATA_* constants to share
      * @return $this
+     *
+     * @throws \InvalidArgumentException When the options include CURL_LOCK_DATA_COOKIE
      */
     public function withPersistentConnections(array $options = [CURL_LOCK_DATA_DNS, CURL_LOCK_DATA_CONNECT])
     {
+        PersistentCurlShareManager::assertSafeOptions($options);
+
         $this->persistentCurlOptions = $options;
 
         return $this;

@@ -146,9 +146,15 @@ class Factory
      * @param  bool  $enable
      * @param  array|null  $options  CURL_LOCK_DATA_* constants to share
      * @return $this
+     *
+     * @throws \InvalidArgumentException When the options include CURL_LOCK_DATA_COOKIE
      */
     public function persistentConnections(bool $enable = true, ?array $options = null): static
     {
+        if ($options !== null) {
+            PersistentCurlShareManager::assertSafeOptions($options);
+        }
+
         $this->usePersistentConnections = $enable;
 
         if ($options !== null) {
