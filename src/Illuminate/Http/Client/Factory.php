@@ -52,6 +52,12 @@ class Factory
     /**
      * The global Guzzle handler for all requests.
      *
+     * This is process-static, not container-scoped: it is shared by every
+     * factory and every request in a long-running worker. Set it once while
+     * booting (for example in a service provider) and treat it as boot-only;
+     * the queue worker does not reset it between jobs. Use flushState() to
+     * clear it (the test lifecycle does this after each test).
+     *
      * @var callable|null
      */
     protected static $globalHandler = null;
@@ -697,14 +703,20 @@ class Factory
     }
 
     /**
-     * Execute a method against a new pending request instance.
+     * Flush the process-static state of the factory.
      *
-     * @param  string  $method
-     * @param  array  $parameters
-     * @return mixed
+     * @return void
      */
+    public static function flushState(): void
+    {
+        static::$globalHandler = null;
+    }
+
     /**
      * Set the global Guzzle handler for all HTTP requests.
+     *
+     * Boot-only: the handler is process-static and shared by every request in
+     * a long-running worker, so register it once while the application boots.
      *
      * @param  callable|null  $handler
      * @return void
@@ -724,6 +736,13 @@ class Factory
         return static::$globalHandler;
     }
 
+    /**
+     * Execute a method against a new pending request instance.
+     *
+     * @param  string  $method
+     * @param  array  $parameters
+     * @return mixed
+     */
     public function __call($method, $parameters)
     {
         if (static::hasMacro($method)) {

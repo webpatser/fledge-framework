@@ -24,6 +24,7 @@ use Illuminate\Foundation\Testing\DatabaseTruncation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use Illuminate\Foundation\Testing\WithoutMiddleware;
+use Illuminate\Http\Client\Factory as HttpClientFactory;
 use Illuminate\Http\Client\Response;
 use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Http\Middleware\TrustHosts;
@@ -203,6 +204,7 @@ trait InteractsWithTestCaseLifecycle
         EncryptCookies::flushState();
         HandleCors::flushState();
         HandleExceptions::flushState($this);
+        HttpClientFactory::flushState();
         JsonApiResource::flushState();
         JsonResource::flushState();
         Lottery::determineResultsNormally();
