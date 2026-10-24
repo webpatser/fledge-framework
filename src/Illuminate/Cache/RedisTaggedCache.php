@@ -2,22 +2,15 @@
 
 namespace Illuminate\Cache;
 
-use Fiber;
-use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Cache\Events\CacheFlushed;
 use Illuminate\Cache\Events\CacheFlushing;
 use Illuminate\Redis\Connections\PhpRedisClusterConnection;
-use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Redis\Connections\PredisClusterConnection;
-use Illuminate\Redis\Connections\PredisConnection;
 
-use function Fledge\Async\async;
-use function Fledge\Async\Future\await;
 use function Illuminate\Support\enum_value;
 
 class RedisTaggedCache extends TaggedCache
 {
-    use SuspendsFibers;
     /**
      * Store an item in the cache if the key does not exist.
      *
@@ -254,18 +247,11 @@ class RedisTaggedCache extends TaggedCache
 
         $connection = $this->store->connection();
 
-        if ($this->inFiber()) {
-            $futures = [];
-
-            foreach ($entries as $i => $cacheKeys) {
-                $futures[$i] = async(fn () => $this->deleteChunk($connection, $cacheKeys));
-            }
-
-            await($futures);
-        } else {
-            foreach ($entries as $cacheKeys) {
-                $this->deleteChunk($connection, $cacheKeys);
-            }
+        // Run sequentially on the shared connection: the single phpredis/Predis
+        // socket is not fiber-safe, so interleaved DELs from concurrent fibers
+        // could mismatch replies on a suspending connection (see RedisStore::manyConcurrent()).
+        foreach ($entries as $cacheKeys) {
+            $this->deleteChunk($connection, $cacheKeys);
         }
     }
 

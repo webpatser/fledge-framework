@@ -2,18 +2,12 @@
 
 namespace Illuminate\Cache;
 
-use Fiber;
-use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Redis\Connections\PhpRedisConnection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\LazyCollection;
 
-use function Fledge\Async\async;
-use function Fledge\Async\Future\await;
-
 class RedisTagSet extends TagSet
 {
-    use SuspendsFibers;
     /**
      * Add a reference entry to the tag set's underlying sorted set.
      *
@@ -28,18 +22,11 @@ class RedisTagSet extends TagSet
 
         $tagIds = $this->tagIds();
 
-        if ($this->inFiber() && count($tagIds) > 1) {
-            $futures = [];
-
-            foreach ($tagIds as $tagKey) {
-                $futures[] = async(fn () => $this->zaddEntry($tagKey, $ttl, $key, $updateWhen));
-            }
-
-            await($futures);
-        } else {
-            foreach ($tagIds as $tagKey) {
-                $this->zaddEntry($tagKey, $ttl, $key, $updateWhen);
-            }
+        // Run sequentially on the shared connection: the single phpredis/Predis
+        // socket is not fiber-safe, so interleaved ZADDs from concurrent fibers
+        // could mismatch replies on a suspending connection (see RedisStore::manyConcurrent()).
+        foreach ($tagIds as $tagKey) {
+            $this->zaddEntry($tagKey, $ttl, $key, $updateWhen);
         }
     }
 
