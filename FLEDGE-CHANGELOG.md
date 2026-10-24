@@ -2,6 +2,19 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.38.0.3 - 2026-10-24
+
+### Security
+- Support: `Uri` now hardens IDN host handling against fullwidth delimiter smuggling (fullwidth lookalikes of `/`, `?`, `#`, `@` or `:` in a host could normalize into URI delimiters and change the effective host). IDNA conversion is nontransitional (so `ß` becomes `xn--strae-oqa.de`, not `strasse.de`), conversion errors reject the host, and IDN hosts containing `_` are rejected, matching `league/uri`. Plain ASCII hosts are unaffected.
+- Http: persistent cURL share handles now reject `CURL_LOCK_DATA_COOKIE`, so cookies can no longer leak between unrelated requests sharing a persistent handle.
+
+### Added
+- Http: `Http\Client\Factory::flushState()` resets the global handler and other static state for long-running workers. `Factory::$globalHandler` is documented as boot-time only.
+
+### Fixed
+- Cache: `RedisTagSet` and `RedisTaggedCache` now issue the tag set `ZADD` and the tagged flush `DEL` sequentially instead of concurrently on one socket.
+- Tests: regression tests added for each of the above.
+
 ## v13.38.0.1 - 2026-10-21
 
 ### Synced
