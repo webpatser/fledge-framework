@@ -30,6 +30,7 @@ use Illuminate\Http\Client\Factory;
  * @method static \Illuminate\Http\Client\PendingRequest createPendingRequest()
  * @method static \Illuminate\Contracts\Events\Dispatcher|null getDispatcher()
  * @method static array getGlobalMiddleware()
+ * @method static void flushState()
  * @method static void globalHandler(callable|null $handler)
  * @method static callable|null getGlobalHandler()
  * @method static void macro(string $name, object|callable $macro)
