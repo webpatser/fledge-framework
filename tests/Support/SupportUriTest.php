@@ -5,7 +5,9 @@ namespace Illuminate\Tests\Support;
 use Illuminate\Contracts\Routing\UrlGenerator;
 use Illuminate\Support\Stringable;
 use Illuminate\Support\Uri;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Uri\InvalidUriException;
 
 class SupportUriTest extends TestCase
 {
@@ -55,6 +57,42 @@ class SupportUriTest extends TestCase
         $this->assertSame('xn--bb-bjab.be', $uri->host());
         $this->assertSame('user', $uri->user());
         $this->assertSame('path', $uri->path());
+    }
+
+    #[DataProvider('idnHostProvider')]
+    public function test_idn_hosts_are_converted_to_punycode(string $uri, string $expectedHost)
+    {
+        $this->assertSame($expectedHost, Uri::of($uri)->host());
+    }
+
+    public static function idnHostProvider(): array
+    {
+        return [
+            'bébé.be' => ['https://bébé.be/path', 'xn--bb-bjab.be'],
+            'münchen.de' => ['https://münchen.de', 'xn--mnchen-3ya.de'],
+            'münchen.de with port' => ['https://münchen.de:8443/x', 'xn--mnchen-3ya.de'],
+            'fullwidth letters' => ['https://ＥＸＡＭＰＬＥ.com/x', 'example.com'],
+            'japanese' => ['https://例え.テスト/', 'xn--r8jz45g.xn--zckzah'],
+        ];
+    }
+
+    #[DataProvider('idnDelimiterSmugglingProvider')]
+    public function test_idn_hosts_with_fullwidth_uri_delimiters_are_rejected(string $uri)
+    {
+        $this->expectException(InvalidUriException::class);
+
+        Uri::of($uri);
+    }
+
+    public static function idnDelimiterSmugglingProvider(): array
+    {
+        return [
+            'fullwidth at sign' => ['http://victim.com＠evil.com/x'],
+            'fullwidth question mark' => ['http://evil.com？.victim.com/x'],
+            'fullwidth solidus' => ['http://evil.com／.victim.com/x'],
+            'fullwidth number sign' => ['http://evil.com＃.victim.com/x'],
+            'fullwidth at sign after userinfo' => ['http://user@victim.com＠evil.com/x'],
+        ];
     }
 
     public function test_is_empty_and_is_not_empty()

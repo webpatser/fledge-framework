@@ -92,14 +92,42 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
             return $uri;
         }
 
-        if (function_exists('idn_to_ascii')) {
-            $asciiHost = idn_to_ascii($host, IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
-            if ($asciiHost !== false) {
-                return $schemeAndSlashes.$userInfo.$asciiHost.$rest;
-            }
+        $asciiHost = static::idnHostToAscii($host);
+
+        // A host that cannot be mapped safely is passed through untouched, so the
+        // native RFC 3986 parser rejects it like any other invalid host.
+        return $asciiHost === null ? $uri : $schemeAndSlashes.$userInfo.$asciiHost.$rest;
+    }
+
+    /**
+     * Map an internationalized host to its ASCII form, or null when it is unsafe.
+     *
+     * UTS-46 with IDNA_DEFAULT maps fullwidth lookalikes such as "＠", "？", "／"
+     * and "＃" onto their ASCII URI delimiters without reporting an error, which
+     * would move the host boundary (e.g. "victim.com＠evil.com" parsing to host
+     * "evil.com"). STD3 rules reject those code points, any reported error is
+     * fatal, and the result must be a plain LDH host name.
+     */
+    protected static function idnHostToAscii(string $host): ?string
+    {
+        if (! function_exists('idn_to_ascii')) {
+            return null;
         }
 
-        return $uri;
+        $info = [];
+
+        $asciiHost = idn_to_ascii(
+            $host,
+            IDNA_NONTRANSITIONAL_TO_ASCII | IDNA_USE_STD3_RULES | IDNA_CHECK_BIDI | IDNA_CHECK_CONTEXTJ,
+            INTL_IDNA_VARIANT_UTS46,
+            $info,
+        );
+
+        if ($asciiHost === false || ($info['errors'] ?? 0) !== 0) {
+            return null;
+        }
+
+        return preg_match('/^[A-Za-z0-9.-]+$/D', $asciiHost) === 1 ? $asciiHost : null;
     }
 
     /**
