@@ -8,6 +8,9 @@ use Uri\Rfc3986\Uri as NativeUri;
 
 class UriScenario implements Scenario
 {
+    /**
+     * @var list<string>
+     */
     private array $samples = [
         'https://example.com/path?query=1&filter=active',
         'https://user:pass@host.example.com:8443/segment/segment?a=1&b=2#frag',

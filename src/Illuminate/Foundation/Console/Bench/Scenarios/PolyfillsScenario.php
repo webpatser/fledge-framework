@@ -6,6 +6,9 @@ use Illuminate\Foundation\Console\Bench\Scenario;
 
 class PolyfillsScenario implements Scenario
 {
+    /**
+     * @var list<int>
+     */
     private array $haystack;
 
     public function name(): string
@@ -35,29 +38,33 @@ class PolyfillsScenario implements Scenario
     public function variants(): array
     {
         $haystack = $this->haystack;
-        $needle = fn ($v) => $v === 99;
-        $allTruthy = fn ($v) => $v > 0;
+        $needle = fn (int $v, int $k): bool => $v === 99;
+        $allTruthy = fn (int $v, int $k): bool => $v > 0;
 
         return [
-            'native_array_any' => function () use ($haystack, $needle) {
-                array_any($haystack, $needle);
+            'native_array_any' => function () use ($haystack, $needle): bool {
+                return array_any($haystack, $needle);
             },
-            'foreach_array_any' => function () use ($haystack, $needle) {
+            'foreach_array_any' => function () use ($haystack, $needle): bool {
                 foreach ($haystack as $k => $v) {
                     if ($needle($v, $k)) {
-                        return;
+                        return true;
                     }
                 }
+
+                return false;
             },
-            'native_array_all' => function () use ($haystack, $allTruthy) {
-                array_all($haystack, $allTruthy);
+            'native_array_all' => function () use ($haystack, $allTruthy): bool {
+                return array_all($haystack, $allTruthy);
             },
-            'foreach_array_all' => function () use ($haystack, $allTruthy) {
+            'foreach_array_all' => function () use ($haystack, $allTruthy): bool {
                 foreach ($haystack as $k => $v) {
                     if (! $allTruthy($v, $k)) {
-                        return;
+                        return false;
                     }
                 }
+
+                return true;
             },
         ];
     }

@@ -32,8 +32,10 @@ class ScheduleWorkCommand extends BaseScheduleWorkCommand
             $command .= ' --whisper';
         }
 
-        if ($this->option('run-output-file')) {
-            $command .= ' >> '.ProcessUtils::escapeArgument($this->option('run-output-file')).' 2>&1';
+        $runOutputFile = $this->option('run-output-file');
+
+        if ($runOutputFile && is_string($runOutputFile)) {
+            $command .= ' >> '.ProcessUtils::escapeArgument($runOutputFile).' 2>&1';
         }
 
         $lastTerminate = $this->cache->get('illuminate:schedule:work:terminate');

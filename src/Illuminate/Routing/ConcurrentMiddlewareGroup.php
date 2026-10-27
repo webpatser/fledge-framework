@@ -32,6 +32,8 @@ class ConcurrentMiddlewareGroup
 
     /**
      * Handle the request by running all group members concurrently.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): \Symfony\Component\HttpFoundation\Response  $next
      */
     public function handle(Request $request, Closure $next, string $groupName): Response
     {
@@ -78,6 +80,7 @@ class ConcurrentMiddlewareGroup
     /**
      * Resolve and validate all middleware instances.
      *
+     * @param  array<int, string>  $classes
      * @return array<int, ConcurrentMiddleware>
      */
     protected function resolveMiddleware(array $classes): array
@@ -121,6 +124,9 @@ class ConcurrentMiddlewareGroup
 
     /**
      * Run tasks concurrently using the FiberDriver, falling back to sequential execution.
+     *
+     * @param  array<array-key, \Closure(): mixed>  $tasks
+     * @return array<array-key, mixed>
      */
     protected function runConcurrently(array $tasks): array
     {
@@ -141,6 +147,8 @@ class ConcurrentMiddlewareGroup
      * is taken against $original (the exact clone each middleware received) so a
      * key is only treated as removed when that middleware actually removed it, not
      * when a different concurrent member simply never touched it.
+     *
+     * @param  array<array-key, mixed>  $results
      */
     protected function mergeRequests(Request $request, Request $original, array $results): Request
     {
@@ -187,6 +195,8 @@ class ConcurrentMiddlewareGroup
      * dropped is unset on the merged response. The diff is taken against the
      * clone each middleware received so a header is only treated as removed when
      * that middleware actually removed it.
+     *
+     * @param  array<array-key, mixed>  $results
      */
     protected function mergeResponses(Response $response, Response $original, array $results): Response
     {

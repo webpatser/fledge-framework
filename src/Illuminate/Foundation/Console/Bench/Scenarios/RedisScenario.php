@@ -5,6 +5,7 @@ namespace Illuminate\Foundation\Console\Bench\Scenarios;
 use Illuminate\Contracts\Cache\Factory;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Foundation\Console\Bench\Scenario;
+use LogicException;
 use Throwable;
 
 class RedisScenario implements Scenario
@@ -50,14 +51,16 @@ class RedisScenario implements Scenario
 
     public function setup(): void
     {
+        $store = $this->store();
+
         for ($i = 0; $i < 100; $i++) {
-            $this->store->put(self::KEY_PREFIX.$i, "value-$i", 60);
+            $store->put(self::KEY_PREFIX.$i, "value-$i", 60);
         }
     }
 
     public function variants(): array
     {
-        $store = $this->store;
+        $store = $this->store();
         $i = 0;
 
         return [
@@ -81,6 +84,16 @@ class RedisScenario implements Scenario
             $this->store->forget(self::KEY_PREFIX.'w'.$i);
         }
         $this->store->forget(self::KEY_PREFIX.'preflight');
+    }
+
+    /**
+     * Get the store resolved by preflight().
+     *
+     * @throws \LogicException
+     */
+    private function store(): Repository
+    {
+        return $this->store ?? throw new LogicException('The redis scenario must pass preflight() before setup() or variants().');
     }
 
     private function renderUnreachable(string $error): string

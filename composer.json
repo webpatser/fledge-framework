@@ -225,6 +225,9 @@
             "tests/Database/Fixtures/MigrationCreatorFakeMigration.php"
         ]
     },
+    "scripts": {
+        "analyse:fledge": "phpstan analyse -c phpstan.fledge.neon.dist --memory-limit=1G"
+    },
     "config": {
         "allow-plugins": {
             "composer/package-versions-deprecated": true,

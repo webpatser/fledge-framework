@@ -1,0 +1,34 @@
+# Strict analysis for Fledge-only code: files that do not exist in
+# laravel/framework. Upstream-derived files, including the ones Fledge patched,
+# stay under phpstan.src.neon.dist so upstream syncs never touch this config.
+parameters:
+    level: 8
+    paths:
+        - src/Fledge
+        - src/Illuminate/Cache/Concerns/SuspendsFibers.php
+        - src/Illuminate/Concurrency/FiberDriver.php
+        - src/Illuminate/Contracts/Http/ConcurrentMiddleware.php
+        - src/Illuminate/Foundation/Console/Bench
+        - src/Illuminate/Foundation/Console/BenchCommand.php
+        - src/Illuminate/Http/Client/PersistentCurlShareManager.php
+        - src/Illuminate/Routing/Concerns/HasConcurrentMiddleware.php
+        - src/Illuminate/Routing/ConcurrentMiddlewareGroup.php
+        - src/Illuminate/Support/Concerns/SuspendsFibers.php
+        # Analysis-only hosts: PHPStan analyses a trait only through a class
+        # that uses it, and the real users of the traits above are upstream files.
+        - tests/Fledge/PHPStan
+    ignoreErrors:
+        # HeaderBag::all() yields list<string|null> and the merge hands that list
+        # back to set() verbatim; Symfony's set() PHPDoc just omits null entries.
+        # Exact messages here instead of inline @phpstan-ignore: phpstan.src.neon.dist
+        # analyses this file at level 1, where an inline ignore would be unmatched.
+        -
+            rawMessage: 'Parameter #2 $values of method Symfony\Component\HttpFoundation\HeaderBag::set() expects array<string>|string|null, list<string|null> given.'
+            identifier: argument.type
+            path: src/Illuminate/Routing/ConcurrentMiddlewareGroup.php
+            count: 1
+        -
+            rawMessage: 'Parameter #2 $values of method Symfony\Component\HttpFoundation\ResponseHeaderBag::set() expects array<string>|string|null, list<string|null> given.'
+            identifier: argument.type
+            path: src/Illuminate/Routing/ConcurrentMiddlewareGroup.php
+            count: 1

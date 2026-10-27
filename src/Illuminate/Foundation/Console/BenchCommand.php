@@ -11,7 +11,6 @@ use Illuminate\Foundation\Console\Bench\Scenarios\RedisScenario;
 use Illuminate\Foundation\Console\Bench\Scenarios\UriScenario;
 use League\Uri\Uri as LeagueUri;
 use Symfony\Component\Console\Attribute\AsCommand;
-use Throwable;
 
 #[AsCommand(name: 'fledge:bench')]
 class BenchCommand extends Command
@@ -43,7 +42,7 @@ class BenchCommand extends Command
             return self::FAILURE;
         }
 
-        $scenarios = $this->resolveScenarios($scenarioOption, $cacheFactory);
+        $scenarios = $this->resolveScenarios(is_string($scenarioOption) ? $scenarioOption : '', $cacheFactory);
 
         if ($scenarios === null) {
             return self::FAILURE;
@@ -91,7 +90,7 @@ class BenchCommand extends Command
                 'fledge_bench_version' => 1,
                 'php_version' => PHP_VERSION,
                 'scenarios' => $report,
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
         }
 
         return self::SUCCESS;

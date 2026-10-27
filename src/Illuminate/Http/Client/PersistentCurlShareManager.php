@@ -15,13 +15,15 @@ class PersistentCurlShareManager
 {
     /**
      * Cache of persistent handles keyed by options hash.
+     *
+     * @var array<string, CurlSharePersistentHandle>
      */
     protected static array $handles = [];
 
     /**
      * Get or create a persistent share handle for the given options.
      *
-     * @param  array  $options  CURL_LOCK_DATA_* constants to share
+     * @param  array<int, int>  $options  CURL_LOCK_DATA_* constants to share
      * @return CurlSharePersistentHandle
      */
     public static function getHandle(array $options = [CURL_LOCK_DATA_DNS, CURL_LOCK_DATA_CONNECT]): CurlSharePersistentHandle
@@ -41,7 +43,7 @@ class PersistentCurlShareManager
      * client in the process. Sharing CURL_LOCK_DATA_COOKIE would hand one
      * tenant's cookies to another tenant's requests, so it is never allowed.
      *
-     * @param  array  $options  CURL_LOCK_DATA_* constants to share
+     * @param  array<array-key, mixed>  $options  CURL_LOCK_DATA_* constants to share
      *
      * @throws \InvalidArgumentException
      */

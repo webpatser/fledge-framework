@@ -17,6 +17,9 @@ class FiberDriver implements Driver
 {
     /**
      * Run the given tasks concurrently and return an array containing the results.
+     *
+     * @param  (\Closure(): mixed)|array<array-key, \Closure(): mixed>  $tasks
+     * @return array<array-key, mixed>
      */
     public function run(Closure|array $tasks, CarbonInterval|int|null $timeout = null): array
     {
@@ -39,6 +42,8 @@ class FiberDriver implements Driver
 
     /**
      * Start the given tasks in the background after the current task has finished.
+     *
+     * @param  (\Closure(): mixed)|array<array-key, \Closure(): mixed>  $tasks
      */
     public function defer(Closure|array $tasks): DeferredCallback
     {
