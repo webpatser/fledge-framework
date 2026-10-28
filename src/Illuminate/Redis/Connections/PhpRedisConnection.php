@@ -97,6 +97,7 @@ class PhpRedisConnection extends Connection implements ConnectionContract
         'Error processing response from Redis node',
         'Connection reset by peer',
         "Can't communicate with any node in the cluster",
+        'Broken pipe',
     ];
 
     /**
