@@ -887,9 +887,7 @@ class Router implements BindingRegistrar, RegistrarContract
 
                     $reflection = new ReflectionClass($class);
 
-                    return (new Collection($excluded))->contains(
-                        fn ($exclude) => class_exists($exclude) && $reflection->isSubclassOf($exclude)
-                    );
+                    return array_any($excluded, fn ($exclude) => class_exists($exclude) && $reflection->isSubclassOf($exclude));
                 })
             )
             ->values();
