@@ -2,6 +2,21 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.39.0.2 - 2026-10-28
+
+### Optimized
+- `Routing/Router.php`: the excluded-middleware subclass check in `resolveMiddleware()` now uses `array_any()` instead of building a `Collection` per middleware.
+- Upstream v13.39.0 delta otherwise contained no further PHP 8.5 optimization candidates.
+
+## v13.39.0.1 - 2026-10-28
+
+### Synced
+- Merged Laravel v13.38.0..v13.39.0 (62 upstream commits, 174 files).
+- Conflicts (2): `Foundation/Application.php` (kept the typed `const string VERSION`, took value 13.39.0) and `Redis/Connections/PhpRedisConnection.php` (kept Fledge's `LOST_CONNECTION_MESSAGES` constant, appended upstream's new 'Broken pipe' entry). `Queue/Worker.php` (upstream try/finally so JobAttempted always receives a duration), `Cache/RedisStore.php` (SCAN_PREFIX-aware currentTags match) and the Http client files applied cleanly on top of Fledge's fiber-aware and persistent-cURL code.
+- New upstream files: `Foundation/Testing/Attributes/WithoutMigrationEvents.php`, `Session/Console/SessionGarbageCollectCommand.php`.
+- Optimizations: deferred to v13.39.0.2.
+- Tests: 16451 tests, 15878 passed, 573 skipped, 0 failures; phpstan src, types and fledge configs clean.
+
 ## v13.38.0.3 - 2026-10-24
 
 ### Security
