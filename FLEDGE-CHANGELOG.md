@@ -17,6 +17,15 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 - Optimizations: deferred to v13.39.0.2.
 - Tests: 16451 tests, 15878 passed, 573 skipped, 0 failures; phpstan src, types and fledge configs clean.
 
+## v13.38.0.4 - 2026-10-27
+
+### Added
+- Static analysis: `phpstan.fledge.neon.dist` runs PHPStan level 8 over the Fledge-only code that has no upstream counterpart (`src/Fledge`, the bench command and scenarios, `Concurrency/FiberDriver`, `Routing/ConcurrentMiddlewareGroup`, `Http/Client/PersistentCurlShareManager`, and the `SuspendsFibers` traits through host classes in `tests/Fledge/PHPStan/`). A new `fledge-static-analysis` GitHub Actions workflow runs it on every push; `composer.json` gains the matching script (`analyse:fledge`).
+
+### Fixed
+- Console: `fledge:bench --scenario` without a value now reports an unknown scenario instead of throwing a `TypeError`.
+- Type issues reported by the new level 8 config fixed in `ScheduleWorkCommand`, `FiberDriver`, the bench scenarios, `BenchCommand`, `PersistentCurlShareManager` and `ConcurrentMiddlewareGroup`.
+
 ## v13.38.0.3 - 2026-10-24
 
 ### Security
