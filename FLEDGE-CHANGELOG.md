@@ -2,6 +2,15 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.40.0.1 - 2026-11-04
+
+### Synced
+- Merged Laravel v13.39.0..v13.40.0 (47 upstream commits, 105 files).
+- Conflicts (2): `Foundation/Application.php` (kept the typed `const string VERSION`, took value 13.40.0) and the import block of `tests/Support/SupportUriTest.php`. `Cache/RedisTaggedCache.php` (per-tag flush), `Console/Scheduling/Schedule.php` (`whenTaskRunsLongerThan`) and `Support/Facades/Request.php` applied cleanly on top of Fledge's changes.
+- New upstream files: `Foundation/Cloud/SocketHandler.php`.
+- Optimizations: the PHP 8.x scan of the upstream delta found nothing worth changing, so there is no `.2` release.
+- Tests: 16624 tests, 16041 passed, 583 skipped, 0 failures; phpstan src and types configs clean; all CI workflows green.
+
 ## v13.39.0.2 - 2026-10-28
 
 ### Optimized
