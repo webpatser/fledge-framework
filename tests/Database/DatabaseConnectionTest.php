@@ -7,6 +7,7 @@ use ErrorException;
 use Exception;
 use Illuminate\Database\Connection;
 use Illuminate\Database\DatabaseTransactionsManager;
+use Illuminate\Database\DeadlockException;
 use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Database\Events\TransactionCommitted;
@@ -225,6 +226,64 @@ class DatabaseConnectionTest extends TestCase
         $connection->disconnect();
         $connection->beginTransaction();
         $this->assertEquals(1, $connection->transactionLevel());
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testConnectionIsReestablishedAfterTheConnectionIsLostDuringRollBack()
+    {
+        $pdo = $this->createMock(DatabaseConnectionTestMockPDO::class);
+        $pdo->method('inTransaction')->willReturn(true);
+        $pdo->expects($this->once())->method('beginTransaction');
+        $pdo->expects($this->once())->method('rollBack')->willThrowException(new PDOException('server has gone away'));
+
+        $newPdo = $this->createMock(DatabaseConnectionTestMockPDO::class);
+        $newPdo->expects($this->once())->method('beginTransaction');
+
+        $connection = $this->getMockConnection([], $pdo);
+        $connection->setReconnector(fn ($connection) => $connection->setPdo($newPdo));
+
+        $connection->beginTransaction();
+
+        try {
+            $connection->rollBack();
+
+            $this->fail('A PDOException was not thrown.');
+        } catch (PDOException) {
+            $this->assertSame(0, $connection->transactionLevel());
+        }
+
+        $connection->beginTransaction();
+
+        $this->assertSame(1, $connection->transactionLevel());
+        $this->assertSame($newPdo, $connection->getPdo());
+    }
+
+    #[AllowMockObjectsWithoutExpectations]
+    public function testNestedTransactionIsRolledBackToItsSavepointOnConcurrencyError()
+    {
+        $pdo = $this->createMock(DatabaseConnectionTestMockPDO::class);
+        $pdo->expects($this->once())->method('beginTransaction');
+        $pdo->expects($this->exactly(2))->method('exec')->willReturnCallback(function ($sql) {
+            static $calls = [];
+            $calls[] = $sql;
+            $this->assertSame(['SAVEPOINT trans2', 'ROLLBACK TO SAVEPOINT trans2'][count($calls) - 1], $sql);
+
+            return 0;
+        });
+
+        $connection = $this->getMockConnection([], $pdo);
+        $connection->setQueryGrammar(new Grammar($connection));
+        $connection->beginTransaction();
+
+        try {
+            $connection->transaction(function () {
+                throw new QueryException('conn', '', [], new Exception('Lock wait timeout exceeded; try restarting transaction'));
+            });
+
+            $this->fail('A DeadlockException was not thrown.');
+        } catch (DeadlockException) {
+            $this->assertSame(1, $connection->transactionLevel());
+        }
     }
 
     public function testBeginTransactionMethodNeverRetriesIfWithinTransaction()
