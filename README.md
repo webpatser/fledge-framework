@@ -10,7 +10,7 @@ Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requir
 
 Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension. That swap is the single biggest performance win.
 
-**142 files changed** on top of Laravel 13.38.0. The full framework test suite passes under CI's `--fail-on-deprecation`, including against symfony 8.1.
+**142 files changed** on top of Laravel 13.42.0. The full framework test suite passes under CI's `--fail-on-deprecation`, including against symfony 8.1.
 
 ## Why?
 
@@ -155,7 +155,7 @@ Optional companions:
                                   Laravel 11/12/13 (no PHP 8.5 requirement)
 ```
 
-The `FiberDriver` shipped in `Illuminate\Concurrency\FiberDriver` is a thin wrapper around `fledge-fiber`'s `async()` and `await()` primitives. Earlier preview builds split the async runtime across `fledge-fiber-database`, `fledge-fiber-redis`, and `fledge-fiber-http`; those are now consolidated into a single `fledge-fiber` package.
+The `FiberDriver` shipped in `Illuminate\Concurrency\FiberDriver` is a thin wrapper around `fledge-fiber`'s `async()` and `await()` primitives. `fledge-fiber` is the single required async package.
 
 ## Caveats
 
@@ -248,17 +248,17 @@ That is why the canonical install line targets `webpatser/fledge-framework` dire
 
 ### Constraint compatibility
 
-All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.38.0.1` as of 2026-10-21):
+All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.42.0.2` as of 2026-11-11):
 
 | Constraint | Resolves to | Notes |
 |------------|------------|-------|
-| `^13.3` | v13.20.0.2 | Recommended, accepts any 13.x release |
-| `^13.20` | v13.20.0.2 | Pins to current minor |
-| `~13.20.0` | v13.20.0.2 | Pins to 13.20.x patches and Fledge revisions |
-| `13.20.*` | v13.20.0.2 | Wildcard, identical resolution |
-| `^13.20.0.1` | v13.20.0.2 | Pin to a specific Fledge revision |
-| `~13.20.0.1` | v13.20.0.2 | Same, accepts higher Fledge patches |
-| `>=13.0` | v13.20.0.2 | Open-ended |
+| `^13.3` | v13.42.0.2 | Recommended, accepts any 13.x release |
+| `^13.42` | v13.42.0.2 | Pins to current minor |
+| `~13.42.0` | v13.42.0.2 | Pins to 13.42.x patches and Fledge revisions |
+| `13.42.*` | v13.42.0.2 | Wildcard, identical resolution |
+| `^13.42.0.1` | v13.42.0.2 | Pin to a specific Fledge revision |
+| `~13.42.0.1` | v13.42.0.2 | Same, accepts higher Fledge patches |
+| `>=13.0` | v13.42.0.2 | Open-ended |
 | `dev-fledge-13` | (does not resolve cleanly) | Dev branches need a `branch-alias` to satisfy `^13.0` constraints from other Laravel packages |
 
 Use `^13.7` in production. The 4-segment `v13.X.Y.N` versioning is fully Composer-compatible: the resolver treats the fourth segment as a regular patch component.

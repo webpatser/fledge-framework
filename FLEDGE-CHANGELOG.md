@@ -2,6 +2,12 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.42.0.2 - 2026-11-11
+
+### Fixed
+- No runtime changes. `SleepFiberTest::testSleepOutsideFiberStillBlocks` floor loosened from 29 ms to 20 ms to absorb Windows timer resolution.
+- `Uri::origin()`, the fiber pairing and the other v13.42.0 changes stay in v13.42.0.1.
+
 ## v13.42.0.1 - 2026-11-11
 
 ### Synced
@@ -11,6 +17,7 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 ### Changed
 - Requires `webpatser/fledge-fiber` ^13.42.0.1: upstream now nulls the connection PDO on a lost-connection commit failure, which in fledge-fiber's native driver would drop the shared pool. fledge-fiber 13.42.0.1 keeps the pool and discards only the failing fiber's write lease.
 - Fledge-only `CacheFailoverStoreTest` cases converted to `JMac\Testing\Double`, following upstream's move off Mockery.
+- CI: the Redis Cluster jobs start their nodes from the `redis:8.0` Docker image instead of apt, and use `redis-cli` via `docker exec`.
 - Removed the stale `webpatser/fledge-fiber-database`, `-http` and `-redis` suggestions (those packages never existed; fledge-fiber is required directly).
 
 ## v13.40.0.1 - 2026-11-04
