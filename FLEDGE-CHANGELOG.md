@@ -2,6 +2,17 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.42.0.1 - 2026-11-11
+
+### Synced
+- Synced with Laravel v13.42.0.
+- `Support/Uri.php`: the new upstream `Uri::origin()` is implemented natively on PHP 8.5 `Uri\Rfc3986\Uri` instead of league/uri. It returns the WHATWG tuple origin for http, https, ws, wss and ftp, omits the default port, lowercases scheme and host, and returns null for opaque origins.
+
+### Changed
+- Requires `webpatser/fledge-fiber` ^13.42.0.1: upstream now nulls the connection PDO on a lost-connection commit failure, which in fledge-fiber's native driver would drop the shared pool. fledge-fiber 13.42.0.1 keeps the pool and discards only the failing fiber's write lease.
+- Fledge-only `CacheFailoverStoreTest` cases converted to `JMac\Testing\Double`, following upstream's move off Mockery.
+- Removed the stale `webpatser/fledge-fiber-database`, `-http` and `-redis` suggestions (those packages never existed; fledge-fiber is required directly).
+
 ## v13.40.0.1 - 2026-11-04
 
 ### Synced
