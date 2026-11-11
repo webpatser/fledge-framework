@@ -31,7 +31,7 @@
         "ext-session": "*",
         "ext-tokenizer": "*",
         "composer-runtime-api": "^2.2",
-        "webpatser/fledge-fiber": "^13.38",
+        "webpatser/fledge-fiber": "^13.42.0.1",
         "brick/math": "^0.14.2 || ^0.15 || ^0.16 || ^0.17 || ^0.18 || ^0.19 || ^0.20 || ^1.0",
         "doctrine/inflector": "^2.0.5",
         "dragonmantank/cron-expression": "^3.4",
@@ -144,8 +144,7 @@
         "spatie/once": "*"
     },
     "conflict": {
-        "tightenco/collect": "<5.5.33",
-        "webpatser/fledge-fiber": "<13.42.0.1"
+        "tightenco/collect": "<5.5.33"
     },
     "provide": {
         "psr/container-implementation": "1.1 || 2.0",
@@ -189,7 +188,6 @@
         "symfony/postmark-mailer": "Required to enable support for the Postmark mail transport (^7.4 || ^8.0).",
         "symfony/psr-http-message-bridge": "Required to use PSR-7 bridging features (^7.4 || ^8.0).",
         "web-token/jwt-library": "Required to sign Mercure JWTs and use end-to-end encrypted channels (^4.1).",
-        "webpatser/fledge-fiber": "Non-blocking Fiber-based database (MySQL, MariaDB, PostgreSQL), HTTP and Redis drivers (^13.42.0.1).",
         "webpatser/torque": "Fiber-based concurrent queue worker replacing Horizon."
     },
     "minimum-stability": "dev",
