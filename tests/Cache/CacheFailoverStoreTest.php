@@ -9,7 +9,8 @@ use Illuminate\Cache\FailoverStore;
 use Illuminate\Cache\Repository;
 use Illuminate\Contracts\Cache\CanFlushLocks;
 use Illuminate\Events\Dispatcher;
-use Mockery;
+use JMac\Testing\Double;
+use JMac\Testing\Integrations\PHPUnit\VerifiesDoubles;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -17,6 +18,8 @@ use function Fledge\Async\async;
 
 class CacheFailoverStoreTest extends TestCase
 {
+    use VerifiesDoubles;
+
     public function testImplementsCanFlushLocks()
     {
         $store = $this->makeFailoverStore([]);
@@ -32,9 +35,9 @@ class CacheFailoverStoreTest extends TestCase
         $storeA->lock('lock-a', 60)->get();
         $storeB->lock('lock-b', 60)->get();
 
-        $cache = Mockery::mock(CacheManager::class);
-        $cache->expects('store')->with('store-a')->andReturn(new Repository($storeA));
-        $cache->expects('store')->with('store-b')->andReturn(new Repository($storeB));
+        $cache = Double::for(CacheManager::class);
+        $cache->expects('store')->with('store-a')->returns(new Repository($storeA));
+        $cache->expects('store')->with('store-b')->returns(new Repository($storeB));
 
         $failover = new FailoverStore($cache, new Dispatcher, ['store-a', 'store-b']);
 
@@ -60,11 +63,11 @@ class CacheFailoverStoreTest extends TestCase
         $primary->put('key', 'primary-value', 60);
         $secondary->put('key', 'stale-value', 60);
 
-        $cache = Mockery::mock(CacheManager::class);
-        $cache->shouldReceive('store')->with('primary')->andReturn(new Repository($primary));
-        $cache->shouldReceive('store')->with('secondary')->andReturn(new Repository($secondary));
+        $cache = Double::for(CacheManager::class);
+        $cache->allows('store')->with('primary')->returns(new Repository($primary));
+        $cache->allows('store')->with('secondary')->returns(new Repository($secondary));
 
-        $failover = new FailoverStore($cache, Mockery::mock(Dispatcher::class), ['primary', 'secondary']);
+        $failover = new FailoverStore($cache, new Dispatcher, ['primary', 'secondary']);
 
         // Read inside a Fiber so the concurrent read path is exercised.
         $value = async(fn () => $failover->get('key'))->await();
@@ -82,11 +85,11 @@ class CacheFailoverStoreTest extends TestCase
         // not corrupted by a faster secondary returning a present value.
         $secondary->put('key', 'stale-value', 60);
 
-        $cache = Mockery::mock(CacheManager::class);
-        $cache->shouldReceive('store')->with('primary')->andReturn(new Repository($primary));
-        $cache->shouldReceive('store')->with('secondary')->andReturn(new Repository($secondary));
+        $cache = Double::for(CacheManager::class);
+        $cache->allows('store')->with('primary')->returns(new Repository($primary));
+        $cache->allows('store')->with('secondary')->returns(new Repository($secondary));
 
-        $failover = new FailoverStore($cache, Mockery::mock(Dispatcher::class), ['primary', 'secondary']);
+        $failover = new FailoverStore($cache, new Dispatcher, ['primary', 'secondary']);
 
         $value = async(fn () => $failover->get('key'))->await();
 
@@ -95,30 +98,34 @@ class CacheFailoverStoreTest extends TestCase
 
     public function testSecondaryIsConsultedWhenPrimaryReadThrows()
     {
-        $primary = Mockery::mock(Repository::class);
-        $primary->shouldReceive('get')->with('key')->andThrow(new RuntimeException('primary down'));
+        $primary = Double::for(Repository::class);
+        $primary->expects('get')->with('key')->throws(new RuntimeException('primary down'));
 
         $secondary = new ArrayStore;
         $secondary->put('key', 'secondary-value', 60);
 
-        $cache = Mockery::mock(CacheManager::class);
-        $cache->shouldReceive('store')->with('primary')->andReturn($primary);
-        $cache->shouldReceive('store')->with('secondary')->andReturn(new Repository($secondary));
+        $cache = Double::for(CacheManager::class);
+        $cache->allows('store')->with('primary')->returns($primary);
+        $cache->allows('store')->with('secondary')->returns(new Repository($secondary));
 
-        $events = Mockery::mock(Dispatcher::class);
-        $events->shouldReceive('dispatch')->once()->with(Mockery::type(CacheFailedOver::class));
+        $failedOver = 0;
+        $events = new Dispatcher;
+        $events->listen(CacheFailedOver::class, function () use (&$failedOver) {
+            $failedOver++;
+        });
 
         $failover = new FailoverStore($cache, $events, ['primary', 'secondary']);
 
         $value = async(fn () => $failover->get('key'))->await();
 
         $this->assertSame('secondary-value', $value);
+        $this->assertSame(1, $failedOver);
     }
 
     protected function makeFailoverStore(array $stores): FailoverStore
     {
         return new FailoverStore(
-            Mockery::mock(CacheManager::class),
+            Double::for(CacheManager::class),
             new Dispatcher,
             $stores
         );

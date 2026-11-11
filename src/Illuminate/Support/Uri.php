@@ -341,6 +341,43 @@ class Uri implements Htmlable, JsonSerializable, Responsable, Stringable
     }
 
     /**
+     * Get the URI's origin.
+     *
+     * Opaque origins, such as those of relative or "mailto:" URIs, are returned as null.
+     */
+    public function origin(): ?string
+    {
+        $scheme = $this->uri->getScheme();
+        $host = $this->uri->getHost();
+
+        if ($scheme === null || $host === null || $host === '') {
+            return null;
+        }
+
+        $scheme = strtolower($scheme);
+
+        $defaultPort = match ($scheme) {
+            'http', 'ws' => 80,
+            'https', 'wss' => 443,
+            'ftp' => 21,
+            default => null,
+        };
+
+        if ($defaultPort === null) {
+            return null;
+        }
+
+        $origin = $scheme.'://'.strtolower($host);
+        $port = $this->uri->getPort();
+
+        if ($port !== null && $port !== $defaultPort) {
+            $origin .= ':'.$port;
+        }
+
+        return $origin;
+    }
+
+    /**
      * Get the URI's path.
      *
      * Empty or missing paths are returned as a single "/".
