@@ -261,6 +261,8 @@ class Worker
         $this->raiseWorkerStartingEvent($connectionName, $queue, $options);
 
         while (true) {
+            $this->tickEventLoop();
+
             // Before reserving any jobs, we will make sure this queue is not paused and
             // if it is we will just pause this worker for a given amount of time and
             // make sure we do not need to kill this worker process off completely.
@@ -296,6 +298,8 @@ class Worker
                 $this->jobsProcessed++;
 
                 $this->runJob($job, $connectionName, $options);
+
+                $this->tickEventLoop();
 
                 $this->lastJobProcessedAt = $this->currentTime();
 
@@ -1125,6 +1129,31 @@ class Worker
     protected function supportsRevoltSignals(): bool
     {
         return class_exists(EventLoop::class);
+    }
+
+    /**
+     * Give the Revolt event loop a non-blocking pass so pending signal watchers run.
+     *
+     * A busy worker never sleeps, so without this pass the loop never ticks and a
+     * SIGTERM is only seen once the queue runs dry. Works in the main context and
+     * inside a fiber (Horizon, torque): the suspension resumes on a later tick.
+     */
+    protected function tickEventLoop(): void
+    {
+        if ($this->signalWatchers === []) {
+            return;
+        }
+
+        $suspension = EventLoop::getSuspension();
+
+        // The nested defer lets signal callbacks queued during the first tick run before we resume.
+        EventLoop::defer(static function () use ($suspension): void {
+            EventLoop::defer(static function () use ($suspension): void {
+                $suspension->resume();
+            });
+        });
+
+        $suspension->suspend();
     }
 
     /**

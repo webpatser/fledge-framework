@@ -2,6 +2,11 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## Unreleased
+
+### Fixed
+- Queue workers now honour SIGTERM, SIGINT, SIGQUIT, SIGUSR2 and SIGCONT while busy. The Revolt signal watchers only ran while the worker slept, so a worker draining a backlog never saw the stop signal and was killed mid-job on deploy. `Worker::daemon()` now gives the event loop one non-blocking pass at the top of every iteration and after each job; this works in the main context and inside a fiber (Horizon, torque).
+
 ## v13.42.0.2 - 2026-11-11
 
 ### Fixed
