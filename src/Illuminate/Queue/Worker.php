@@ -153,6 +153,25 @@ class Worker
     protected array $signalWatchers = [];
 
     /**
+     * The fiber the daemon loop runs in, null for the main context.
+     */
+    protected ?\Fiber $daemonFiber = null;
+
+    /**
+     * Per signal, how many deliveries the chained pcntl handler already handled mid-job.
+     *
+     * @var array<int, int>
+     */
+    protected array $signalsHandledInJob = [];
+
+    /**
+     * Per signal, the pcntl handler this worker chained in front of the Revolt driver's.
+     *
+     * @var array<int, Closure>
+     */
+    protected array $jobSignalHandlers = [];
+
+    /**
      * The custom exit code to be used when memory is exceeded.
      *
      * @var int|null
@@ -299,8 +318,6 @@ class Worker
 
                 $this->runJob($job, $connectionName, $options);
 
-                $this->tickEventLoop();
-
                 $this->lastJobProcessedAt = $this->currentTime();
 
                 if ($options->rest > 0) {
@@ -314,6 +331,12 @@ class Worker
 
             if ($supportsAsyncSignals) {
                 $this->resetTimeoutHandler();
+            }
+
+            // Tick only after the alarm is cleared: inside a fiber other fibers can delay
+            // the resume, and a finished job must not be timed out while we wait.
+            if ($job) {
+                $this->tickEventLoop();
             }
 
             // Finally, we will check to see if we have exceeded our memory limits or if
@@ -1037,9 +1060,23 @@ class Worker
     protected function listenForSignals($connectionName = null, $queue = null, ?WorkerOptions $options = null)
     {
         if ($this->supportsRevoltSignals()) {
+            $this->daemonFiber = \Fiber::getCurrent();
+
+            // A second call on the same worker would register every watcher twice.
+            if ($this->signalWatchers !== []) {
+                return;
+            }
+
             foreach ([SIGQUIT, SIGTERM, SIGINT] as $signal) {
                 $this->signalWatchers[] = EventLoop::onSignal($signal, function () use ($signal, $connectionName, $queue, $options) {
                     $this->shouldQuit = true;
+
+                    // Already handled mid-job by the chained pcntl handler.
+                    if (($this->signalsHandledInJob[$signal] ?? 0) > 0) {
+                        $this->signalsHandledInJob[$signal]--;
+
+                        return;
+                    }
 
                     $this->events->dispatch(new WorkerInterrupted($signal, $connectionName, $queue, $options));
 
@@ -1057,6 +1094,13 @@ class Worker
 
                 $this->events->dispatch(new WorkerResuming($connectionName, $queue, $options));
             });
+
+            // One pass lets the driver install its pcntl handlers, which we then chain.
+            $this->tickEventLoop();
+
+            foreach ([SIGQUIT, SIGTERM, SIGINT] as $signal) {
+                $this->chainJobSignalHandler($signal, $connectionName, $queue, $options);
+            }
         } else {
             pcntl_async_signals(true);
 
@@ -1154,6 +1198,64 @@ class Worker
         });
 
         $suspension->suspend();
+    }
+
+    /**
+     * Chain a pcntl handler in front of the Revolt driver's so a job that never yields is notified mid-run.
+     *
+     * The handler keeps the driver's queueing, then handles the signal like stock Laravel when the
+     * daemon fiber is the one running a job. It never suspends, resumes or starts a fiber.
+     *
+     * @param  int  $signal
+     * @param  string|null  $connectionName
+     * @param  string|null  $queue
+     * @param  \Illuminate\Queue\WorkerOptions|null  $options
+     */
+    protected function chainJobSignalHandler(int $signal, $connectionName = null, $queue = null, ?WorkerOptions $options = null): void
+    {
+        if (! $this->supportsJobSignalChaining()) {
+            return;
+        }
+
+        $previous = pcntl_signal_get_handler($signal);
+
+        // Chaining our own handler again would handle every mid-job signal twice.
+        if (! $previous instanceof Closure || $previous === ($this->jobSignalHandlers[$signal] ?? null)) {
+            return;
+        }
+
+        pcntl_signal($signal, $this->jobSignalHandlers[$signal] = function (int $signal, mixed $info = null) use ($previous, $connectionName, $queue, $options): void {
+            $previous($signal, $info);
+
+            if ($this->currentJob === null || \Fiber::getCurrent() !== $this->daemonFiber) {
+                return;
+            }
+
+            $this->shouldQuit = true;
+
+            $this->signalsHandledInJob[$signal] = ($this->signalsHandledInJob[$signal] ?? 0) + 1;
+
+            // A listener or interrupted() that suspends here (fiber I/O) gets a FiberError. Reporting it
+            // does not repair the event loop: the failed suspension and its I/O watcher stay behind, and
+            // public Revolt API cannot clean them up. Keep mid-job code non-suspending (see README).
+            try {
+                $this->events->dispatch(new WorkerInterrupted($signal, $connectionName, $queue, $options));
+
+                $this->notifyJobOfSignal($signal);
+            } catch (\FiberError $e) {
+                $this->exceptions->report($e);
+            }
+        });
+    }
+
+    /**
+     * Determine if mid-job signal handlers can be chained to the Revolt driver's.
+     *
+     * Only the StreamSelectDriver (no native handle) installs a plain pcntl handler.
+     */
+    protected function supportsJobSignalChaining(): bool
+    {
+        return EventLoop::getDriver()->getHandle() === null;
     }
 
     /**
