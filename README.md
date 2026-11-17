@@ -193,6 +193,13 @@ Worth knowing before going to production:
 | Fiber-safe queue worker signal handling (Revolt) | 1 | Horizon/queue workers work with fiber drivers |
 | Redis required dependency for cache package | 1 | Redis is a first-class citizen |
 
+**Queue worker caveat:** with Revolt signal handling, SIGTERM, SIGINT and SIGQUIT still reach the running job mid-run (`WorkerInterrupted`, `Interruptible::interrupted()` and `JobInterrupted` fire as on stock Laravel, and the worker quits after the job). What stays different from stock:
+
+- With ext-uv, ext-ev or ext-event loaded, signals are only seen at event-loop ticks between jobs (and whenever the job yields to the loop).
+- A `WorkerInterrupted` listener or an `interrupted()` method that does fiber I/O (async Redis, `Sleep`, Http) while a CPU-bound job runs cannot suspend inside the signal handler: it gets a reported `FiberError`, the rest of it does not run, and the failed suspension breaks the worker's event loop. In the main context the worker exits at the next tick with an uncaught `Error` instead of stopping cleanly; inside a fiber the leftover I/O watcher later resumes the worker at the wrong point and the event loop fails with an uncaught error. Keep mid-job listeners and `interrupted()` free of fiber I/O, or override `Worker::supportsJobSignalChaining()` to return `false` so these signals are handled between jobs.
+- `WorkerPausing` and `WorkerResuming` (SIGUSR2, SIGCONT) fire at the next event-loop tick, not mid-job.
+- CPU-bound code inside a fiber the job started itself is notified at the next tick or after the job.
+
 ### The RFC 3986 Problem (and How Fledge Solves It)
 
 PHP 8.5's native URI parser is strictly RFC 3986 compliant, stricter than `league/uri`. It rejects:

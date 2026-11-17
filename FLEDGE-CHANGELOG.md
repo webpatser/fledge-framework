@@ -5,7 +5,14 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 ## Unreleased
 
 ### Fixed
-- Queue workers now honour SIGTERM, SIGINT, SIGQUIT, SIGUSR2 and SIGCONT while busy. The Revolt signal watchers only ran while the worker slept, so a worker draining a backlog never saw the stop signal and was killed mid-job on deploy. `Worker::daemon()` now gives the event loop one non-blocking pass at the top of every iteration and after each job; this works in the main context and inside a fiber (Horizon, torque).
+- Queue workers now honour SIGTERM, SIGINT, SIGQUIT, SIGUSR2 and SIGCONT while busy. The Revolt signal watchers only ran while the worker slept, so a worker draining a backlog never saw the stop signal and was killed mid-job on deploy. `Worker::daemon()` now gives the event loop one non-blocking pass at the top of every iteration and after each job (once that job's timeout alarm is cleared, so a finished job cannot be timed out while other fibers delay the resume); this works in the main context and inside a fiber (Horizon, torque).
+
+### Known differences
+- When Revolt is available, SIGTERM, SIGINT and SIGQUIT still reach a running job mid-run: a pcntl handler chained in front of the Revolt driver's dispatches `WorkerInterrupted` and calls `Interruptible::interrupted()` (with `JobInterrupted`) while the job runs, and the Revolt watcher skips the delivery it already handled. Jobs that yield to the loop are handled by the watcher during the job. Without Revolt the worker falls back to `pcntl_signal()` as before. What stays different from stock:
+  - With ext-uv, ext-ev or ext-event loaded the chaining is off and signals are seen at event-loop ticks between jobs (or when the job yields), as before.
+  - A listener or `interrupted()` that does fiber I/O while a CPU-bound job runs gets a reported `FiberError`, does not finish, and breaks the worker's event loop: in the main context the worker exits at the next tick with an uncaught `Error`, inside a fiber the leftover I/O watcher resumes the worker at the wrong point and the loop fails. Keep such code free of fiber I/O, or override `supportsJobSignalChaining()` to return `false` for between-jobs handling.
+  - `WorkerPausing` / `WorkerResuming` fire at the next event-loop tick, not mid-job.
+  - CPU-bound code inside a fiber the job started itself is notified at the next tick or after the job.
 
 ## v13.42.0.2 - 2026-11-11
 
