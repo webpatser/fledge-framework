@@ -708,6 +708,19 @@ class PendingRequest
      * PHP 8.5 feature: Shares DNS cache and connections across requests
      * for improved performance.
      *
+     * Guzzle 8 rejects CURLOPT_SHARE in the "curl" request option, so there
+     * the default handler is built with the "transport_sharing" mode
+     * TransportSharing::PERSISTENT_PREFER (a persistent share handle locking
+     * DNS, connections and SSL sessions, degrading to a handler-lifetime share
+     * when PHP or libcurl lacks support). Guzzle fixes those locks, so the
+     * given options only enable sharing there. A "transport_sharing" request
+     * option set by the caller wins. On Guzzle 7 the cached persistent share
+     * handle for the given options is passed as CURLOPT_SHARE in the "curl"
+     * request option, unless the caller set one. Either way it only takes
+     * effect when Guzzle's own cURL handler is used: a custom or global handler
+     * (such as the Fledge fiber handler, which pools its own connections) is
+     * left alone and ignores the "curl" option.
+     *
      * @param  array  $options  CURL_LOCK_DATA_* constants to share
      * @return $this
      *
@@ -717,9 +730,45 @@ class PendingRequest
     {
         PersistentCurlShareManager::assertSafeOptions($options);
 
+        if (PersistentCurlShareManager::isAvailable() && ! class_exists(\GuzzleHttp\TransportSharing::class)) {
+            $current = $this->options['curl'][CURLOPT_SHARE] ?? null;
+
+            $managed = $this->persistentCurlOptions !== null
+                && $current === PersistentCurlShareManager::getHandle($this->persistentCurlOptions);
+
+            if ($current === null || $managed) {
+                $this->options['curl'][CURLOPT_SHARE] = PersistentCurlShareManager::getHandle($options);
+            }
+        }
+
         $this->persistentCurlOptions = $options;
 
         return $this;
+    }
+
+    /**
+     * Build Guzzle's default handler with persistent transport sharing.
+     *
+     * Returns null (so Guzzle picks its default handler as usual) unless
+     * persistent connections are enabled on Guzzle 8, where CURLOPT_SHARE can
+     * only be configured on the handler.
+     *
+     * @return callable|null
+     */
+    protected function persistentConnectionHandler(): ?callable
+    {
+        if ($this->persistentCurlOptions === null
+            || ! PersistentCurlShareManager::isAvailable()
+            || ! class_exists(\GuzzleHttp\TransportSharing::class)
+            || isset($this->options['curl'][CURLOPT_SHARE])) {
+            return null;
+        }
+
+        $mode = array_key_exists('transport_sharing', $this->options)
+            ? $this->options['transport_sharing']
+            : \GuzzleHttp\TransportSharing::PERSISTENT_PREFER;
+
+        return \GuzzleHttp\Utils::chooseHandler(['transport_sharing' => $mode]);
     }
 
     /**
@@ -1775,7 +1824,7 @@ class PendingRequest
      */
     public function buildHandlerStack()
     {
-        return $this->pushHandlers(HandlerStack::create($this->handler ?? Factory::getGlobalHandler()));
+        return $this->pushHandlers(HandlerStack::create($this->handler ?? Factory::getGlobalHandler() ?? $this->persistentConnectionHandler()));
     }
 
     /**
