@@ -95,6 +95,11 @@ class DatabaseManager implements ConnectionResolverInterface
     {
         [$database, $type] = $this->parseConnectionName($name = enum_value($name) ?: $this->getDefaultConnection());
 
+        // Fledge: a fiber driver task gets connections of its own (see TaskConnectionScope).
+        if (\Fledge\Concurrency\TaskConnectionScope::$active > 0 && $scoped = \Fledge\Concurrency\TaskConnectionScope::connection($this, $name)) {
+            return $scoped;
+        }
+
         // If we haven't created this connection, we'll create it based on the config
         // provided in the application. Once we've created the connections we will
         // set the "fetch mode" for PDO which determines the query return types.
