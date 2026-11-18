@@ -2,79 +2,61 @@
 
 namespace Fledge\Console\Scheduling;
 
-use Illuminate\Console\Application;
 use Illuminate\Console\Scheduling\ScheduleWorkCommand as BaseScheduleWorkCommand;
 use Illuminate\Contracts\Cache\Repository as Cache;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\ProcessUtils;
-use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Process\Process;
 
 class ScheduleWorkCommand extends BaseScheduleWorkCommand
 {
+    /**
+     * The value of the terminate cache key when the worker started.
+     */
+    protected mixed $lastTerminate = null;
+
     public function __construct(protected Cache $cache)
     {
         parent::__construct();
     }
 
+    /**
+     * Execute the console command.
+     *
+     * The base command builds the schedule:run command line, traps SIGINT,
+     * SIGTERM and SIGQUIT, and drains in-flight runs before it returns.
+     */
     public function handle(): int
     {
-        $this->components->info(
-            'Running scheduled tasks.',
-            $this->getLaravel()->environment('local') ? OutputInterface::VERBOSITY_NORMAL : OutputInterface::VERBOSITY_VERBOSE
-        );
-
-        [$lastExecutionStartedAt, $executions] = [Carbon::now()->subMinutes(10), []];
-
-        $command = Application::formatCommandString('schedule:run');
-
-        if ($this->option('whisper')) {
-            $command .= ' --whisper';
-        }
-
-        $runOutputFile = $this->option('run-output-file');
-
-        if ($runOutputFile && is_string($runOutputFile)) {
-            $command .= ' >> '.ProcessUtils::escapeArgument($runOutputFile).' 2>&1';
-        }
-
-        $lastTerminate = $this->cache->get('illuminate:schedule:work:terminate');
-
-        while ($this->cache->get('illuminate:schedule:work:terminate') == $lastTerminate) {
-            usleep(100 * 1000);
-
-            if (Carbon::now()->second === 0 &&
-                ! Carbon::now()->startOfMinute()->equalTo($lastExecutionStartedAt)) {
-                $executions[] = $execution = Process::fromShellCommandline($command, base_path());
-
-                $execution->start();
-
-                $lastExecutionStartedAt = Carbon::now()->startOfMinute();
-            }
-
-            foreach ($executions as $key => $execution) {
-                $output = $execution->getIncrementalOutput().
-                    $execution->getIncrementalErrorOutput();
-
-                $this->output->write(ltrim($output, "\n"));
-
-                if (! $execution->isRunning()) {
-                    unset($executions[$key]);
-                }
-            }
-        }
-
-        foreach ($executions as $execution) {
-            $execution->wait();
-
-            $output = $execution->getIncrementalOutput().
-                $execution->getIncrementalErrorOutput();
-
-            $this->output->write(ltrim($output, "\n"));
-        }
+        $status = parent::handle();
 
         $this->components->info('Schedule worker terminated.');
 
-        return self::SUCCESS;
+        return $status;
+    }
+
+    /**
+     * Run the schedule worker loop until it is signalled to stop.
+     *
+     * @param  string  $command
+     * @return int
+     */
+    protected function work($command)
+    {
+        $this->lastTerminate = $this->cache->get('illuminate:schedule:work:terminate');
+
+        return parent::work($command);
+    }
+
+    /**
+     * Sleep for a short period, then treat a schedule:terminate request like a stop signal.
+     *
+     * @return void
+     */
+    protected function sleep()
+    {
+        parent::sleep();
+
+        if (! $this->shouldQuit &&
+            $this->cache->get('illuminate:schedule:work:terminate') != $this->lastTerminate) {
+            $this->shouldQuit = true;
+        }
     }
 }
