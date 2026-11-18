@@ -6,12 +6,14 @@ use Carbon\CarbonInterval;
 use Fledge\Async\Cancellation;
 use Fledge\Async\CancelledException;
 use Fledge\Async\DeferredFuture;
+use Fledge\Async\TimeoutCancellation;
 use Fledge\Async\TimeoutException;
 use Fledge\Concurrency\TaskCancellation;
 use Fledge\Concurrency\TaskConnectionScope;
 use Illuminate\Concurrency\FiberDriver;
 use PHPUnit\Framework\TestCase;
 use Revolt\EventLoop;
+use Revolt\EventLoop\CallbackType;
 use RuntimeException;
 
 use function Fledge\Async\async;
@@ -19,7 +21,7 @@ use function Fledge\Async\delay;
 
 class FiberDriverCancellationTest extends TestCase
 {
-    public function test_a_task_passing_the_cancellation_to_delay_stops_at_the_timeout()
+    public function test_a_task_passing_the_cancellation_to_delay_stops_at_the_timeout(): void
     {
         $log = [];
         $thrown = null;
@@ -48,7 +50,7 @@ class FiberDriverCancellationTest extends TestCase
             }
 
             // The task unwinds on the next loop ticks, long before its delay would end.
-            $settled->getFuture()->await();
+            $this->awaitSettled($settled);
             $log[] = 'checked';
         });
 
@@ -58,7 +60,7 @@ class FiberDriverCancellationTest extends TestCase
         $this->assertSame([], $unhandled);
     }
 
-    public function test_a_task_awaiting_a_future_with_the_cancellation_stops_at_the_timeout()
+    public function test_a_task_awaiting_a_future_with_the_cancellation_stops_at_the_timeout(): void
     {
         $log = [];
         $thrown = null;
@@ -86,16 +88,16 @@ class FiberDriverCancellationTest extends TestCase
                 $thrown = $e;
             }
 
-            $settled->getFuture()->await();
+            $this->awaitSettled($settled);
             $log[] = 'checked';
         });
 
-        $this->assertInstanceOf(TimeoutException::class, $thrown->getPrevious());
+        $this->assertInstanceOf(TimeoutException::class, $thrown?->getPrevious());
         $this->assertSame(['finally', 'checked'], $log);
         $this->assertSame([], $unhandled);
     }
 
-    public function test_a_task_polling_throw_if_requested_stops_after_the_timeout()
+    public function test_a_task_polling_throw_if_requested_stops_after_the_timeout(): void
     {
         $polls = 0;
         $log = [];
@@ -108,8 +110,9 @@ class FiberDriverCancellationTest extends TestCase
                 (new FiberDriver)->run([
                     function () use (&$polls, &$log, $settled) {
                         try {
+                            // @phpstan-ignore while.alwaysTrue
                             while (true) {
-                                TaskCancellation::current()->throwIfRequested();
+                                TaskCancellation::current()?->throwIfRequested();
                                 $polls++;
                                 delay(0.005);
                             }
@@ -127,16 +130,16 @@ class FiberDriverCancellationTest extends TestCase
                 $thrown = $e;
             }
 
-            $settled->getFuture()->await();
+            $this->awaitSettled($settled);
         });
 
-        $this->assertInstanceOf(TimeoutException::class, $thrown->getPrevious());
+        $this->assertInstanceOf(TimeoutException::class, $thrown?->getPrevious());
         $this->assertGreaterThan(0, $polls);
         $this->assertSame(['stopped'], $log);
         $this->assertSame([], $unhandled);
     }
 
-    public function test_a_failing_task_does_not_cancel_a_cancellable_sibling()
+    public function test_a_failing_task_does_not_cancel_a_cancellable_sibling(): void
     {
         $sibling = null;
         $thrown = null;
@@ -147,7 +150,7 @@ class FiberDriverCancellationTest extends TestCase
                     fn () => throw new RuntimeException('boom'),
                     function () use (&$sibling) {
                         delay(0.03, cancellation: TaskCancellation::current());
-                        $sibling = TaskCancellation::current()->isRequested() ? 'cancelled' : 'done';
+                        $sibling = TaskCancellation::current()?->isRequested() ? 'cancelled' : 'done';
                     },
                 ], CarbonInterval::seconds(5));
                 $this->fail('Expected the failing task to throw.');
@@ -157,12 +160,12 @@ class FiberDriverCancellationTest extends TestCase
         });
 
         // Like the stock ProcessDriver: the whole pool runs to the end, then the failure is thrown.
-        $this->assertSame('boom', $thrown->getMessage());
+        $this->assertSame('boom', $thrown?->getMessage());
         $this->assertSame('done', $sibling);
         $this->assertSame([], $unhandled);
     }
 
-    public function test_a_cancelled_task_releases_its_connection_scope()
+    public function test_a_cancelled_task_releases_its_connection_scope(): void
     {
         $unhandled = $this->captureLoopErrors(function () {
             $settled = new DeferredFuture;
@@ -183,14 +186,14 @@ class FiberDriverCancellationTest extends TestCase
             }
 
             // The scope is released synchronously after the task's finally, before this await resumes.
-            $settled->getFuture()->await();
+            $this->awaitSettled($settled);
         });
 
         $this->assertSame(0, TaskConnectionScope::$active);
         $this->assertSame([], $unhandled);
     }
 
-    public function test_a_task_ignoring_the_cancellation_keeps_running_and_its_result_is_discarded()
+    public function test_a_task_ignoring_the_cancellation_keeps_running_and_its_result_is_discarded(): void
     {
         $finished = false;
 
@@ -216,27 +219,45 @@ class FiberDriverCancellationTest extends TestCase
                 $this->assertFalse($finished);
             }
 
-            $settled->getFuture()->await();
+            $this->awaitSettled($settled);
         });
 
         $this->assertTrue($finished);
         $this->assertSame([], $unhandled);
     }
 
-    public function test_a_call_finishing_early_does_not_keep_the_event_loop_alive()
+    public function test_a_call_finishing_early_does_not_keep_the_event_loop_alive(): void
     {
-        $results = (new FiberDriver)->run([fn () => 'done'], CarbonInterval::seconds(30));
+        // Never run the global loop to exhaustion here: other code in the test process (a queue
+        // Worker's signal callbacks, for one) may hold it open forever. Track this call's timer instead.
+        $before = EventLoop::getIdentifiers();
+        $timers = [];
+
+        $results = (new FiberDriver)->run([
+            function () use ($before, &$timers) {
+                $timers = array_values(array_filter(
+                    array_diff(EventLoop::getIdentifiers(), $before),
+                    fn (string $id) => EventLoop::getType($id) === CallbackType::Delay && EventLoop::isReferenced($id),
+                ));
+
+                return 'done';
+            },
+        ], CarbonInterval::seconds(30));
 
         $this->assertSame(['done'], $results);
 
-        // With the timeout's timer still pending, this run would wait the full 30 seconds.
-        $started = hrtime(true);
-        EventLoop::run();
+        // While the task ran, the run's timeout was a referenced timer holding the loop open...
+        $this->assertNotEmpty($timers);
 
-        $this->assertLessThan(5, (hrtime(true) - $started) / 1e9);
+        // ...and once the call returned early, it is gone instead of pending for 30 seconds.
+        $this->assertSame([], array_values(array_intersect($timers, EventLoop::getIdentifiers())));
+        $this->assertSame([], array_values(array_filter(
+            array_diff(EventLoop::getIdentifiers(), $before),
+            fn (string $id) => EventLoop::isReferenced($id),
+        )));
     }
 
-    public function test_the_cancellation_is_not_requested_while_the_task_runs_inside_the_timeout()
+    public function test_the_cancellation_is_not_requested_while_the_task_runs_inside_the_timeout(): void
     {
         $results = (new FiberDriver)->run([
             fn () => TaskCancellation::current()?->isRequested(),
@@ -250,7 +271,7 @@ class FiberDriverCancellationTest extends TestCase
         $this->assertSame([false, 'done'], $results);
     }
 
-    public function test_the_accessor_returns_null_outside_a_task()
+    public function test_the_accessor_returns_null_outside_a_task(): void
     {
         $this->assertNull(TaskCancellation::current());
 
@@ -262,7 +283,7 @@ class FiberDriverCancellationTest extends TestCase
         $this->assertNull(TaskCancellation::current());
     }
 
-    public function test_tasks_without_a_timeout_also_get_a_cancellation()
+    public function test_tasks_without_a_timeout_also_get_a_cancellation(): void
     {
         $results = (new FiberDriver)->runWithoutConnectionScope([
             fn () => TaskCancellation::current() instanceof Cancellation,
@@ -271,7 +292,7 @@ class FiberDriverCancellationTest extends TestCase
         $this->assertSame([true], $results);
     }
 
-    public function test_a_nested_run_gets_its_own_cancellation_and_the_outer_one_cancels_it()
+    public function test_a_nested_run_gets_its_own_cancellation_and_the_outer_one_cancels_it(): void
     {
         $log = [];
         $seen = [];
@@ -309,16 +330,16 @@ class FiberDriverCancellationTest extends TestCase
                 //
             }
 
-            $settled->getFuture()->await();
+            $this->awaitSettled($settled);
         });
 
         $this->assertNotSame($seen['outer'], $seen['inner']);
-        $this->assertTrue($seen['inner']->isRequested());
+        $this->assertTrue($seen['inner']?->isRequested());
         $this->assertSame(['inner finally', 'outer finally'], $log);
         $this->assertSame([], $unhandled);
     }
 
-    public function test_an_inner_timeout_does_not_cancel_the_outer_task()
+    public function test_an_inner_timeout_does_not_cancel_the_outer_task(): void
     {
         $results = (new FiberDriver)->run([
             function () {
@@ -332,11 +353,24 @@ class FiberDriverCancellationTest extends TestCase
 
                 delay(0.03);
 
-                return TaskCancellation::current()->isRequested();
+                return TaskCancellation::current()?->isRequested();
             },
         ], CarbonInterval::seconds(5));
 
         $this->assertSame([false], $results);
+    }
+
+    /**
+     * Wait for a task to settle, bounded by a watchdog so a task that never settles fails the test instead of hanging it.
+     *
+     * The watchdog is unreferenced: with nothing else holding the loop open the await fails at once,
+     * and with something else holding it open (another test's watchers) it fails after two seconds.
+     *
+     * @param  DeferredFuture<mixed>  $settled
+     */
+    protected function awaitSettled(DeferredFuture $settled): void
+    {
+        $settled->getFuture()->await(new TimeoutCancellation(2));
     }
 
     /**
