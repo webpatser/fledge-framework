@@ -233,16 +233,24 @@ class HttpClientPersistentConnectionsTest extends TestCase
 
     protected function requireGuzzle8(): void
     {
-        if (! class_exists(TransportSharing::class)) {
-            $this->markTestSkipped('Requires Guzzle 8 transport sharing.');
+        if (! $this->hasPersistentTransportSharing()) {
+            $this->markTestSkipped('Requires Guzzle 8 persistent transport sharing.');
         }
     }
 
     protected function requireGuzzle7(): void
     {
-        if (class_exists(TransportSharing::class)) {
+        if ($this->hasPersistentTransportSharing()) {
             $this->markTestSkipped('Guzzle 8 rejects CURLOPT_SHARE in the "curl" request option.');
         }
+    }
+
+    /**
+     * Guzzle 7.11 ships TransportSharing without the persistent modes.
+     */
+    protected function hasPersistentTransportSharing(): bool
+    {
+        return defined(TransportSharing::class.'::PERSISTENT_PREFER');
     }
 
     /**

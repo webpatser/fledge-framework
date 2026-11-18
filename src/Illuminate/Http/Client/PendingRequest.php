@@ -730,7 +730,7 @@ class PendingRequest
     {
         PersistentCurlShareManager::assertSafeOptions($options);
 
-        if (PersistentCurlShareManager::isAvailable() && ! class_exists(\GuzzleHttp\TransportSharing::class)) {
+        if (PersistentCurlShareManager::isAvailable() && ! static::supportsPersistentTransportSharing()) {
             $current = $this->options['curl'][CURLOPT_SHARE] ?? null;
 
             $managed = $this->persistentCurlOptions !== null
@@ -759,7 +759,7 @@ class PendingRequest
     {
         if ($this->persistentCurlOptions === null
             || ! PersistentCurlShareManager::isAvailable()
-            || ! class_exists(\GuzzleHttp\TransportSharing::class)
+            || ! static::supportsPersistentTransportSharing()
             || isset($this->options['curl'][CURLOPT_SHARE])) {
             return null;
         }
@@ -769,6 +769,20 @@ class PendingRequest
             : \GuzzleHttp\TransportSharing::PERSISTENT_PREFER;
 
         return \GuzzleHttp\Utils::chooseHandler(['transport_sharing' => $mode]);
+    }
+
+    /**
+     * Determine if the installed Guzzle supports persistent transport sharing.
+     *
+     * Guzzle 7.11 introduced TransportSharing without the persistent modes,
+     * which arrived in Guzzle 8. Without them the Guzzle 7 CURLOPT_SHARE path
+     * is used.
+     *
+     * @return bool
+     */
+    protected static function supportsPersistentTransportSharing(): bool
+    {
+        return defined(\GuzzleHttp\TransportSharing::class.'::PERSISTENT_PREFER');
     }
 
     /**
