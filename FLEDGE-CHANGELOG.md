@@ -2,9 +2,10 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
-## Unreleased
+## v13.42.0.3 - 2026-11-18
 
 ### Changed
+- `schedule:work` runs the stock Laravel loop again: the Fledge command calls the parent `handle()` and only adds the `schedule:terminate` check to `sleep()`. The earlier override replaced the loop, which skipped the base command's SIGINT, SIGTERM and SIGQUIT trap and the drain of running `schedule:run` processes.
 - The failover cache store no longer has the Fledge-only concurrent read path: `FailoverStore` is identical to stock Laravel again. Reads go to the primary store and reach the next store only when the primary fails. Before, every `get`, `many` and `getPrefix` made inside a fiber also called every secondary store.
 - `Concurrency::run()` on the fiber driver waits for every task, returns the results keyed and ordered like the tasks, and rethrows the first failure in task order, like the process driver. A failing task does not cancel its siblings. On a timeout the call throws `Fledge\Async\CancelledException` (with a `TimeoutException` as previous); tasks still running finish in the background unless they honour their cancellation (next entry), and their results are discarded. A `run()` with a timeout keeps the event loop alive until the timeout fires or the call ends, so a call whose tasks all wait on something that never completes ends with the timeout exception (before, it could end with an "Event loop terminated" Error).
 - Fiber-driver tasks can be cancelled cooperatively. `Fledge\Concurrency\TaskCancellation::current()` returns the running task's cancellation (null outside a task), requested when the run's timeout fires and, for a nested `run()`, also when the enclosing task's is. A task that passes it to its awaits (`delay()`, `Future::await()`, fledge-fiber calls taking a `Cancellation`) or calls `throwIfRequested()` in a loop stops there and unwinds through its `finally` blocks, closing its database connections. CPU-bound code, blocking calls and awaits that do not receive it are not stopped.
@@ -14,6 +15,7 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 
 ### Fixed
 - HTTP client persistent connections now take effect. `Http::persistentConnections()` / `withPersistentConnections()` stored their options but never applied them. On Guzzle 8 the default handler is now built with `transport_sharing` set to the persistent-prefer mode; on Guzzle 7 the persistent share handle is passed as `CURLOPT_SHARE`.
+- HTTP client persistent requests no longer throw `Undefined constant GuzzleHttp\TransportSharing::PERSISTENT_PREFER` on Guzzle 7.11 to 7.15, which ship `TransportSharing` without the persistent modes. The handler path is chosen by that constant now, not by the class, so those versions use the Guzzle 7 `CURLOPT_SHARE` path.
 - Queue workers now honour SIGTERM, SIGINT, SIGQUIT, SIGUSR2 and SIGCONT while busy. The Revolt signal watchers only ran while the worker slept, so a worker draining a backlog never saw the stop signal and was killed mid-job on deploy. `Worker::daemon()` now gives the event loop one non-blocking pass at the top of every iteration and after each job (once that job's timeout alarm is cleared, so a finished job cannot be timed out while other fibers delay the resume); this works in the main context and inside a fiber (Horizon, torque).
 
 ### Known differences
