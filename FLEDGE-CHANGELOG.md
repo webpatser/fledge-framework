@@ -2,6 +2,18 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.42.0.4 - 2026-11-18
+
+### Changed
+- The `webpatser/fledge-fiber` floor is now `^13.42.0.3`. The framework itself has no source change in this release.
+- fledge-fiber v13.42.0.3 default change: `pool_wait_timeout` is 30 seconds on the MySQL, MariaDB and Postgres amphp pools when unset. A value of 0, '0' or '' means no limit. A timeout throws a `QueryException` (code 2002), not a lost connection.
+- fledge-fiber v13.42.0.3 default change: MySQL and Redis connects fail at once instead of retrying with backoff (about 6 s before).
+- Native driver: a fiber whose pinned connection with changed session state was replaced now gets one `LostConnectionException` and continues on a fresh session.
+- MySQL PDO shim: `MATCH ... AGAINST` (as emitted by `whereFullText`) no longer pins a connection.
+- Postgres: closing a connection while a statement is still running no longer freezes the process (ext-sockets recommended).
+- `LOAD DATA LOCAL INFILE` works without ext-parallel, ext-uv and ext-eio.
+- Redis subscriber reconnect handling is tightened, and Livewire skips unchanged reactive children as stock Livewire does.
+
 ## v13.42.0.3 - 2026-11-18
 
 ### Changed
