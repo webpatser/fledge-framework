@@ -2,8 +2,6 @@
 
 namespace Illuminate\Cache;
 
-use Fiber;
-use Illuminate\Cache\Concerns\SuspendsFibers;
 use Illuminate\Cache\Events\CacheFailedOver;
 use Illuminate\Contracts\Cache\CanFlushLocks;
 use Illuminate\Contracts\Cache\LockProvider;
@@ -11,11 +9,8 @@ use Illuminate\Contracts\Events\Dispatcher;
 use RuntimeException;
 use Throwable;
 
-use function Fledge\Async\async;
-
 class FailoverStore extends TaggableStore implements CanFlushLocks, LockProvider
 {
-    use SuspendsFibers;
     /**
      * The caches which failed on the last action.
      *
@@ -250,97 +245,11 @@ class FailoverStore extends TaggableStore implements CanFlushLocks, LockProvider
     /**
      * Attempt the given method on all stores.
      *
-     * For read operations inside a Fiber context, every store is dispatched
-     * concurrently so secondaries can warm while the primary resolves, but the
-     * PRIMARY store remains authoritative: results are consumed in registration
-     * order and a secondary is only consulted when an earlier store errors.
-     * Write operations always run sequentially in registration order.
-     *
      * @return mixed
      *
      * @throws \Throwable
      */
     protected function attemptOnAllStores(string $method, array $arguments)
-    {
-        if ($this->isReadOperation($method) && $this->inFiber()) {
-            return $this->attemptConcurrently($method, $arguments);
-        }
-
-        return $this->attemptSequentially($method, $arguments);
-    }
-
-    /**
-     * Determine if the given method is a read operation.
-     */
-    protected function isReadOperation(string $method): bool
-    {
-        return in_array($method, ['get', 'many', 'getPrefix'], true);
-    }
-
-    /**
-     * Attempt a read on all stores concurrently while keeping the primary authoritative.
-     *
-     * All stores are dispatched at once so secondary reads can warm in parallel,
-     * but the futures are awaited in registration order. The primary store's
-     * result is returned whenever it succeeds; a secondary is only consulted when
-     * an earlier store throws. This avoids the race-to-first behaviour where a
-     * faster secondary could shadow the primary with a stale or missing value,
-     * which would break rate-limiter / throttle correctness.
-     *
-     * @return mixed
-     *
-     * @throws \Throwable
-     */
-    protected function attemptConcurrently(string $method, array $arguments)
-    {
-        $futures = [];
-
-        foreach ($this->stores as $store) {
-            $futures[$store] = async(fn () => $this->store($store)->{$method}(...$arguments));
-        }
-
-        [$lastException, $failedCaches] = [null, []];
-
-        try {
-            foreach ($futures as $store => $future) {
-                try {
-                    $result = $future->await();
-
-                    // The authoritative result has been resolved. Ignore any
-                    // still-pending secondary futures so their potential errors
-                    // are not surfaced as unhandled future rejections.
-                    foreach ($futures as $name => $pending) {
-                        if ($name !== $store) {
-                            $pending->ignore();
-                        }
-                    }
-
-                    return $result;
-                } catch (Throwable $e) {
-                    $lastException = $e;
-
-                    $failedCaches[] = $store;
-
-                    if (! in_array($store, $this->failingCaches)) {
-                        $this->events->dispatch(new CacheFailedOver($store, $e));
-                    }
-                }
-            }
-        } finally {
-            $this->failingCaches = $failedCaches;
-        }
-
-        throw $lastException ?? new RuntimeException('All failover cache stores failed.');
-    }
-
-    /**
-     * Attempt the method on stores sequentially.
-     *
-     * @return mixed
-     *
-     * @throws \Throwable
-     */
-    protected function attemptSequentially(string $method, array $arguments)
     {
         [$lastException, $failedCaches] = [null, []];
 
