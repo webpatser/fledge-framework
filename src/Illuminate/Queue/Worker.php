@@ -172,6 +172,13 @@ class Worker
     protected array $jobSignalHandlers = [];
 
     /**
+     * Per signal, the pcntl handler this worker's chained handler replaced.
+     *
+     * @var array<int, Closure>
+     */
+    protected array $previousSignalHandlers = [];
+
+    /**
      * The custom exit code to be used when memory is exceeded.
      *
      * @var int|null
@@ -270,6 +277,9 @@ class Worker
         if ($supportsAsyncSignals = $this->supportsAsyncSignals()) {
             $this->listenForSignals($connectionName, $queue, $options);
         }
+
+        // Released however daemon() ends (return or exception): cancels this worker's signal watchers.
+        $signalWatcherGuard = $this->signalWatcherGuard();
 
         $lastRestart = $this->getTimestampOfLastQueueRestart();
 
@@ -1067,6 +1077,8 @@ class Worker
                 return;
             }
 
+            $this->signalsHandledInJob = [];
+
             foreach ([SIGQUIT, SIGTERM, SIGINT] as $signal) {
                 $this->signalWatchers[] = EventLoop::onSignal($signal, function () use ($signal, $connectionName, $queue, $options) {
                     $this->shouldQuit = true;
@@ -1224,6 +1236,8 @@ class Worker
             return;
         }
 
+        $this->previousSignalHandlers[$signal] = $previous;
+
         pcntl_signal($signal, $this->jobSignalHandlers[$signal] = function (int $signal, mixed $info = null) use ($previous, $connectionName, $queue, $options): void {
             $previous($signal, $info);
 
@@ -1259,6 +1273,49 @@ class Worker
     }
 
     /**
+     * Cancel this worker's Revolt signal watchers and unchain its mid-job pcntl handlers.
+     *
+     * A finished worker must not keep the event loop referenced, stay in memory through its
+     * callbacks, or receive signals. A leftover watcher also keeps the driver from installing
+     * its pcntl handler again for the next worker in the same process.
+     */
+    protected function stopListeningForSignals(): void
+    {
+        foreach ($this->jobSignalHandlers as $signal => $handler) {
+            if (pcntl_signal_get_handler($signal) === $handler) {
+                pcntl_signal($signal, $this->previousSignalHandlers[$signal]);
+            }
+        }
+
+        foreach ($this->signalWatchers as $watcher) {
+            EventLoop::cancel($watcher);
+        }
+
+        $this->signalWatchers = [];
+        $this->jobSignalHandlers = [];
+        $this->previousSignalHandlers = [];
+        $this->daemonFiber = null;
+    }
+
+    /**
+     * Create an object that stops this worker listening for signals when it is released.
+     */
+    protected function signalWatcherGuard(): object
+    {
+        return new class($this->stopListeningForSignals(...))
+        {
+            public function __construct(private readonly Closure $release)
+            {
+            }
+
+            public function __destruct()
+            {
+                ($this->release)();
+            }
+        };
+    }
+
+    /**
      * Determine if the memory limit has been exceeded.
      *
      * @param  int|string  $memoryLimit
@@ -1285,6 +1342,8 @@ class Worker
      */
     public function stop($status = 0, $options = null, $reason = null, $connectionName = null, $queue = null)
     {
+        $this->stopListeningForSignals();
+
         $this->events->dispatch(new WorkerStopping(
             $status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt, $this->currentMemoryUsage(),
             $connectionName, $queue
@@ -1305,6 +1364,8 @@ class Worker
      */
     public function kill($status = 0, $options = null, $reason = null, $connectionName = null, $queue = null)
     {
+        $this->stopListeningForSignals();
+
         $this->events->dispatch(new WorkerStopping(
             $status, $options, $reason, $this->jobsProcessed, $this->lastJobProcessedAt, $this->currentMemoryUsage(),
             $connectionName, $queue

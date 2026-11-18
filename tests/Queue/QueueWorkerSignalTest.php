@@ -368,6 +368,84 @@ class QueueWorkerSignalTest extends TestCase
         $this->events->assertNotDispatched(WorkerInterrupted::class);
     }
 
+    public function testFinishedWorkerLeavesNoSignalWatchersBehind()
+    {
+        $before = EventLoop::getIdentifiers();
+
+        $worker = $this->makeWorker([new SignalFakeJob]);
+
+        try {
+            $status = $worker->daemon('default', 'queue', $this->workerOptions());
+
+            $after = EventLoop::getIdentifiers();
+        } finally {
+            $worker->cancelSignalWatchers();
+        }
+
+        $this->assertSame(0, $status);
+        $this->assertSame([], array_values(array_diff($after, $before)), 'The finished worker left callbacks in the event loop.');
+    }
+
+    public function testWorkerWhoseDaemonThrowsLeavesNoSignalWatchersBehind()
+    {
+        $before = EventLoop::getIdentifiers();
+
+        $worker = new SignalAwareWorker(
+            new SignalFakeManager(new SignalFakeConnection(['queue' => [new SignalFakeJob]])),
+            $this->events,
+            Container::getInstance()->make(ExceptionHandler::class),
+            fn () => throw new \RuntimeException('Loop breaker.'),
+        );
+
+        try {
+            $worker->daemon('default', 'queue', $this->workerOptions());
+
+            $this->fail('Expected the daemon to throw.');
+        } catch (\RuntimeException $e) {
+            $this->assertSame('Loop breaker.', $e->getMessage());
+
+            $after = EventLoop::getIdentifiers();
+        } finally {
+            $worker->cancelSignalWatchers();
+        }
+
+        $this->assertSame([], array_values(array_diff($after, $before)), 'The worker left callbacks in the event loop after daemon() threw.');
+    }
+
+    public function testSecondWorkerReceivesSigtermAfterAnEarlierWorkerFinished()
+    {
+        // The earlier worker is not cleaned up by the test: daemon() itself must cancel its watchers.
+        $earlier = $this->makeWorker([new SignalFakeJob]);
+
+        $this->assertSame(0, $earlier->daemon('default', 'queue', $this->workerOptions()));
+
+        // What the next test's setUp() does: replace the process SIGTERM handler.
+        pcntl_signal(SIGTERM, static fn () => null);
+
+        $first = new SignalFakeJob(fn () => posix_kill(getmypid(), SIGTERM));
+        $second = new SignalFakeJob;
+
+        // No mid-job chaining, so only the Revolt watcher can see the signal.
+        $worker = new NonChainingSignalWorker(
+            new SignalFakeManager(new SignalFakeConnection(['queue' => [$first, $second]])),
+            $this->events,
+            Container::getInstance()->make(ExceptionHandler::class),
+            fn () => false,
+        );
+
+        try {
+            $status = $worker->daemon('default', 'queue', $this->workerOptions());
+        } finally {
+            $earlier->cancelSignalWatchers();
+            $worker->cancelSignalWatchers();
+        }
+
+        $this->assertSame(0, $status);
+        $this->assertTrue($first->fired);
+        $this->assertFalse($second->fired, 'The second worker never saw SIGTERM.');
+        $this->events->assertDispatchedOnce(WorkerInterrupted::class);
+    }
+
     private function workerWithInterruptibleJob(): array
     {
         $interruptible = new SignalInterruptibleCommand;
