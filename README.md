@@ -135,7 +135,6 @@ REDIS_CLIENT=phpredis
 
 The cache layer also includes Fiber-aware internals:
 - **Lock blocking** suspends the Fiber instead of `usleep()`, letting other Fibers run
-- **Failover reads** try all stores concurrently, returning the first success
 - **Cluster operations** (`many()`/`putMany()`) run concurrent reads/writes via Fibers
 - **Tag operations** flush chunks and write entries concurrently
 
@@ -165,6 +164,7 @@ Worth knowing before going to production:
 - **PHP 8.5 hosting** was released in November 2025. Managed-host availability is still rolling out across Forge, Vapor, Ploi, and Laravel Cloud, check your provider before committing.
 - **`fledge-fiber` is a hardened fork**, not raw amphp. The async runtime started from amphp/revolt but has been consolidated, namespaced under `Fledge\Async\` and `Fledge\Fiber\`, and tuned for the Fledge use case. If you're auditing dependencies, treat it as first-party Webpatser code.
 - **Active branch is `fledge-13`**, not `main`. PRs and clones aimed at framework development should target that branch.
+- **HTTP client persistent connections** (`Http::persistentConnections()` / `withPersistentConnections()`) apply only to Guzzle's own cURL handler. A custom or global handler, including the Fledge fiber handler (which pools its own connections), is left unchanged. On Guzzle 8 the shared locks are fixed at DNS, connections and SSL sessions.
 - **Versioning uses 4 segments** (`v13.X.Y.N`). The first three match upstream Laravel exactly, the fourth is Fledge's own patch counter. See [Versioning](#versioning) below.
 
 ## What Changed
@@ -189,7 +189,7 @@ Worth knowing before going to production:
 | Shared `WhitespacePathNormalizer` in `FilesystemAdapter::path` | 1 | Reuse a stateless normalizer |
 | Fiber-based concurrency driver (Revolt + fledge-fiber) | 2 | Real async I/O in `Concurrency` facade |
 | fledge-fiber as default Redis driver | 5 | Non-blocking Redis I/O for all operations |
-| Fiber-aware cache layer (locks, failover, tags) | 8 | Concurrent cache ops inside Fibers |
+| Fiber-aware cache layer (locks, tags) | 7 | Concurrent cache ops inside Fibers |
 | Fiber-safe queue worker signal handling (Revolt) | 1 | Horizon/queue workers work with fiber drivers |
 | Redis required dependency for cache package | 1 | Redis is a first-class citizen |
 

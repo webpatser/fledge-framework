@@ -4,10 +4,15 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 
 ## Unreleased
 
+### Changed
+- The failover cache store no longer has the Fledge-only concurrent read path: `FailoverStore` is identical to stock Laravel again. Reads go to the primary store and reach the next store only when the primary fails. Before, every `get`, `many` and `getPrefix` made inside a fiber also called every secondary store.
+
 ### Fixed
+- HTTP client persistent connections now take effect. `Http::persistentConnections()` / `withPersistentConnections()` stored their options but never applied them. On Guzzle 8 the default handler is now built with `transport_sharing` set to the persistent-prefer mode; on Guzzle 7 the persistent share handle is passed as `CURLOPT_SHARE`.
 - Queue workers now honour SIGTERM, SIGINT, SIGQUIT, SIGUSR2 and SIGCONT while busy. The Revolt signal watchers only ran while the worker slept, so a worker draining a backlog never saw the stop signal and was killed mid-job on deploy. `Worker::daemon()` now gives the event loop one non-blocking pass at the top of every iteration and after each job (once that job's timeout alarm is cleared, so a finished job cannot be timed out while other fibers delay the resume); this works in the main context and inside a fiber (Horizon, torque).
 
 ### Known differences
+- HTTP client persistent connections apply only to Guzzle's own cURL handler. A custom or global handler, including the Fledge fiber handler (which pools its own connections), is left unchanged. On Guzzle 8 the shared locks are fixed at DNS, connections and SSL sessions.
 - When Revolt is available, SIGTERM, SIGINT and SIGQUIT still reach a running job mid-run: a pcntl handler chained in front of the Revolt driver's dispatches `WorkerInterrupted` and calls `Interruptible::interrupted()` (with `JobInterrupted`) while the job runs, and the Revolt watcher skips the delivery it already handled. Jobs that yield to the loop are handled by the watcher during the job. Without Revolt the worker falls back to `pcntl_signal()` as before. What stays different from stock:
   - With ext-uv, ext-ev or ext-event loaded the chaining is off and signals are seen at event-loop ticks between jobs (or when the job yields), as before.
   - A listener or `interrupted()` that does fiber I/O while a CPU-bound job runs gets a reported `FiberError`, does not finish, and breaks the worker's event loop: in the main context the worker exits at the next tick with an uncaught `Error`, inside a fiber the leftover I/O watcher resumes the worker at the wrong point and the loop fails. Keep such code free of fiber I/O, or override `supportsJobSignalChaining()` to return `false` for between-jobs handling.
