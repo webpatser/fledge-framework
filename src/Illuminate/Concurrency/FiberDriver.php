@@ -4,7 +4,10 @@ namespace Illuminate\Concurrency;
 
 use Carbon\CarbonInterval;
 use Closure;
-use Fledge\Async\TimeoutCancellation;
+use Fledge\Async\CancelledException;
+use Fledge\Async\DeferredCancellation;
+use Fledge\Concurrency\RunTimeout;
+use Fledge\Concurrency\TaskCancellation;
 use Fledge\Concurrency\TaskConnectionScope;
 use Illuminate\Contracts\Concurrency\Driver;
 use Illuminate\Support\Arr;
@@ -51,22 +54,43 @@ class FiberDriver implements Driver
     {
         $tasks = Arr::wrap($tasks);
 
+        // Every task's ambient cancellation (see TaskCancellation): requested on the timeout, and
+        // in a nested run also when the enclosing task's own cancellation is requested.
+        $source = new DeferredCancellation;
+        $taskCancellation = $source->getCancellation();
+        $outer = TaskCancellation::current();
+        $outerId = $outer?->subscribe(static fn (CancelledException $e) => $source->cancel($e->getPrevious() ?? $e));
+
         $futures = [];
 
         // Each task gets database connections of its own for its whole life (see TaskConnectionScope).
         foreach ($tasks as $key => $task) {
-            $futures[$key] = async($scoped ? fn () => TaskConnectionScope::run($task) : $task);
+            $futures[$key] = async(fn () => TaskCancellation::run(
+                $taskCancellation, $scoped ? fn () => TaskConnectionScope::run($task) : $task
+            ));
         }
 
-        $cancellation = match (true) {
-            $timeout instanceof CarbonInterval => new TimeoutCancellation($timeout->totalSeconds),
-            is_int($timeout) => new TimeoutCancellation($timeout),
-            default => null,
-        };
+        // A referenced timer (unlike TimeoutCancellation's) holds the event loop open, so the call
+        // still ends in CancelledException when every task waits on something that never completes.
+        [$cancellation, $timer] = RunTimeout::start($timeout);
 
         // Let every task settle, like the stock ProcessDriver waits for the whole pool. The timeout
-        // still bounds the whole call: awaitAll() throws CancelledException once it fires.
-        [$errors, $values] = awaitAll($futures, $cancellation);
+        // still bounds the whole call: awaitAll() throws CancelledException once it fires. Tasks
+        // that pass their cancellation to an await then unwind through their own finally blocks;
+        // the others keep running and their results are discarded.
+        try {
+            [$errors, $values] = awaitAll($futures, $cancellation);
+        } catch (CancelledException $e) {
+            $source->cancel($e->getPrevious() ?? $e);
+
+            throw $e;
+        } finally {
+            RunTimeout::stop($timer);
+
+            if ($outerId !== null) {
+                $outer->unsubscribe($outerId);
+            }
+        }
 
         $results = [];
 
