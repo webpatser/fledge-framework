@@ -94,6 +94,12 @@ $results = Concurrency::driver('fiber')->run([
 
 No background process needed; the Revolt event loop runs inline within the `run()` call. Tasks using fledge-fiber async drivers (HTTP, MySQL, Redis) genuinely interleave on I/O suspension. Shared memory, no serialization overhead, works in both web requests and CLI.
 
+`run()` waits for every task, returns the results keyed and ordered like the tasks, and rethrows the first failure in task order, like the `ProcessDriver`. On a timeout the call throws; tasks still running finish in the background and their results are discarded.
+
+Each task gets its own database connection per connection name, opened lazily on first use and closed when the task ends, so transaction state and the PDO session never leak between tasks. Connections of the fledge-fiber native pool and in-memory SQLite stay shared, and under the `RefreshDatabase` / `DatabaseTransactions` test traits tasks use the test's connection. `afterCommit` jobs, listeners and events dispatched inside a task follow that task's own transaction; without one they run at once. Redis connections are not scoped: tasks share them (see [Caveats](#caveats)).
+
+In a concurrent middleware group each member gets its own copy of the request input. Changes to query, form and JSON input, attributes, headers, cookies, server values, files and the user, route and session resolvers are merged back (later registration wins per key; nested arrays merge recursively, lists are replaced), and response headers and cookies are merged per member. Members use the request's connections, not per-task ones.
+
 Also available as a standalone package for Laravel 11/12/13: [`webpatser/laravel-fiber`](https://github.com/webpatser/laravel-fiber)
 
 ### Non-Blocking Redis (fledge-fiber driver)
@@ -165,6 +171,7 @@ Worth knowing before going to production:
 - **`fledge-fiber` is a hardened fork**, not raw amphp. The async runtime started from amphp/revolt but has been consolidated, namespaced under `Fledge\Async\` and `Fledge\Fiber\`, and tuned for the Fledge use case. If you're auditing dependencies, treat it as first-party Webpatser code.
 - **Active branch is `fledge-13`**, not `main`. PRs and clones aimed at framework development should target that branch.
 - **HTTP client persistent connections** (`Http::persistentConnections()` / `withPersistentConnections()`) apply only to Guzzle's own cURL handler. A custom or global handler, including the Fledge fiber handler (which pools its own connections), is left unchanged. On Guzzle 8 the shared locks are fixed at DNS, connections and SSL sessions.
+- **Fiber-driver tasks differ from the sync driver**: tasks do not run inside the parent's open transaction and do not see its uncommitted writes, and a task that writes a row the parent's open transaction has locked waits for the lock timeout. Models, query builders and connection objects created in the parent keep the parent's connection when used in a task. A nested `Concurrency::run()` gives each subtask its own connections. `DB::purge()`, `disconnect()` and `reconnect()` inside a task act on the shared connection. Redis connections are shared between tasks: `MULTI`/`EXEC`, `WATCH`, `SELECT` and blocking commands issued by concurrent tasks on the same connection interleave, so a task that needs them should use its own connection name or not run them concurrently. A task cannot be cancelled from outside.
 - **Versioning uses 4 segments** (`v13.X.Y.N`). The first three match upstream Laravel exactly, the fourth is Fledge's own patch counter. See [Versioning](#versioning) below.
 
 ## What Changed

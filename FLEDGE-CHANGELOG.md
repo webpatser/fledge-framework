@@ -6,6 +6,10 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 
 ### Changed
 - The failover cache store no longer has the Fledge-only concurrent read path: `FailoverStore` is identical to stock Laravel again. Reads go to the primary store and reach the next store only when the primary fails. Before, every `get`, `many` and `getPrefix` made inside a fiber also called every secondary store.
+- `Concurrency::run()` on the fiber driver waits for every task, returns the results keyed and ordered like the tasks, and rethrows the first failure in task order, like the process driver. On a timeout the call throws; tasks still running finish in the background and their results are discarded.
+- Each fiber-driver task gets its own database connection per connection name, opened lazily on first use and closed when the task ends. Connections of the fledge-fiber native pool and in-memory SQLite stay shared. Under the `RefreshDatabase` / `DatabaseTransactions` test traits, tasks use the test's connection.
+- `afterCommit` jobs, listeners and events dispatched inside a fiber-driver task follow that task's own transaction; when the task has none open they run at once.
+- Concurrent middleware groups: each member gets its own copy of the request input. Changes to query, form and JSON input, attributes, headers, cookies, server values, files and the user, route and session resolvers are merged back (later registration wins per key; nested arrays merge recursively, lists are replaced). Response headers and cookies are merged per member. Members use the request's connections, not per-task ones.
 
 ### Fixed
 - HTTP client persistent connections now take effect. `Http::persistentConnections()` / `withPersistentConnections()` stored their options but never applied them. On Guzzle 8 the default handler is now built with `transport_sharing` set to the persistent-prefer mode; on Guzzle 7 the persistent share handle is passed as `CURLOPT_SHARE`.
@@ -13,6 +17,13 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 
 ### Known differences
 - HTTP client persistent connections apply only to Guzzle's own cURL handler. A custom or global handler, including the Fledge fiber handler (which pools its own connections), is left unchanged. On Guzzle 8 the shared locks are fixed at DNS, connections and SSL sessions.
+- Fiber-driver tasks compared with the sync driver:
+  - Tasks do not run inside the parent's open transaction and do not see its uncommitted writes. A task that writes a row the parent's open transaction has locked waits for the lock timeout.
+  - Models, query builders and connection objects created in the parent keep the parent's connection when used in a task.
+  - A nested `Concurrency::run()` gives each subtask its own connections.
+  - `DB::purge()`, `disconnect()` and `reconnect()` inside a task act on the shared connection.
+  - Redis connections are shared between tasks. `MULTI`/`EXEC`, `WATCH`, `SELECT` and blocking commands issued by concurrent tasks on the same connection interleave, so a task that needs them should use its own connection name or not run them concurrently.
+  - A task cannot be cancelled from outside.
 - When Revolt is available, SIGTERM, SIGINT and SIGQUIT still reach a running job mid-run: a pcntl handler chained in front of the Revolt driver's dispatches `WorkerInterrupted` and calls `Interruptible::interrupted()` (with `JobInterrupted`) while the job runs, and the Revolt watcher skips the delivery it already handled. Jobs that yield to the loop are handled by the watcher during the job. Without Revolt the worker falls back to `pcntl_signal()` as before. What stays different from stock:
   - With ext-uv, ext-ev or ext-event loaded the chaining is off and signals are seen at event-loop ticks between jobs (or when the job yields), as before.
   - A listener or `interrupted()` that does fiber I/O while a CPU-bound job runs gets a reported `FiberError`, does not finish, and breaks the worker's event loop: in the main context the worker exits at the next tick with an uncaught `Error`, inside a fiber the leftover I/O watcher resumes the worker at the wrong point and the loop fails. Keep such code free of fiber I/O, or override `supportsJobSignalChaining()` to return `false` for between-jobs handling.
