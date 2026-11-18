@@ -41,7 +41,7 @@ final class TaskConnectionScope
     public static int $active = 0;
 
     /**
-     * @var WeakMap<Fiber, self>|null
+     * @var WeakMap<Fiber<mixed, mixed, mixed, mixed>, self>|null
      */
     private static ?WeakMap $scopes = null;
 
@@ -88,6 +88,8 @@ final class TaskConnectionScope
      */
     public static function run(Closure $task): mixed
     {
+        // The Fiber::getCurrent() stub returns the class without its template types.
+        /** @var Fiber<mixed, mixed, mixed, mixed>|null $fiber */
         $fiber = Fiber::getCurrent();
 
         if ($fiber === null) {
@@ -215,7 +217,7 @@ final class TaskConnectionScope
      */
     private static function underTestTransactions(DatabaseManager $manager): bool
     {
-        return (fn () => $this->app->bound('db.transactions') ? $this->app['db.transactions'] : null)->call($manager)
+        return (fn () => $this->app->bound('db.transactions') ? $this->app->make('db.transactions') : null)->call($manager)
             instanceof \Illuminate\Foundation\Testing\DatabaseTransactionsManager;
     }
 

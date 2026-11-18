@@ -31,7 +31,7 @@ final class TaskCancellation
     private static int $active = 0;
 
     /**
-     * @var WeakMap<Fiber, Cancellation>|null
+     * @var WeakMap<Fiber<mixed, mixed, mixed, mixed>, Cancellation>|null
      */
     private static ?WeakMap $cancellations = null;
 
@@ -59,6 +59,8 @@ final class TaskCancellation
      */
     public static function run(Cancellation $cancellation, Closure $task): mixed
     {
+        // The Fiber::getCurrent() stub returns the class without its template types.
+        /** @var Fiber<mixed, mixed, mixed, mixed>|null $fiber */
         $fiber = Fiber::getCurrent();
 
         if ($fiber === null) {

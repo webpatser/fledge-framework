@@ -27,8 +27,3 @@ parameters:
             identifier: argument.type
             path: src/Illuminate/Routing/ConcurrentMiddlewareGroup.php
             count: 1
-        -
-            rawMessage: 'Parameter #2 $values of method Symfony\Component\HttpFoundation\ResponseHeaderBag::set() expects array<string>|string|null, list<string|null> given.'
-            identifier: argument.type
-            path: src/Illuminate/Routing/ConcurrentMiddlewareGroup.php
-            count: 1

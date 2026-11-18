@@ -43,11 +43,15 @@ class TaskAwareTransactionsManager extends FiberAwareTransactionsManager
         $applicable = $this->taskTransactions();
 
         if ($applicable === null) {
-            return parent::addCallback($callback);
+            parent::addCallback($callback);
+
+            return;
         }
 
         if ($current = $applicable->last()) {
-            return $current->addCallback($callback);
+            $current->addCallback($callback);
+
+            return;
         }
 
         $callback();
@@ -58,12 +62,12 @@ class TaskAwareTransactionsManager extends FiberAwareTransactionsManager
         $applicable = $this->taskTransactions();
 
         if ($applicable === null) {
-            return parent::addCallbackForRollback($callback);
+            parent::addCallbackForRollback($callback);
+
+            return;
         }
 
-        if ($current = $applicable->last()) {
-            return $current->addCallbackForRollback($callback);
-        }
+        $applicable->last()?->addCallbackForRollback($callback);
     }
 
     public function callbackApplicableTransactions()
