@@ -13,7 +13,7 @@ class RawTemplate
      * @param  literal-string  $template
      */
     public function __construct(
-        public string $template,
+        public readonly string $template,
     ) {
     }
 }

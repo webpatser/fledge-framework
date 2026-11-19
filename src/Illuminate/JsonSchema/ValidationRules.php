@@ -271,7 +271,7 @@ class ValidationRules
             return [];
         }
 
-        return Arr::some($schema['enum'], fn (mixed $value) => is_array($value))
+        return array_any($schema['enum'], fn (mixed $value) => is_array($value))
             ? [new MatchesEnum($schema['enum'])]
             : [Rule::in($schema['enum'])];
     }

@@ -122,6 +122,7 @@ class PredisConnection extends Connection implements ConnectionContract
      *
      * @throws \Predis\Connection\ConnectionException
      */
+    #[\Override]
     public function command($method, array $parameters = [])
     {
         // Pipelines and transactions may have partially or fully executed their callback, so they are never retried...

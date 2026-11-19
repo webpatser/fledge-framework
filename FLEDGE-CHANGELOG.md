@@ -2,6 +2,15 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.43.0.2 - 2026-11-19
+
+### Changed
+- PHP 8.5 optimizations on code that arrived with v13.43.0. No behavior change.
+- `JsonSchema/Rules/DistinctArrayItems`: one pass over a seen-list instead of an `array_slice` per item, so no array is copied per item. The comparison is the same loose one as before.
+- `JsonSchema/Rules/MatchesAnyOf` and `JsonSchema/ValidationRules::enumRules`: use the native `array_any`.
+- `#[\Override]` on `validate()` in the four JsonSchema rules (`DistinctArrayItems`, `MatchesAnyOf`, `MatchesEnum`, `RejectEmptyString`) and on `PredisConnection::command()`.
+- `readonly` on `Queue\Attributes\RetryFor::$retryFor` and `View\RawTemplate::$template`.
+
 ## v13.43.0.1 - 2026-11-19
 
 ### Synced

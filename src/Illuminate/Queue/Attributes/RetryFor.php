@@ -12,7 +12,7 @@ class RetryFor
      *
      * @var int
      */
-    public int $retryFor;
+    public readonly int $retryFor;
 
     /**
      * Create a new attribute instance.

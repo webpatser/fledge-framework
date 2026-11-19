@@ -22,12 +22,11 @@ class MatchesAnyOf implements ValidationRule
      *
      * @param  \Closure(string, ?string=): \Illuminate\Translation\PotentiallyTranslatedString  $fail
      */
+    #[\Override]
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        foreach ($this->branches as $rules) {
-            if (Validator::make(['value' => $value], $rules)->passes()) {
-                return;
-            }
+        if (array_any($this->branches, fn (array $rules) => Validator::make(['value' => $value], $rules)->passes())) {
+            return;
         }
 
         $fail('validation.any_of')->translate();

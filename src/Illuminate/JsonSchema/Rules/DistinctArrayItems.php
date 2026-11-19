@@ -14,16 +14,23 @@ class DistinctArrayItems implements ValidationRule
      *
      * @param  \Closure(string, ?string=): \Illuminate\Translation\PotentiallyTranslatedString  $fail
      */
+    #[\Override]
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        $items = array_values(array_filter((array) $value, is_array(...)));
+        $seen = [];
 
-        foreach ($items as $index => $item) {
-            if (in_array($item, array_slice($items, $index + 1))) {
+        foreach ((array) $value as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            if (in_array($item, $seen)) {
                 $fail('validation.distinct')->translate();
 
                 return;
             }
+
+            $seen[] = $item;
         }
     }
 }
