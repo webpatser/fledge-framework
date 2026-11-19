@@ -3882,6 +3882,12 @@ class ValidationValidatorTest extends TestCase
 
         $v = new Validator($trans, ['foo' => 1.23], ['foo' => 'Decimal:0,3']);
         $this->assertTrue($v->passes());
+
+        $v = new Validator($trans, ['foo' => '1e5'], ['foo' => 'Decimal:0']);
+        $this->assertFalse($v->passes());
+
+        $v = new Validator($trans, ['foo' => '1.5e3'], ['foo' => 'Decimal:0,3']);
+        $this->assertFalse($v->passes());
     }
 
     public function testValidateInt()
@@ -6624,6 +6630,10 @@ class ValidationValidatorTest extends TestCase
         // Ensure commas are not interpreted as parameter separators
         $v = new Validator($trans, ['x' => 'foo bar'], ['x' => 'NotRegex:/x{3,}/i']);
         $this->assertTrue($v->passes());
+
+        // Ensure a failed match is not treated as no match
+        $v = new Validator($trans, ['x' => "foo\xFF"], ['x' => 'NotRegex:/foo/u']);
+        $this->assertFalse($v->passes());
     }
 
     public function testValidateDateAndFormat()
