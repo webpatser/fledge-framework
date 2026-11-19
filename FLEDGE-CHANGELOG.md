@@ -2,6 +2,21 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.43.0.1 - 2026-11-19
+
+### Synced
+- Synced with Laravel v13.43.0 (59 upstream `src/` files, 15 of them overlapping Fledge changes).
+- Conflicts (5):
+  - `Cache/RedisStore.php`: kept Fledge's fiber-adapted `many()` next to upstream's new `manyViaPipeline()`.
+  - `Cache/RedisTaggedCache.php`: took upstream's new `many()`; kept the `getPrefix()` based `flush()` and no connection class imports.
+  - `Foundation/Application.php`: kept the typed `const string VERSION`, took value 13.43.0.
+  - `Redis/Connections/PhpRedisConnection.php`: accepted upstream's move of `RETRYABLE_COMMANDS` and `isRetryable()` to the base class; kept the typed `LOST_CONNECTION_MESSAGES` constant and appended upstream's new 'Connection closed' entry; kept `getPrefix()`.
+  - `Redis/Connections/PredisConnection.php`: took upstream's changes; kept `getPrefix()`.
+- `Redis/Connections/Connection.php`: upstream's moved `RETRYABLE_COMMANDS` (now including `del`) is kept as a typed `protected const array`.
+- New upstream files: `Queue/Attributes/RetryFor.php` (the `#[RetryFor]` queue attribute), `View/RawTemplate.php`, `JsonSchema/ValidationRules.php` and `JsonSchema/Rules/{DistinctArrayItems,MatchesAnyOf,MatchesEnum,RejectEmptyString}.php`, `Foundation/Console/stubs/view-component.inline.stub`.
+- Not carried: upstream's new `.github/workflows/split.yml` (hourly subtree split, laravel/framework only) and `.agents/setup`.
+- Tests: 16955 tests, 59722 assertions, 0 failures, 597 skipped; phpstan src and types configs clean.
+
 ## v13.42.0.4 - 2026-11-18
 
 ### Changed
