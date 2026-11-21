@@ -1335,6 +1335,10 @@ trait ValidatesAttributes
 
         $this->shouldBeNumeric($attribute, 'Gt');
 
+        if ($this->hasUntrimmableNumber($value, $comparedToValue)) {
+            return false;
+        }
+
         if (is_null($comparedToValue) && ($this->isNumeric($value) && $this->isNumeric($parameters[0]))) {
             try {
                 return BigNumber::of($this->getSize($attribute, $value))->isGreaterThan($this->trim($parameters[0]));
@@ -1381,6 +1385,10 @@ trait ValidatesAttributes
         $comparedToValue = $this->getValue($parameters[0]);
 
         $this->shouldBeNumeric($attribute, 'Lt');
+
+        if ($this->hasUntrimmableNumber($value, $comparedToValue)) {
+            return false;
+        }
 
         if (is_null($comparedToValue) && ($this->isNumeric($value) && $this->isNumeric($parameters[0]))) {
             try {
@@ -1429,6 +1437,10 @@ trait ValidatesAttributes
 
         $this->shouldBeNumeric($attribute, 'Gte');
 
+        if ($this->hasUntrimmableNumber($value, $comparedToValue)) {
+            return false;
+        }
+
         if (is_null($comparedToValue) && ($this->isNumeric($value) && $this->isNumeric($parameters[0]))) {
             try {
                 return BigNumber::of($this->getSize($attribute, $value))->isGreaterThanOrEqualTo($this->trim($parameters[0]));
@@ -1475,6 +1487,10 @@ trait ValidatesAttributes
         $comparedToValue = $this->getValue($parameters[0]);
 
         $this->shouldBeNumeric($attribute, 'Lte');
+
+        if ($this->hasUntrimmableNumber($value, $comparedToValue)) {
+            return false;
+        }
 
         if (is_null($comparedToValue) && ($this->isNumeric($value) && $this->isNumeric($parameters[0]))) {
             try {
@@ -2840,7 +2856,7 @@ trait ValidatesAttributes
         if ($this->isNumeric($value) && $hasNumeric) {
             return (string) $this->ensureExponentWithinAllowedRange($attribute, $this->trim($value));
         } elseif ($hasNumeric && is_numeric($value)) {
-            // Fledge: never measure a "\v"/"\f" number by its length; BigNumber rejects it as is.
+            // Fledge: not a number to isNumeric(), so it has no numeric size.
             return $value;
         } elseif (is_array($value)) {
             return count($value);
@@ -2943,7 +2959,7 @@ trait ValidatesAttributes
      */
     protected function shouldBeNumeric($attribute, $rule)
     {
-        if ($this->isNumeric($this->getValue($attribute))) {
+        if (is_numeric($this->getValue($attribute))) {
             $this->numericRules[] = $rule;
         }
     }
@@ -2962,10 +2978,8 @@ trait ValidatesAttributes
     /**
      * Determine if a value is numeric without vertical tab or form feed whitespace.
      *
-     * Fledge: this is the one definition of a number for validation. integer,
-     * numeric, decimal and getSize() all agree with it, so a string that PHP
-     * still reads as a number (such as "\v999") is never accepted by integer
-     * and then measured by its string length.
+     * Fledge: this is the one definition of a number for validation; integer,
+     * numeric, decimal, getSize() and the field comparisons agree with it.
      *
      * @param  mixed  $value
      * @return bool
@@ -2973,6 +2987,19 @@ trait ValidatesAttributes
     protected function isNumeric($value)
     {
         return is_numeric($value) && (! is_string($value) || strpbrk($value, "\x0B\x0C") === false);
+    }
+
+    /**
+     * Fledge: determine if a value is a number to PHP but not to isNumeric() (it carries a "\v" or "\f").
+     *
+     * The field comparisons fail closed on such a value instead of measuring it.
+     *
+     * @param  mixed  ...$values
+     * @return bool
+     */
+    protected function hasUntrimmableNumber(...$values)
+    {
+        return array_any($values, fn ($value) => is_numeric($value) && ! $this->isNumeric($value));
     }
 
     /**

@@ -10341,13 +10341,13 @@ class ValidationValidatorTest extends TestCase
     {
         $data = [];
 
-        // Measured by string length (4) these would fit, while (int) reads 999.
+        // None of these is a number to the validator.
         foreach (["\x0B999", "999\x0B", "\x0C999", "999\x0C"] as $value) {
             foreach (['integer', 'integer|max:4', 'integer|between:1,4', 'integer|size:4', 'integer|lt:bar', 'integer|lte:bar', 'integer|not_in:999', 'numeric|max:4', 'decimal:0|max:4', 'digits:3'] as $rule) {
                 $data[] = [['foo' => $value, 'bar' => '5'], $rule];
             }
 
-            // The compared field holds the number: it must not be measured by its length either.
+            // The same values in the compared field.
             foreach (['integer|gt:bar', 'integer|gte:bar', 'numeric|gt:bar'] as $rule) {
                 $data[] = [['foo' => '6', 'bar' => $value], $rule];
             }
@@ -10358,7 +10358,7 @@ class ValidationValidatorTest extends TestCase
 
     public function testVerticalTabNumberFailsWithoutTrimStringsMiddleware()
     {
-        // Livewire updates, queued jobs and console input skip TrimStrings.
+        // The validator used directly, without the TrimStrings middleware.
         $factory = new \Illuminate\Validation\Factory($this->getIlluminateArrayTranslator());
 
         $this->expectException(ValidationException::class);
@@ -10381,6 +10381,55 @@ class ValidationValidatorTest extends TestCase
     public static function ordinaryWhitespaceNumbers()
     {
         return [[' 5'], ['5 '], ["\t5"], ["5\n"]];
+    }
+
+    #[DataProvider('fieldComparisonRulePrefixes')]
+    public function testFieldComparisonsNeverPassAgainstTheCastValue($prefix)
+    {
+        $trans = $this->getIlluminateArrayTranslator();
+        $compare = [
+            'gt' => fn ($a, $b) => $a > $b,
+            'gte' => fn ($a, $b) => $a >= $b,
+            'lt' => fn ($a, $b) => $a < $b,
+            'lte' => fn ($a, $b) => $a <= $b,
+        ];
+
+        foreach (range(0x00, 0x20) as $byte) {
+            foreach (['-1', '1.5', '5', '99', '999'] as $number) {
+                // Only strings PHP reads as numbers; other strings are compared by length, as always.
+                foreach (array_filter([chr($byte).$number, $number.chr($byte)], is_numeric(...)) as $padded) {
+                    foreach (['1.0', '-1', '5', '10.00', '1000'] as $bound) {
+                        foreach ([[$padded, $bound], [$bound, $padded]] as [$foo, $bar]) {
+                            foreach ($compare as $rule => $holds) {
+                                $validator = new Validator($trans, ['foo' => $foo, 'bar' => $bar], ['foo' => $prefix.$rule.':bar']);
+
+                                if ($validator->passes()) {
+                                    $this->assertTrue($holds((float) $foo, (float) $bar), sprintf('%s%s:bar passed for %s against %s', $prefix, $rule, json_encode($foo), json_encode($bar)));
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public static function fieldComparisonRulePrefixes()
+    {
+        return ['no numeric rule' => [''], 'integer' => ['integer|'], 'numeric' => ['numeric|']];
+    }
+
+    public function testFieldComparisonsPassForNumbersAndFailClosedOnVerticalTabOrFormFeed()
+    {
+        $trans = $this->getIlluminateArrayTranslator();
+
+        $this->assertTrue((new Validator($trans, ['foo' => '7', 'bar' => '999'], ['foo' => 'integer|lte:bar']))->passes());
+        $this->assertTrue((new Validator($trans, ['foo' => '7', 'bar' => ' 5'], ['foo' => 'integer|gt:bar']))->passes());
+
+        foreach (["\x0B999", "999\x0B", "\x0C999", "999\x0C"] as $value) {
+            $this->assertFalse((new Validator($trans, ['foo' => '7', 'bar' => $value], ['foo' => 'integer|lte:bar']))->passes());
+            $this->assertFalse((new Validator($trans, ['foo' => $value, 'bar' => '1000'], ['foo' => 'lte:bar']))->passes());
+        }
     }
 
     #[DataProvider('outsideRangeExponents')]
