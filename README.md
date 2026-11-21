@@ -1,23 +1,23 @@
 # Fledge
 
-**Laravel 13, optimized for PHP 8.5**
+**Laravel 13, optimized for PHP 8.6**
 
-Named after Fledge from C.S. Lewis's Narnia, a horse transformed by Aslan into something faster and more capable. Laravel's name also comes from Narnia (Cair Paravel). Fledge transforms Laravel for PHP 8.5.
+Named after Fledge from C.S. Lewis's Narnia, a horse transformed by Aslan into something faster and more capable. Laravel's name also comes from Narnia (Cair Paravel). Fledge transforms Laravel for PHP 8.6.
 
 ## What is Fledge?
 
-Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requires PHP 8.5 and uses its native features for better performance. Same `Illuminate\` namespace, same API, full ecosystem compatibility.
+Fledge is a drop-in replacement for Laravel's `illuminate/framework` that requires PHP 8.6 and uses its native features for better performance. Same `Illuminate\` namespace, same API, full ecosystem compatibility.
 
-Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP 8.5's native URI extension. That swap is the single biggest performance win.
+Laravel 13 supports PHP 8.3+ and ships polyfills so it can run on older versions. Fledge removes those polyfills and version checks, and replaces `league/uri` with PHP's native URI extension. That swap is the single biggest performance win.
 
 **142 files changed** on top of Laravel 13.42.0. The full framework test suite passes under CI's `--fail-on-deprecation`, including against symfony 8.1.
 
 ## Why?
 
-Laravel supports PHP 8.3+ because that's the right call for the ecosystem. But if you're already on PHP 8.5, you're paying for compatibility you don't need:
+Laravel supports PHP 8.3+ because that's the right call for the ecosystem. But if you're already on PHP 8.6, you're paying for compatibility you don't need:
 
 - **11,000 lines of `league/uri` PHP code** replaced by compiled C in the PHP runtime
-- **Symfony polyfills** for `array_first()`, `array_last()`, `array_all()`, `array_any()`, functions that ship natively in PHP 8.5
+- **Symfony polyfills** for `array_first()`, `array_last()`, `array_all()`, `array_any()` and `clamp()`, functions that ship natively in PHP 8.6
 - **`version_compare` guards** that branch on every request to check if you're on 8.4+
 
 Fledge strips all of that.
@@ -44,7 +44,7 @@ JSON output is available with `--format=json` for CI integration.
 
 Two compounding wins drive most of the speedup:
 
-1. **Native `Uri\Rfc3986\Uri` replacing `league/uri`.** PHP 8.5 ships URI parsing as a compiled C extension. `Request::uri()`, the `url()` helper, redirects, and route generation all touch URIs on every request, so the savings stack across the request lifecycle:
+1. **Native `Uri\Rfc3986\Uri` replacing `league/uri`.** PHP ships URI parsing as a compiled C extension (since 8.5). `Request::uri()`, the `url()` helper, redirects, and route generation all touch URIs on every request, so the savings stack across the request lifecycle:
 
    | Operation | league/uri | PHP 8.5 native |
    |-----------|-----------|----------------|
@@ -53,7 +53,7 @@ Two compounding wins drive most of the speedup:
 
    Roughly 100x faster for URI operations alone.
 
-2. **Non-blocking Redis I/O via `fledge-fiber`.** This one is more nuanced and worth being precise about. On a single sequential `Cache::get()` against a local Redis, fledge-fiber is actually **slower** than Predis (measured at ~32 µs vs ~21 µs per call on this machine). That's the cost of setting up a Fiber, registering a Revolt wakeup, and suspending: pure overhead when you have nothing else to do.
+2. **Non-blocking Redis I/O via `fledge-fiber`.** This one is more nuanced and worth being precise about. On a single sequential `Cache::get()` against a local Redis, fledge-fiber is actually **slower** than Predis (measured at ~32 µs vs ~21 µs per call on this machine). That's the cost of setting up a Fiber, registering an event loop wakeup, and suspending: pure overhead when you have nothing else to do.
 
    Where fledge-fiber pays off is when something else *can* run in the meantime:
 
@@ -63,23 +63,23 @@ Two compounding wins drive most of the speedup:
 
    So the honest framing: fledge-fiber **doesn't make a single Redis call faster, it stops a Redis call from blocking everything else**. On low-latency local Redis with no concurrency, you're paying overhead for a feature you're not using. On real-world request paths with multiple I/O touches or remote backends, the suspension wins out.
 
-Smaller wins (removed `symfony/polyfill-php84` and `polyfill-php85`, dropped `version_compare` guards, native `array_all`/`array_any`, pipe operator in `Pipeline::then()`, persistent cURL share) trim a few additional milliseconds off bootstrap and hot paths.
+Smaller wins (removed `symfony/polyfill-php84`, `polyfill-php85` and `polyfill-php86`, dropped `version_compare` guards, native `array_all`/`array_any`, pipe operator in `Pipeline::then()`, persistent cURL share) trim a few additional milliseconds off bootstrap and hot paths.
 
 ### About the polyfill removal
 
-Fledge drops `symfony/polyfill-php84` and `polyfill-php85`, plus the `version_compare` guards that branch on every request to decide whether to call native or polyfilled functions. On a single HTTP request the per-call difference between native `array_any()` and a handwritten `foreach` is in the noise (run `php artisan fledge:bench --scenario=polyfills` and you'll see the variants land within measurement jitter). It's not a "Y% faster" headline.
+Fledge drops `symfony/polyfill-php84`, `polyfill-php85` and `polyfill-php86`, plus the `version_compare` guards that branch on every request to decide whether to call native or polyfilled functions. On a single HTTP request the per-call difference between native `array_any()` and a handwritten `foreach` is in the noise (run `php artisan fledge:bench --scenario=polyfills` and you'll see the variants land within measurement jitter). It's not a "Y% faster" headline.
 
 The real win is structural:
 
 - Fewer `function_exists()` and `version_compare()` branches scattered through hot paths
 - Less code on disk, less to autoload, smaller opcache footprint
-- No PHP 8.0/8.1/8.2/8.3/8.4 compatibility branches at all, the version is fixed at 8.5+
+- No PHP 8.0 to 8.5 compatibility branches at all, the version is fixed at 8.6
 
 That matters most on long-running processes (queue workers, octane, long-lived schedulers) where bootstrap cost amortizes and tighter hot paths add up over millions of calls. On a typical web request it is a small win that disappears into other variability.
 
 ### Fiber-Based Concurrency
 
-Fledge adds a `FiberDriver` to the Concurrency facade, powered by the [Revolt](https://revolt.run) event loop and [fledge-fiber](https://github.com/webpatser/fledge-fiber). Unlike the `ProcessDriver` (which spawns child processes) or the `SyncDriver` (sequential), the `FiberDriver` provides real cooperative async I/O within a single process:
+Fledge adds a `FiberDriver` to the Concurrency facade, powered by Fledge's own event loop, [fledge-loop](https://github.com/webpatser/fledge-loop), and [fledge-fiber](https://github.com/webpatser/fledge-fiber). Unlike the `ProcessDriver` (which spawns child processes) or the `SyncDriver` (sequential), the `FiberDriver` provides real cooperative async I/O within a single process:
 
 ```php
 use Illuminate\Support\Facades\Concurrency;
@@ -92,7 +92,7 @@ $results = Concurrency::driver('fiber')->run([
 ]);
 ```
 
-No background process needed; the Revolt event loop runs inline within the `run()` call. Tasks using fledge-fiber async drivers (HTTP, MySQL, Redis) genuinely interleave on I/O suspension. Shared memory, no serialization overhead, works in both web requests and CLI.
+No background process needed; the event loop runs inline within the `run()` call. Tasks using fledge-fiber async drivers (HTTP, MySQL, Redis) genuinely interleave on I/O suspension. Shared memory, no serialization overhead, works in both web requests and CLI.
 
 `run()` waits for every task, returns the results keyed and ordered like the tasks, and rethrows the first failure in task order, like the `ProcessDriver`. A failing task does not cancel its siblings: every task finishes before the first failure in task order is rethrown. The timeout bounds the whole `run()` call, not each task as the `ProcessDriver` does, and the sync driver ignores it. On a timeout the call throws `Fledge\Async\CancelledException` (with a `Fledge\Async\TimeoutException` as previous; the `ProcessDriver` throws `Illuminate\Process\Exceptions\ProcessTimedOutException`) and requests the cancellation of every task, which a task reads with `Fledge\Concurrency\TaskCancellation::current()` (null outside a task). A fiber cannot be stopped from outside, so this is cooperative: a task that passes the cancellation to its awaits (`delay($seconds, cancellation: TaskCancellation::current())`, `$future->await(TaskCancellation::current())`, or any fledge-fiber call taking a `Cancellation`) or calls `throwIfRequested()` in a loop is stopped there and unwinds through its `finally` blocks, closing its database connections. CPU-bound code, blocking calls and awaits that do not receive the cancellation are not stopped: such a task finishes in the background and its result is discarded. A nested `run()` gives its tasks a cancellation of their own, also requested when the enclosing task's is. A `run()` with a timeout keeps the event loop alive until the timeout fires or the call ends, so a call whose tasks all wait on something that never completes ends with the timeout exception (before, it could end with an "Event loop terminated" Error).
 
@@ -150,25 +150,26 @@ Fledge is one piece of a small set of related packages:
 
 ```
 webpatser/fledge                  Laravel app skeleton (composer create-project target)
-  └─ webpatser/fledge-framework   This repo: Laravel 13 fork, PHP 8.5 optimized
-      └─ webpatser/fledge-fiber   Single async runtime: Redis, MySQL/MariaDB/PostgreSQL,
-                                  HTTP client/server, DNS, Fiber primitives, Revolt loop
+  └─ webpatser/fledge-framework   This repo: Laravel 13 fork, PHP 8.6 optimized
+      ├─ webpatser/fledge-fiber   Single async runtime: Redis, MySQL/MariaDB/PostgreSQL,
+      │                           HTTP client/server, DNS, Fiber primitives
+      └─ webpatser/fledge-loop    Event loop: Io\Poll on kqueue/epoll, stream_select fallback
 
 Optional companions:
   webpatser/torque                Fiber-based queue worker, Horizon alternative
   webpatser/laravel-fiber         Same FiberDriver as a standalone package for
-                                  Laravel 11/12/13 (no PHP 8.5 requirement)
+                                  Laravel 11/12/13 (PHP 8.2+, no Fledge requirement)
 ```
 
-The `FiberDriver` shipped in `Illuminate\Concurrency\FiberDriver` is a thin wrapper around `fledge-fiber`'s `async()` and `await()` primitives. `fledge-fiber` is the single required async package.
+The `FiberDriver` shipped in `Illuminate\Concurrency\FiberDriver` is a thin wrapper around `fledge-fiber`'s `async()` and `await()` primitives. `fledge-fiber` is the single required async package; it runs on `fledge-loop`, which the framework also calls directly for timers, suspensions and the queue worker's signal handling.
 
 ## Caveats
 
 Worth knowing before going to production:
 
 - **Redis Cluster** is supported by `fledge-fiber` from `v13.7.0.1` onward via Laravel's standard `clusters.*` config, with full API parity against `PhpRedisClusterConnection` / `PredisClusterConnection` (`isCluster()`, `scan()` with `node` option, `keys()` fan-out, `flushdb` fan-out). Multi-key commands must share a hash tag (`{tag}.key`), `SELECT` to a non-zero database is rejected, and MULTI/EXEC is pinned to a single slot. Sentinel and standalone Redis work too.
-- **PHP 8.5 hosting** was released in November 2025. Managed-host availability is still rolling out across Forge, Vapor, Ploi, and Laravel Cloud, check your provider before committing.
-- **`fledge-fiber` is a hardened fork**, not raw amphp. The async runtime started from amphp/revolt but has been consolidated, namespaced under `Fledge\Async\` and `Fledge\Fiber\`, and tuned for the Fledge use case. If you're auditing dependencies, treat it as first-party Webpatser code.
+- **PHP 8.6** was released in November 2026. Managed-host availability is still rolling out across Forge, Vapor, Ploi, and Laravel Cloud, check your provider before committing.
+- **`fledge-fiber` and `fledge-loop` are first-party code.** Fledge's async layer started as a port of amphp and its event loop as a port of Revolt, both MIT licensed. Those projects showed how far fibers can take PHP, and Fledge builds on that work. Fledge has since gone its own way: PHP 8.6 only, shaped around Laravel, and maintained independently, so it does not track either project. The runtime is namespaced under `Fledge\Async\`, `Fledge\Fiber\` and `Fledge\Loop\`. If you're auditing dependencies, treat it as first-party Webpatser code.
 - **Active branch is `fledge-13`**, not `main`. PRs and clones aimed at framework development should target that branch.
 - **HTTP client persistent connections** (`Http::persistentConnections()` / `withPersistentConnections()`) apply only to Guzzle's own cURL handler. A custom or global handler, including the Fledge fiber handler (which pools its own connections), is left unchanged. On Guzzle 8 the shared locks are fixed at DNS, connections and SSL sessions.
 - **Fiber-driver tasks differ from the sync driver**: tasks do not run inside the parent's open transaction and do not see its uncommitted writes, and a task that writes a row the parent's open transaction has locked waits for the lock timeout. Models, query builders and connection objects created in the parent keep the parent's connection when used in a task. A nested `Concurrency::run()` gives each subtask its own connections. `DB::purge()`, `disconnect()` and `reconnect()` inside a task act on the shared connection. Redis connections are shared between tasks: `MULTI`/`EXEC`, `WATCH`, `SELECT` and blocking commands issued by concurrent tasks on the same connection interleave, so a task that needs them should use its own connection name or not run them concurrently. A task cannot be killed from outside, unlike the `ProcessDriver`'s child processes: on a timeout it stops only at an await that receives `TaskCancellation::current()`.
@@ -180,8 +181,8 @@ Worth knowing before going to production:
 |--------|-------|--------|
 | Native `Uri\Rfc3986\Uri` replacing `league/uri` | 3 | ~100x faster URI ops |
 | RFC 3986 normalization layer (IDN, unicode, brackets) | 1 | Compatibility bridge |
-| Remove `symfony/polyfill-php84` and `polyfill-php85` | 7 | Cleaner autoloading |
-| Bump PHP to `^8.5` | 38 | Drop compatibility code |
+| Remove `symfony/polyfill-php84`, `polyfill-php85` and `polyfill-php86` | 9 | Cleaner autoloading |
+| Bump PHP to `^8.6` | 38 | Drop compatibility code |
 | Remove `version_compare` PHP 8.4 guards | 3 | No runtime branching |
 | `array_all`/`array_any` in `Arr::hasAll`/`hasAny` | 1 | Faster array checks |
 | `array_any` in `Handler::shouldntReport` | 1 | Replace `Arr::first` null check |
@@ -194,22 +195,22 @@ Worth knowing before going to production:
 | `json_validate()` fast path | 1 | Skip decode on invalid JSON |
 | `array_sum`/`array_map` in Cloud `Queue` totals | 1 | Drop per-call Collection allocation |
 | Shared `WhitespacePathNormalizer` in `FilesystemAdapter::path` | 1 | Reuse a stateless normalizer |
-| Fiber-based concurrency driver (Revolt + fledge-fiber) | 2 | Real async I/O in `Concurrency` facade |
+| Fiber-based concurrency driver (fledge-loop + fledge-fiber) | 2 | Real async I/O in `Concurrency` facade |
 | fledge-fiber as default Redis driver | 5 | Non-blocking Redis I/O for all operations |
 | Fiber-aware cache layer (locks, tags) | 7 | Concurrent cache ops inside Fibers |
-| Fiber-safe queue worker signal handling (Revolt) | 1 | Horizon/queue workers work with fiber drivers |
+| Fiber-safe queue worker signal handling (fledge-loop) | 1 | Horizon/queue workers work with fiber drivers |
 | Redis required dependency for cache package | 1 | Redis is a first-class citizen |
 
-**Queue worker caveat:** with Revolt signal handling, SIGTERM, SIGINT and SIGQUIT still reach the running job mid-run (`WorkerInterrupted`, `Interruptible::interrupted()` and `JobInterrupted` fire as on stock Laravel, and the worker quits after the job). What stays different from stock:
+**Queue worker caveat:** with event-loop signal handling, SIGTERM, SIGINT and SIGQUIT still reach the running job mid-run (`WorkerInterrupted`, `Interruptible::interrupted()` and `JobInterrupted` fire as on stock Laravel, and the worker quits after the job). What stays different from stock:
 
-- With ext-uv, ext-ev or ext-event loaded, signals are only seen at event-loop ticks between jobs (and whenever the job yields to the loop).
+- Both built-in loop drivers (`PollDriver`, `StreamSelectDriver`) let the worker notify the running job mid-run. With a third-party driver set through `Fledge\Loop::setDriver()`, signals are only seen at event-loop ticks between jobs (and whenever the job yields to the loop).
 - A `WorkerInterrupted` listener or an `interrupted()` method that does fiber I/O (async Redis, `Sleep`, Http) while a CPU-bound job runs cannot suspend inside the signal handler: it gets a reported `FiberError`, the rest of it does not run, and the failed suspension breaks the worker's event loop. In the main context the worker exits at the next tick with an uncaught `Error` instead of stopping cleanly; inside a fiber the leftover I/O watcher later resumes the worker at the wrong point and the event loop fails with an uncaught error. Keep mid-job listeners and `interrupted()` free of fiber I/O, or override `Worker::supportsJobSignalChaining()` to return `false` so these signals are handled between jobs.
 - `WorkerPausing` and `WorkerResuming` (SIGUSR2, SIGCONT) fire at the next event-loop tick, not mid-job.
 - CPU-bound code inside a fiber the job started itself is notified at the next tick or after the job.
 
 ### The RFC 3986 Problem (and How Fledge Solves It)
 
-PHP 8.5's native URI parser is strictly RFC 3986 compliant, stricter than `league/uri`. It rejects:
+PHP's native URI parser is strictly RFC 3986 compliant, stricter than `league/uri`. It rejects:
 
 - Internationalized domain names like `bébé.be`
 - Unicode in paths like `/日本語/page`
@@ -314,9 +315,13 @@ php artisan serve
 
 ## Requirements
 
-- **PHP 8.5+**
+- **PHP 8.6**
 - **intl extension** (for IDN domain support)
 - Composer 2.x
+
+## PHP version policy
+
+This framework supports only the latest stable PHP release. When a new PHP version is released, the next release of this framework requires it and support for the previous PHP version ends. Currently: PHP 8.6.
 
 ## How This Project Works
 
@@ -349,15 +354,15 @@ In your `composer.json`, `"laravel/framework": "^13.3"` will pull in the latest 
 
 ```
 packages/framework/     # The Fledge framework (forked illuminate/framework)
-  ├── src/Illuminate/   # Modified Laravel source with PHP 8.5 optimizations
+  ├── src/Illuminate/   # Modified Laravel source with PHP 8.6 optimizations
   └── tests/            # Unmodified Laravel test suite (tests are the contract)
 ```
 
 **Rule: tests are never modified.** If a test fails after a Fledge change, the change is wrong, not the test.
 
-## Known PHP 8.5 Test Failures
+## Known Test Failures
 
-These 4 test failures exist on **vanilla Laravel 13 running on PHP 8.5**, they are not caused by Fledge:
+These 4 test failures exist on **vanilla Laravel 13** with Predis against a live Redis, they are not caused by Fledge:
 
 | Test | Root Cause |
 |------|------------|
@@ -368,7 +373,9 @@ These 4 test failures exist on **vanilla Laravel 13 running on PHP 8.5**, they a
 
 ## Credits
 
-**All credit goes to [Taylor Otwell](https://github.com/taylorotwell) and the [Laravel](https://laravel.com) team.** This project is built entirely on their work. Fledge is not a fork intended to compete with Laravel; it's an optimization layer for teams already running PHP 8.5.
+**All credit goes to [Taylor Otwell](https://github.com/taylorotwell) and the [Laravel](https://laravel.com) team.** This project is built entirely on their work. Fledge is not a fork intended to compete with Laravel; it's an optimization layer for teams already running PHP 8.6.
+
+Fledge's async layer started as a port of amphp and its event loop as a port of Revolt, both MIT licensed. Those projects showed how far fibers can take PHP, and Fledge builds on that work. Fledge has since gone its own way: PHP 8.6 only, shaped around Laravel, and maintained independently, so it does not track either project.
 
 ## License
 

@@ -2,6 +2,26 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.43.0.3 - 2026-11-21
+
+### Changed
+- PHP 8.6 is required: `"php": "^8.6"` in the root `composer.json` and in all 37 `src/Illuminate/*/composer.json`. CI runs PHP 8.6 only, with `zend.assertions=1` and `assert.exception=1` in the test jobs. `rector.php` targets the PHP 8.6 sets.
+- `webpatser/fledge-loop` (`^0.1`) replaces `revolt/event-loop` as the event loop (root and `Cache/composer.json`); the `webpatser/fledge-fiber` floor is now `^13.43.0.3`. `Revolt\EventLoop` becomes `Fledge\Loop` in `Queue/Worker.php`, `Cache/Concerns/SuspendsFibers.php`, `Support/Concerns/SuspendsFibers.php` and `Fledge/Concurrency/RunTimeout.php`. Select the driver with `FLEDGE_EVENT_LOOP` (`auto`, `poll`, `select`); `REVOLT_DRIVER` is gone.
+- `Worker::supportsRevoltSignals()` is renamed `supportsLoopSignals()`. `Worker::supportsJobSignalChaining()` is true for both `Fledge\Loop` drivers (`PollDriver`, `StreamSelectDriver`), which install plain pcntl handlers; it no longer calls `getHandle()`, which on the poll driver would open a kqueue or epoll descriptor. Mid-job SIGTERM, SIGINT and SIGQUIT notification therefore works on the default poll driver too.
+- Dropped `symfony/polyfill-php86` (root and `Collections/composer.json`): `clamp()` and `ARRAY_FILTER_USE_VALUE` are native.
+- `mockery/mockery` (dev) is `^1.6.15`: 1.6.15 fixes the 1.6.13/1.6.14 partial-mock regression the old `<1.6.13` cap avoided and no longer returns a value from generated constructors (deprecated in PHP 8.6).
+
+### Fixed
+- Validation: on PHP 8.6 `trim()` also strips form feed, so numeric strings with a leading or trailing form feed (`"\x0C5"`) passed size and comparison rules (`min`, `max`, `size`, `between`, `gt`, `lt`, `gte`, `lte`). Taken from upstream laravel/framework 13.x (b9bb152, "Supports for PHP 8.6"): `numeric` and the size rules reject numeric strings containing a vertical tab or form feed.
+- `Collection::sortBy()` with several comparisons and `SORT_LOCALE_STRING` no longer uses the deprecated `SORT_LOCALE_STRING` constant and `strcoll()`; it compares with `Collator::create('')` (ext-intl), as upstream does on PHP 8.6.
+
+### Stock files diverged from upstream (check at the next sync)
+- `src/Illuminate/Collections/Collection.php` (`use Collator;`, the locale branch in `sortByMany()`): upstream's PHP 8.6 change without its `version_compare()` guard; keep ours when upstream's guarded version arrives.
+- `src/Illuminate/Validation/Concerns/ValidatesAttributes.php`: upstream's change verbatim (`isNumeric()`), so no conflict is expected.
+- `tests/Broadcasting/Ably2BroadcasterTest.php`, `tests/Foundation/Cloud/ExceptionReportingTest.php`, `tests/Http/HttpRequestTest.php`, `tests/Redis/RedisEventsTest.php`, `tests/Support/SupportCollectionTest.php`: upstream's PHP 8.6 test changes verbatim (ably deprecations ignored, no constructor return, no object values through `http_build_query()`, skip without ext-redis, `Collator` expectations).
+- `src/Illuminate/Cache/composer.json` (fledge-loop instead of revolt/event-loop), `src/Illuminate/Collections/composer.json` (no polyfill-php86), the `php` floor in all 37 component `composer.json`, `rector.php` (`php86: true`), `.github/actions/setup-php-project/action.yml` (default 8.6) and `.github/workflows/{tests,queues,databases-extra}.yml`.
+- Fledge-owned or already diverged: `Queue/Worker.php`, both `SuspendsFibers` traits, `Fledge/Concurrency/*`, `tests/Queue/QueueWorkerSignalTest.php` (new poll-driver mid-job test), `tests/Integration/Concurrency/FiberDriver*Test.php`.
+
 ## v13.43.0.2 - 2026-11-19
 
 ### Changed
@@ -812,8 +832,8 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 ## v13.4.0.2 - 2026-04-08
 
 ### Optimized
-- `FormRequest::isKnownField()` — replaced `foreach` early-return with native `array_any()` (PHP 8.4+)
-- `Handler::shouldntReport()` — replaced `!is_null(Arr::first(...))` with native `array_any()` (PHP 8.4+)
+- `FormRequest::isKnownField()`: replaced `foreach` early-return with native `array_any()` (PHP 8.4+)
+- `Handler::shouldntReport()`: replaced `!is_null(Arr::first(...))` with native `array_any()` (PHP 8.4+)
 
 ## v13.4.0.1 - 2026-04-08
 
@@ -824,7 +844,7 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
   - Queue job inspection (`pendingJobs`, `delayedJobs`, `reservedJobs`)
   - Safer Closure binding in `RedisManager::extend()`, `LogManager::extend()`
   - `is_string()` guards on 9 validation methods
-  - Refactored `Handler::unauthenticated()` — returns 401 when no redirect configured
+  - Refactored `Handler::unauthenticated()`: returns 401 when no redirect configured
   - 13,382 tests passing (4 known Predis failures)
 
 ## v13.3.0.8 - 2026-04-07
@@ -840,8 +860,8 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 ## v13.3.0.3 - 2026-04-06
 
 ### Added
-- **fledge-fiber as default Redis driver** — all Redis I/O non-blocking by default
-- **Fiber-aware cache layer** — locks, failover, tags use Fiber suspension
+- **fledge-fiber as default Redis driver**: all Redis I/O non-blocking by default
+- **Fiber-aware cache layer**: locks, failover, tags use Fiber suspension
 - Redis as required cache dependency
 
 ## v13.3.0.2 - 2026-04-06
