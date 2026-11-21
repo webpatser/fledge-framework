@@ -3,6 +3,9 @@
 namespace Illuminate\Queue;
 
 use Closure;
+use Fledge\Loop;
+use Fledge\Loop\Driver\PollDriver;
+use Fledge\Loop\Driver\StreamSelectDriver;
 use Illuminate\Contracts\Cache\Repository as CacheContract;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -29,7 +32,6 @@ use Illuminate\Queue\Events\WorkerResuming;
 use Illuminate\Queue\Events\WorkerStarting;
 use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Carbon;
-use Revolt\EventLoop;
 use Throwable;
 
 class Worker
@@ -146,7 +148,7 @@ class Worker
     protected static $popCallbacks = [];
 
     /**
-     * The Revolt event loop signal watcher IDs.
+     * The event loop signal watcher IDs.
      *
      * @var string[]
      */
@@ -165,7 +167,7 @@ class Worker
     protected array $signalsHandledInJob = [];
 
     /**
-     * Per signal, the pcntl handler this worker chained in front of the Revolt driver's.
+     * Per signal, the pcntl handler this worker chained in front of the loop driver's.
      *
      * @var array<int, Closure>
      */
@@ -414,12 +416,12 @@ class Worker
 
         // We register a pcntl signal handler for SIGALRM so we can interrupt a
         // stuck job even when it's blocking inside a synchronous call such as
-        // sleep(). Revolt's EventLoop::delay() cannot fire during a blocking
+        // sleep(). The event loop's Loop::delay() cannot fire during a blocking
         // sync call because the loop is not running. pcntl_async_signals(true)
         // is enabled for the same reason: SIGALRM must be dispatched
         // immediately, not deferred to the next PHP opcode after sleep returns.
         //
-        // This differs from listenForSignals() which uses Revolt for user
+        // This differs from listenForSignals() which uses the event loop for user
         // signals (TERM/INT/QUIT/USR2/CONT) to stay fiber-safe under Horizon.
         // SIGALRM is a terminal condition (handler calls kill()/exit()), so
         // fiber consistency after the handler is not a concern.
@@ -1069,7 +1071,7 @@ class Worker
      */
     protected function listenForSignals($connectionName = null, $queue = null, ?WorkerOptions $options = null)
     {
-        if ($this->supportsRevoltSignals()) {
+        if ($this->supportsLoopSignals()) {
             $this->daemonFiber = \Fiber::getCurrent();
 
             // A second call on the same worker would register every watcher twice.
@@ -1080,7 +1082,7 @@ class Worker
             $this->signalsHandledInJob = [];
 
             foreach ([SIGQUIT, SIGTERM, SIGINT] as $signal) {
-                $this->signalWatchers[] = EventLoop::onSignal($signal, function () use ($signal, $connectionName, $queue, $options) {
+                $this->signalWatchers[] = Loop::onSignal($signal, function () use ($signal, $connectionName, $queue, $options) {
                     $this->shouldQuit = true;
 
                     // Already handled mid-job by the chained pcntl handler.
@@ -1096,12 +1098,12 @@ class Worker
                 });
             }
 
-            $this->signalWatchers[] = EventLoop::onSignal(SIGUSR2, function () use ($connectionName, $queue, $options) {
+            $this->signalWatchers[] = Loop::onSignal(SIGUSR2, function () use ($connectionName, $queue, $options) {
                 $this->paused = true;
 
                 $this->events->dispatch(new WorkerPausing($connectionName, $queue, $options));
             });
-            $this->signalWatchers[] = EventLoop::onSignal(SIGCONT, function () use ($connectionName, $queue, $options) {
+            $this->signalWatchers[] = Loop::onSignal(SIGCONT, function () use ($connectionName, $queue, $options) {
                 $this->paused = false;
 
                 $this->events->dispatch(new WorkerResuming($connectionName, $queue, $options));
@@ -1180,15 +1182,15 @@ class Worker
     }
 
     /**
-     * Determine if the Revolt event loop is available for fiber-safe signal handling.
+     * Determine if the event loop is available for fiber-safe signal handling.
      */
-    protected function supportsRevoltSignals(): bool
+    protected function supportsLoopSignals(): bool
     {
-        return class_exists(EventLoop::class);
+        return class_exists(Loop::class);
     }
 
     /**
-     * Give the Revolt event loop a non-blocking pass so pending signal watchers run.
+     * Give the event loop a non-blocking pass so pending signal watchers run.
      *
      * A busy worker never sleeps, so without this pass the loop never ticks and a
      * SIGTERM is only seen once the queue runs dry. Works in the main context and
@@ -1200,11 +1202,11 @@ class Worker
             return;
         }
 
-        $suspension = EventLoop::getSuspension();
+        $suspension = Loop::getSuspension();
 
         // The nested defer lets signal callbacks queued during the first tick run before we resume.
-        EventLoop::defer(static function () use ($suspension): void {
-            EventLoop::defer(static function () use ($suspension): void {
+        Loop::defer(static function () use ($suspension): void {
+            Loop::defer(static function () use ($suspension): void {
                 $suspension->resume();
             });
         });
@@ -1213,7 +1215,7 @@ class Worker
     }
 
     /**
-     * Chain a pcntl handler in front of the Revolt driver's so a job that never yields is notified mid-run.
+     * Chain a pcntl handler in front of the loop driver's so a job that never yields is notified mid-run.
      *
      * The handler keeps the driver's queueing, then handles the signal like stock Laravel when the
      * daemon fiber is the one running a job. It never suspends, resumes or starts a fiber.
@@ -1251,7 +1253,7 @@ class Worker
 
             // A listener or interrupted() that suspends here (fiber I/O) gets a FiberError. Reporting it
             // does not repair the event loop: the failed suspension and its I/O watcher stay behind, and
-            // public Revolt API cannot clean them up. Keep mid-job code non-suspending (see README).
+            // public loop API cannot clean them up. Keep mid-job code non-suspending (see README).
             try {
                 $this->events->dispatch(new WorkerInterrupted($signal, $connectionName, $queue, $options));
 
@@ -1263,17 +1265,19 @@ class Worker
     }
 
     /**
-     * Determine if mid-job signal handlers can be chained to the Revolt driver's.
+     * Determine if mid-job signal handlers can be chained to the loop driver's.
      *
-     * Only the StreamSelectDriver (no native handle) installs a plain pcntl handler.
+     * Both Fledge\Loop drivers install a plain pcntl handler; a third-party driver may not.
      */
     protected function supportsJobSignalChaining(): bool
     {
-        return EventLoop::getDriver()->getHandle() === null;
+        $driver = Loop::getDriver();
+
+        return $driver instanceof PollDriver || $driver instanceof StreamSelectDriver;
     }
 
     /**
-     * Cancel this worker's Revolt signal watchers and unchain its mid-job pcntl handlers.
+     * Cancel this worker's event loop signal watchers and unchain its mid-job pcntl handlers.
      *
      * A finished worker must not keep the event loop referenced, stay in memory through its
      * callbacks, or receive signals. A leftover watcher also keeps the driver from installing
@@ -1288,7 +1292,7 @@ class Worker
         }
 
         foreach ($this->signalWatchers as $watcher) {
-            EventLoop::cancel($watcher);
+            Loop::cancel($watcher);
         }
 
         $this->signalWatchers = [];
@@ -1412,9 +1416,9 @@ class Worker
      */
     public function sleep($seconds)
     {
-        if ($this->supportsRevoltSignals()) {
-            $suspension = EventLoop::getSuspension();
-            EventLoop::delay($seconds, static fn () => $suspension->resume());
+        if ($this->supportsLoopSignals()) {
+            $suspension = Loop::getSuspension();
+            Loop::delay($seconds, static fn () => $suspension->resume());
             $suspension->suspend();
         } elseif ($seconds < 1) {
             usleep($seconds * 1_000_000);

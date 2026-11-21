@@ -4,9 +4,9 @@ namespace Illuminate\Tests\Integration\Concurrency;
 
 use Carbon\CarbonInterval;
 use Fledge\Async\CancelledException;
+use Fledge\Loop;
 use Illuminate\Concurrency\FiberDriver;
 use PHPUnit\Framework\TestCase;
-use Revolt\EventLoop;
 use RuntimeException;
 
 use function Fledge\Async\delay;
@@ -158,9 +158,9 @@ class FiberDriverTest extends TestCase
     protected function captureLoopErrors(callable $callback): array
     {
         $errors = [];
-        $previous = EventLoop::getErrorHandler();
+        $previous = Loop::getErrorHandler();
 
-        EventLoop::setErrorHandler(function (\Throwable $e) use (&$errors) {
+        Loop::setErrorHandler(function (\Throwable $e) use (&$errors) {
             $errors[] = $e->getMessage();
         });
 
@@ -171,7 +171,7 @@ class FiberDriverTest extends TestCase
             gc_collect_cycles();
             delay(0.01);
         } finally {
-            EventLoop::setErrorHandler($previous);
+            Loop::setErrorHandler($previous);
         }
 
         return $errors;

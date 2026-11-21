@@ -3,21 +3,21 @@
 namespace Illuminate\Support\Concerns;
 
 use Fiber;
-use Revolt\EventLoop;
+use Fledge\Loop;
 
 /**
- * Fledge addition: lets sleeps that happen inside a Revolt-driven Fiber
+ * Fledge addition: lets sleeps that happen inside a loop-driven Fiber
  * suspend that Fiber on the event loop instead of blocking the whole
  * process, so other Fibers of the worker keep running while one waits.
  */
 trait SuspendsFibers
 {
     /**
-     * Determine if we are inside a Fiber that can be suspended on the Revolt event loop.
+     * Determine if we are inside a Fiber that can be suspended on the event loop.
      */
     protected function inFiber(): bool
     {
-        return Fiber::getCurrent() !== null && class_exists(EventLoop::class);
+        return Fiber::getCurrent() !== null && class_exists(Loop::class);
     }
 
     /**
@@ -29,9 +29,9 @@ trait SuspendsFibers
             return;
         }
 
-        $suspension = EventLoop::getSuspension();
+        $suspension = Loop::getSuspension();
 
-        EventLoop::delay($microseconds / 1_000_000, static fn () => $suspension->resume());
+        Loop::delay($microseconds / 1_000_000, static fn () => $suspension->resume());
 
         $suspension->suspend();
     }

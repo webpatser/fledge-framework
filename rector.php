@@ -112,4 +112,4 @@ return RectorConfig::configure()
         PHPUnitSetList::PHPUNIT_CODE_QUALITY,
         PHPUnitSetList::PHPUNIT_MOCK_TO_STUB,
     ])
-    ->withPhpSets(php83: true);
+    ->withPhpSets(php86: true);

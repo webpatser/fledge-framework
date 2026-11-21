@@ -1,12 +1,12 @@
 {
     "name": "webpatser/fledge-framework",
-    "description": "The Fledge Framework — PHP 8.5 optimized Laravel.",
+    "description": "The Fledge Framework: Laravel optimized for PHP 8.6.",
     "license": "MIT",
     "keywords": [
         "framework",
         "laravel",
         "fledge",
-        "php85",
+        "php86",
         "fiber",
         "async"
     ],
@@ -22,7 +22,7 @@
         "source": "https://github.com/webpatser/fledge-framework"
     },
     "require": {
-        "php": "^8.5",
+        "php": "^8.6",
         "ext-ctype": "*",
         "ext-filter": "*",
         "ext-hash": "*",
@@ -31,7 +31,8 @@
         "ext-session": "*",
         "ext-tokenizer": "*",
         "composer-runtime-api": "^2.2",
-        "webpatser/fledge-fiber": "^13.42.0.3",
+        "webpatser/fledge-fiber": "^13.43.0.3",
+        "webpatser/fledge-loop": "^0.1",
         "brick/math": "^0.14.2 || ^0.15 || ^0.16 || ^0.17 || ^0.18 || ^0.19 || ^0.20 || ^1.0",
         "doctrine/inflector": "^2.0.5",
         "dragonmantank/cron-expression": "^3.4",
@@ -54,7 +55,6 @@
         "psr/log": "^1.0 || ^2.0 || ^3.0",
         "psr/simple-cache": "^1.0 || ^2.0 || ^3.0",
         "ramsey/uuid": "^4.7",
-        "revolt/event-loop": "^1.0",
         "symfony/console": "^7.4.0 || ^8.0.0",
         "symfony/error-handler": "^7.4.0 || ^8.0.0",
         "symfony/finder": "^7.4.0 || ^8.0.0",
@@ -62,7 +62,6 @@
         "symfony/http-kernel": "^7.4.0 || ^8.0.0",
         "symfony/mailer": "^7.4.0 || ^8.0.0",
         "symfony/mime": "^7.4.0 || ^8.0.0",
-        "symfony/polyfill-php86": "^1.36",
         "symfony/process": "^7.4.5 || ^8.0.5",
         "symfony/routing": "^7.4.0 || ^8.0.0",
         "symfony/uid": "^7.4.0 || ^8.0.0",
@@ -85,7 +84,7 @@
         "league/flysystem-path-prefixing": "^3.25.1",
         "league/flysystem-read-only": "^3.25.1",
         "league/flysystem-sftp-v3": "^3.25.1",
-        "mockery/mockery": "^1.6.10 <1.6.13",
+        "mockery/mockery": "^1.6.15",
         "opis/json-schema": "^2.4.1",
         "orchestra/testbench-core": "^11.6.0",
         "pda/pheanstalk": "^7.0.0 || ^8.0.0",

@@ -49,7 +49,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        php: [8.5]
+        php: [8.6]
         phpunit: ['12.5.23', '13.1.7']
         stability: [prefer-lowest, prefer-stable]
 
@@ -66,7 +66,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: ${{ env.PHP_SHARED_EXTENSIONS }}, ${{ env.PHP_LINUX_EXTENSIONS }}
-          ini-values: error_reporting=E_ALL
+          ini-values: error_reporting=E_ALL, zend.assertions=1, assert.exception=1
           redis-configure-opts: --enable-redis --enable-redis-igbinary --enable-redis-msgpack --enable-redis-lzf --with-liblzf --enable-redis-zstd --with-libzstd --enable-redis-lz4 --with-liblz4
           redis-libs: liblz4-dev, liblzf-dev, libzstd-dev
           composer-command: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress --with="phpunit/phpunit:~${{ matrix.phpunit }}"
@@ -98,7 +98,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        php: [8.5]
+        php: [8.6]
         phpunit: ['12.5.23', '13.1.7']
         stability: [prefer-lowest, prefer-stable]
 
@@ -120,6 +120,7 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: ${{ env.PHP_SHARED_EXTENSIONS }}, ${{ env.PHP_WINDOWS_EXTENSIONS }}
+          ini-values: zend.assertions=1, assert.exception=1
           composer-command: composer update --${{ matrix.stability }} --prefer-dist --no-interaction --no-progress --with="phpunit/phpunit:~${{ matrix.phpunit }}"
 
       - name: Execute tests

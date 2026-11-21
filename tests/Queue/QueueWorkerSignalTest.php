@@ -3,6 +3,9 @@
 namespace Illuminate\Tests\Queue;
 
 use Closure;
+use Fledge\Loop;
+use Fledge\Loop\Driver\PollDriver;
+use Fledge\Loop\Driver\StreamSelectDriver;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Contracts\Events\Dispatcher;
@@ -25,8 +28,6 @@ use PHPUnit\Framework\Attributes\PreserveGlobalState;
 use PHPUnit\Framework\Attributes\RequiresPhpExtension;
 use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
-use Revolt\EventLoop;
-use Revolt\EventLoop\Driver\StreamSelectDriver;
 
 #[RequiresPhpExtension('pcntl')]
 #[RequiresPhpExtension('posix')]
@@ -45,7 +46,7 @@ class QueueWorkerSignalTest extends TestCase
         $container->instance(Dispatcher::class, $this->events);
         $container->instance(ExceptionHandler::class, new ExceptionHandlerFake(new Handler($container)));
 
-        // Safety net: a SIGTERM that no Revolt watcher picks up must not kill the test run.
+        // Safety net: a SIGTERM that no loop watcher picks up must not kill the test run.
         $this->previousAsyncSignals = pcntl_async_signals(true);
         pcntl_signal(SIGTERM, static fn () => null);
     }
@@ -79,9 +80,9 @@ class QueueWorkerSignalTest extends TestCase
     {
         [$worker, $first, $second, $third] = $this->workerWithBacklog();
 
-        $main = EventLoop::getSuspension();
+        $main = Loop::getSuspension();
 
-        EventLoop::queue(function () use ($worker, $main) {
+        Loop::queue(function () use ($worker, $main) {
             try {
                 $main->resume($worker->daemon('default', 'queue', $this->workerOptions()));
             } catch (\Throwable $e) {
@@ -148,15 +149,33 @@ class QueueWorkerSignalTest extends TestCase
 
     #[RunInSeparateProcess]
     #[PreserveGlobalState(false)]
+    public function testCpuBoundInterruptibleJobIsNotifiedMidJobOnSigtermWithThePollDriver()
+    {
+        Loop::install('poll');
+
+        [$worker, $first, $second, $interruptible, $seen] = $this->workerWithInterruptibleJob();
+
+        try {
+            $status = $worker->daemon('default', 'queue', $this->workerOptions());
+        } finally {
+            $worker->cancelSignalWatchers();
+        }
+
+        $this->assertInstanceOf(PollDriver::class, Loop::getDriver());
+        $this->assertInterruptedMidJob($status, $first, $second, $interruptible, $seen);
+    }
+
+    #[RunInSeparateProcess]
+    #[PreserveGlobalState(false)]
     public function testCpuBoundInterruptibleJobInsideFiberIsNotifiedMidJobOnSigterm()
     {
         $this->forceStreamSelectDriver();
 
         [$worker, $first, $second, $interruptible, $seen] = $this->workerWithInterruptibleJob();
 
-        $main = EventLoop::getSuspension();
+        $main = Loop::getSuspension();
 
-        EventLoop::queue(function () use ($worker, $main) {
+        Loop::queue(function () use ($worker, $main) {
             try {
                 $main->resume($worker->daemon('default', 'queue', $this->workerOptions()));
             } catch (\Throwable $e) {
@@ -239,13 +258,13 @@ class QueueWorkerSignalTest extends TestCase
         $seen = new \ArrayObject;
 
         $first = new SignalFakeJob(function () use ($interruptible, $seen) {
-            $suspension = EventLoop::getSuspension();
+            $suspension = Loop::getSuspension();
 
-            // Send the signal from the loop fiber so only the Revolt watcher can handle it.
-            EventLoop::defer(static function (): void {
+            // Send the signal from the loop fiber so only the loop watcher can handle it.
+            Loop::defer(static function (): void {
                 posix_kill(getmypid(), SIGTERM);
             });
-            EventLoop::delay(0.05, static fn () => $suspension->resume());
+            Loop::delay(0.05, static fn () => $suspension->resume());
 
             $suspension->suspend();
 
@@ -338,7 +357,7 @@ class QueueWorkerSignalTest extends TestCase
         $first = new SignalFakeJob(function () {
             posix_kill(getmypid(), SIGUSR2);
 
-            EventLoop::delay(0.05, static function (): void {
+            Loop::delay(0.05, static function (): void {
                 posix_kill(getmypid(), SIGCONT);
             });
         });
@@ -370,14 +389,14 @@ class QueueWorkerSignalTest extends TestCase
 
     public function testFinishedWorkerLeavesNoSignalWatchersBehind()
     {
-        $before = EventLoop::getIdentifiers();
+        $before = Loop::getIdentifiers();
 
         $worker = $this->makeWorker([new SignalFakeJob]);
 
         try {
             $status = $worker->daemon('default', 'queue', $this->workerOptions());
 
-            $after = EventLoop::getIdentifiers();
+            $after = Loop::getIdentifiers();
         } finally {
             $worker->cancelSignalWatchers();
         }
@@ -388,7 +407,7 @@ class QueueWorkerSignalTest extends TestCase
 
     public function testWorkerWhoseDaemonThrowsLeavesNoSignalWatchersBehind()
     {
-        $before = EventLoop::getIdentifiers();
+        $before = Loop::getIdentifiers();
 
         $worker = new SignalAwareWorker(
             new SignalFakeManager(new SignalFakeConnection(['queue' => [new SignalFakeJob]])),
@@ -404,7 +423,7 @@ class QueueWorkerSignalTest extends TestCase
         } catch (\RuntimeException $e) {
             $this->assertSame('Loop breaker.', $e->getMessage());
 
-            $after = EventLoop::getIdentifiers();
+            $after = Loop::getIdentifiers();
         } finally {
             $worker->cancelSignalWatchers();
         }
@@ -425,7 +444,7 @@ class QueueWorkerSignalTest extends TestCase
         $first = new SignalFakeJob(fn () => posix_kill(getmypid(), SIGTERM));
         $second = new SignalFakeJob;
 
-        // No mid-job chaining, so only the Revolt watcher can see the signal.
+        // No mid-job chaining, so only the loop watcher can see the signal.
         $worker = new NonChainingSignalWorker(
             new SignalFakeManager(new SignalFakeConnection(['queue' => [$first, $second]])),
             $this->events,
@@ -482,15 +501,15 @@ class QueueWorkerSignalTest extends TestCase
     }
 
     /**
-     * Mid-job chaining needs the StreamSelectDriver, so force it even when ext-uv, ext-ev or ext-event is loaded.
+     * Run on the StreamSelectDriver, which the default driver selection only picks where kqueue and epoll are missing.
      *
-     * Revolt refuses to swap a driver that has run, so these tests run in their own process: the swap happens
-     * before the loop starts, and the process ends with the test, which stands in for restoring the old driver.
+     * The loop refuses to swap a running driver, so these tests run in their own process: the swap happens before
+     * the loop starts, and the process ends with the test, which stands in for restoring the old driver.
      */
     private function forceStreamSelectDriver(): void
     {
-        if (! EventLoop::getDriver() instanceof StreamSelectDriver) {
-            EventLoop::setDriver(new StreamSelectDriver);
+        if (! Loop::getDriver() instanceof StreamSelectDriver) {
+            Loop::setDriver(new StreamSelectDriver);
         }
     }
 
@@ -536,7 +555,7 @@ class SignalAwareWorker extends Worker
     public function cancelSignalWatchers(): void
     {
         foreach ($this->signalWatchers as $watcher) {
-            EventLoop::cancel($watcher);
+            Loop::cancel($watcher);
         }
 
         $this->signalWatchers = [];

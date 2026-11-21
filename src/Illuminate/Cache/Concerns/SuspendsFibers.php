@@ -3,8 +3,8 @@
 namespace Illuminate\Cache\Concerns;
 
 use Fiber;
+use Fledge\Loop;
 use Illuminate\Support\Sleep;
-use Revolt\EventLoop;
 
 trait SuspendsFibers
 {
@@ -17,8 +17,8 @@ trait SuspendsFibers
     protected function suspendForMilliseconds(int $milliseconds): void
     {
         if (Fiber::getCurrent() !== null) {
-            $suspension = EventLoop::getSuspension();
-            EventLoop::delay($milliseconds / 1000, static fn () => $suspension->resume());
+            $suspension = Loop::getSuspension();
+            Loop::delay($milliseconds / 1000, static fn () => $suspension->resume());
             $suspension->suspend();
         } else {
             Sleep::usleep($milliseconds * 1000);

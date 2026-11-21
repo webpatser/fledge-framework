@@ -6,7 +6,7 @@ use Carbon\CarbonInterval;
 use Fledge\Async\Cancellation;
 use Fledge\Async\DeferredCancellation;
 use Fledge\Async\TimeoutException;
-use Revolt\EventLoop;
+use Fledge\Loop;
 
 /**
  * The timeout of one FiberDriver run.
@@ -35,7 +35,7 @@ final class RunTimeout
 
         $source = new DeferredCancellation;
 
-        $timer = EventLoop::delay(
+        $timer = Loop::delay(
             $timeout instanceof CarbonInterval ? $timeout->totalSeconds : $timeout,
             static fn () => $source->cancel(new TimeoutException('Operation timed out')),
         );
@@ -49,7 +49,7 @@ final class RunTimeout
     public static function stop(?string $timer): void
     {
         if ($timer !== null) {
-            EventLoop::cancel($timer);
+            Loop::cancel($timer);
         }
     }
 }

@@ -105,7 +105,7 @@ final class TaskConnectionScope
         try {
             return $task();
         } finally {
-            // Revolt reuses callback fibers, so the entry must go now, not with the fiber.
+            // The event loop reuses callback fibers, so the entry must go now, not with the fiber.
             unset(self::$scopes[$fiber]);
             self::$active--;
 

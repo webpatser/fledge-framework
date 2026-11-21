@@ -69,7 +69,7 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - php: 8.5
+          - php: 8.6
             pheanstalk: 8
 
     name: Beanstalkd Driver (pda/pheanstalk:^${{ matrix.pheanstalk }})

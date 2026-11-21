@@ -10,10 +10,10 @@ use Fledge\Async\TimeoutCancellation;
 use Fledge\Async\TimeoutException;
 use Fledge\Concurrency\TaskCancellation;
 use Fledge\Concurrency\TaskConnectionScope;
+use Fledge\Loop;
+use Fledge\Loop\CallbackType;
 use Illuminate\Concurrency\FiberDriver;
 use PHPUnit\Framework\TestCase;
-use Revolt\EventLoop;
-use Revolt\EventLoop\CallbackType;
 use RuntimeException;
 
 use function Fledge\Async\async;
@@ -230,14 +230,14 @@ class FiberDriverCancellationTest extends TestCase
     {
         // Never run the global loop to exhaustion here: other code in the test process (a queue
         // Worker's signal callbacks, for one) may hold it open forever. Track this call's timer instead.
-        $before = EventLoop::getIdentifiers();
+        $before = Loop::getIdentifiers();
         $timers = [];
 
         $results = (new FiberDriver)->run([
             function () use ($before, &$timers) {
                 $timers = array_values(array_filter(
-                    array_diff(EventLoop::getIdentifiers(), $before),
-                    fn (string $id) => EventLoop::getType($id) === CallbackType::Delay && EventLoop::isReferenced($id),
+                    array_diff(Loop::getIdentifiers(), $before),
+                    fn (string $id) => Loop::getType($id) === CallbackType::Delay && Loop::isReferenced($id),
                 ));
 
                 return 'done';
@@ -250,10 +250,10 @@ class FiberDriverCancellationTest extends TestCase
         $this->assertNotEmpty($timers);
 
         // ...and once the call returned early, it is gone instead of pending for 30 seconds.
-        $this->assertSame([], array_values(array_intersect($timers, EventLoop::getIdentifiers())));
+        $this->assertSame([], array_values(array_intersect($timers, Loop::getIdentifiers())));
         $this->assertSame([], array_values(array_filter(
-            array_diff(EventLoop::getIdentifiers(), $before),
-            fn (string $id) => EventLoop::isReferenced($id),
+            array_diff(Loop::getIdentifiers(), $before),
+            fn (string $id) => Loop::isReferenced($id),
         )));
     }
 
@@ -381,9 +381,9 @@ class FiberDriverCancellationTest extends TestCase
     protected function captureLoopErrors(callable $callback): array
     {
         $errors = [];
-        $previous = EventLoop::getErrorHandler();
+        $previous = Loop::getErrorHandler();
 
-        EventLoop::setErrorHandler(function (\Throwable $e) use (&$errors) {
+        Loop::setErrorHandler(function (\Throwable $e) use (&$errors) {
             $errors[] = $e->getMessage();
         });
 
@@ -394,7 +394,7 @@ class FiberDriverCancellationTest extends TestCase
             gc_collect_cycles();
             delay(0.01);
         } finally {
-            EventLoop::setErrorHandler($previous);
+            Loop::setErrorHandler($previous);
         }
 
         return $errors;

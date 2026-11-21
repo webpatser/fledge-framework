@@ -6,6 +6,7 @@ use Carbon\CarbonInterval;
 use Fledge\Async\CancelledException;
 use Fledge\Async\DeferredFuture;
 use Fledge\Concurrency\TaskConnectionScope;
+use Fledge\Loop;
 use Illuminate\Bus\Queueable;
 use Illuminate\Concurrency\FiberDriver;
 use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
@@ -20,7 +21,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Orchestra\Testbench\TestCase;
-use Revolt\EventLoop;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 use WeakReference;
@@ -168,7 +168,7 @@ class FiberDriverConnectionScopeTest extends TestCase
         $gate = new DeferredFuture;
 
         // The timeout timer is unreferenced; a referenced watcher keeps the loop alive while the task waits.
-        $keepAlive = EventLoop::repeat(0.005, static fn () => null);
+        $keepAlive = Loop::repeat(0.005, static fn () => null);
 
         try {
             (new FiberDriver)->run([
@@ -193,9 +193,9 @@ class FiberDriverConnectionScopeTest extends TestCase
         // once the task has returned and its scope's finally has run.
         $settled = new DeferredFuture;
         $gate->complete();
-        EventLoop::queue(fn () => $settled->complete());
+        Loop::queue(fn () => $settled->complete());
         $settled->getFuture()->await();
-        EventLoop::cancel($keepAlive);
+        Loop::cancel($keepAlive);
 
         $this->assertNull($pdo->get());
         $this->assertSame(0, TaskConnectionScope::$active);
