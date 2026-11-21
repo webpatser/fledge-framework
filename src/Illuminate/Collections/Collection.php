@@ -4,6 +4,7 @@ namespace Illuminate\Support;
 
 use ArrayAccess;
 use ArrayIterator;
+use Collator;
 use Illuminate\Contracts\Support\CanBeEscapedWhenCastToString;
 use Illuminate\Support\Traits\EnumeratesValues;
 use Illuminate\Support\Traits\Macroable;
@@ -1683,7 +1684,8 @@ class Collection implements ArrayAccess, CanBeEscapedWhenCastToString, Enumerabl
                             SORT_NUMERIC => (float) $values[0] <=> (float) $values[1],
                             SORT_STRING => strcmp($values[0], $values[1]),
                             SORT_NATURAL => strnatcmp((string) $values[0], (string) $values[1]),
-                            SORT_LOCALE_STRING => strcoll($values[0], $values[1]),
+                            // 5 is SORT_LOCALE_STRING, deprecated since PHP 8.6 together with strcoll().
+                            5 => Collator::create('')->compare($values[0], $values[1]),
                             default => $values[0] <=> $values[1],
                         };
                     }
