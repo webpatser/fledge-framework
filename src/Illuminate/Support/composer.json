@@ -18,6 +18,7 @@
         "ext-ctype": "*",
         "ext-filter": "*",
         "ext-mbstring": "*",
+        "webpatser/fledge-loop": "^0.1",
         "doctrine/inflector": "^2.0",
         "illuminate/collections": "^13.0",
         "illuminate/conditionable": "^13.0",

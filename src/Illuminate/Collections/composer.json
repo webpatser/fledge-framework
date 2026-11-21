@@ -20,6 +20,7 @@
         "illuminate/macroable": "^13.0"
     },
     "suggest": {
+        "ext-intl": "Required for locale-aware sorting with SORT_LOCALE_STRING; without it strings compare byte-wise.",
         "illuminate/http": "Required to convert collections to API resources (^13.0).",
         "symfony/var-dumper": "Required to use the dump method (^7.4 || ^8.0)."
     },

@@ -1644,6 +1644,10 @@ class Collection implements ArrayAccess, CanBeEscapedWhenCastToString, Enumerabl
     /**
      * Sort the collection using multiple comparisons.
      *
+     * With SORT_LOCALE_STRING (5) values are compared with an ICU Collator for the process's LC_COLLATE
+     * locale ("C" and "POSIX" map to ICU's root collation), which can order some strings differently from
+     * the strcoll() used before PHP 8.6. Without ext-intl they are compared byte-wise with strcmp().
+     *
      * @param  array<array-key, (callable(TValue, TValue): mixed)|(callable(TValue, TKey): mixed)|string|array{string, SortDirection|'asc'|'desc'}>  $comparisons
      * @param  int-mask-of<SORT_REGULAR|SORT_NUMERIC|SORT_STRING|SORT_LOCALE_STRING|SORT_NATURAL|SORT_FLAG_CASE>  $options
      * @return static
@@ -1652,7 +1656,12 @@ class Collection implements ArrayAccess, CanBeEscapedWhenCastToString, Enumerabl
     {
         $items = $this->items;
 
-        uasort($items, function ($a, $b) use ($comparisons, $options) {
+        // 5 is SORT_LOCALE_STRING, deprecated since PHP 8.6 together with strcoll().
+        $collator = $options === 5 && class_exists(Collator::class)
+            ? Collator::create((string) setlocale(LC_COLLATE, 0))
+            : null;
+
+        uasort($items, function ($a, $b) use ($comparisons, $options, $collator) {
             foreach ($comparisons as $comparison) {
                 $comparison = Arr::wrap($comparison);
 
@@ -1684,8 +1693,7 @@ class Collection implements ArrayAccess, CanBeEscapedWhenCastToString, Enumerabl
                             SORT_NUMERIC => (float) $values[0] <=> (float) $values[1],
                             SORT_STRING => strcmp($values[0], $values[1]),
                             SORT_NATURAL => strnatcmp((string) $values[0], (string) $values[1]),
-                            // 5 is SORT_LOCALE_STRING, deprecated since PHP 8.6 together with strcoll().
-                            5 => Collator::create('')->compare($values[0], $values[1]),
+                            5 => $collator?->compare($values[0], $values[1]) ?? strcmp($values[0], $values[1]),
                             default => $values[0] <=> $values[1],
                         };
                     }

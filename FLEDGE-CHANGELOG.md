@@ -13,13 +13,18 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 
 ### Fixed
 - Validation: on PHP 8.6 `trim()` also strips form feed, so numeric strings with a leading or trailing form feed (`"\x0C5"`) passed size and comparison rules (`min`, `max`, `size`, `between`, `gt`, `lt`, `gte`, `lte`). Taken from upstream laravel/framework 13.x (b9bb152, "Supports for PHP 8.6"): `numeric` and the size rules reject numeric strings containing a vertical tab or form feed.
-- `Collection::sortBy()` with several comparisons and `SORT_LOCALE_STRING` no longer uses the deprecated `SORT_LOCALE_STRING` constant and `strcoll()`; it compares with `Collator::create('')` (ext-intl), as upstream does on PHP 8.6.
+- `Collection::sortBy()` with several comparisons and `SORT_LOCALE_STRING` no longer uses the deprecated `SORT_LOCALE_STRING` constant and `strcoll()`.
+
+### Behaviour changes
+- `Collection::sortBy([...], SORT_LOCALE_STRING)` (several comparisons) compares with one ICU `Collator` created for the process's `LC_COLLATE` locale (`setlocale(LC_COLLATE, 0)`; `C` and `POSIX` map to ICU's root collation) instead of `strcoll()`. ICU and the C library order some strings differently (case, accents, ligatures), so results can differ from PHP 8.5. Without ext-intl the strings compare byte-wise with `strcmp()` instead of failing. Upstream uses `Collator::create('')` (ICU's default locale from `intl.default_locale` or the environment, which ignores `setlocale()`) and has no fallback: without intl it fails with "Class Collator not found" at call time; its `version_compare` guard only covers PHP versions before 8.6. `ext-intl` is now suggested in the root and `Collections/composer.json`.
+- `webpatser/fledge-portable-ascii` is `^2.0`, the PHP 8.6 only line (1.0.0 requires `^8.5` and would still install on 8.6). Public API unchanged.
+- `Queue/composer.json` and `Support/composer.json` now require `webpatser/fledge-loop ^0.1`: their own code calls `Fledge\Loop` (Cache already did).
 
 ### Stock files diverged from upstream (check at the next sync)
-- `src/Illuminate/Collections/Collection.php` (`use Collator;`, the locale branch in `sortByMany()`): upstream's PHP 8.6 change without its `version_compare()` guard; keep ours when upstream's guarded version arrives.
+- `src/Illuminate/Collections/Collection.php` (`use Collator;`, the docblock, the `$collator` setup and the locale branch in `sortByMany()`): differs from upstream's PHP 8.6 change (no `version_compare()` guard, `LC_COLLATE` locale, one collator per sort, strcmp() fallback without intl); keep ours when upstream's version arrives.
 - `src/Illuminate/Validation/Concerns/ValidatesAttributes.php`: upstream's change verbatim (`isNumeric()`), so no conflict is expected.
 - `tests/Broadcasting/Ably2BroadcasterTest.php`, `tests/Foundation/Cloud/ExceptionReportingTest.php`, `tests/Http/HttpRequestTest.php`, `tests/Redis/RedisEventsTest.php`, `tests/Support/SupportCollectionTest.php`: upstream's PHP 8.6 test changes verbatim (ably deprecations ignored, no constructor return, no object values through `http_build_query()`, skip without ext-redis, `Collator` expectations).
-- `src/Illuminate/Cache/composer.json` (fledge-loop instead of revolt/event-loop), `src/Illuminate/Collections/composer.json` (no polyfill-php86), the `php` floor in all 37 component `composer.json`, `rector.php` (`php86: true`), `.github/actions/setup-php-project/action.yml` (default 8.6) and `.github/workflows/{tests,queues,databases-extra}.yml`.
+- `src/Illuminate/Cache/composer.json` (fledge-loop instead of revolt/event-loop), `src/Illuminate/Queue/composer.json` and `src/Illuminate/Support/composer.json` (fledge-loop), `src/Illuminate/Collections/composer.json` (no polyfill-php86, ext-intl suggested), the `php` floor in all 37 component `composer.json`, `rector.php` (`php86: true`), `.github/actions/setup-php-project/action.yml` (default 8.6) and `.github/workflows/{tests,queues,databases-extra}.yml`.
 - Fledge-owned or already diverged: `Queue/Worker.php`, both `SuspendsFibers` traits, `Fledge/Concurrency/*`, `tests/Queue/QueueWorkerSignalTest.php` (new poll-driver mid-job test), `tests/Integration/Concurrency/FiberDriver*Test.php`.
 
 ## v13.43.0.2 - 2026-11-19

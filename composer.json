@@ -68,7 +68,7 @@
         "symfony/var-dumper": "^7.4.0 || ^8.0.0",
         "tijsverkoyen/css-to-inline-styles": "^2.2.5",
         "vlucas/phpdotenv": "^5.6.1",
-        "webpatser/fledge-portable-ascii": "^1.0"
+        "webpatser/fledge-portable-ascii": "^2.0"
     },
     "require-dev": {
         "ext-gmp": "*",
@@ -154,6 +154,7 @@
     "suggest": {
         "ext-apcu": "Required to use the APC cache driver.",
         "ext-fileinfo": "Required to use the Filesystem class.",
+        "ext-intl": "Required for locale-aware collection sorting with SORT_LOCALE_STRING; without it strings compare byte-wise.",
         "ext-ftp": "Required to use the Flysystem FTP driver.",
         "ext-gd": "Required to use Illuminate\\Http\\Testing\\FileFactory::image().",
         "ext-memcached": "Required to use the memcache cache driver.",
