@@ -10328,6 +10328,61 @@ class ValidationValidatorTest extends TestCase
         return $data;
     }
 
+    #[DataProvider('verticalTabAndFormFeedNumbers')]
+    public function testNumericRulesAgreeOnVerticalTabAndFormFeedNumbers($data, $rule)
+    {
+        $trans = $this->getIlluminateArrayTranslator();
+        $validator = new Validator($trans, $data, ['foo' => $rule]);
+
+        $this->assertFalse($validator->passes());
+    }
+
+    public static function verticalTabAndFormFeedNumbers()
+    {
+        $data = [];
+
+        // Measured by string length (4) these would fit, while (int) reads 999.
+        foreach (["\x0B999", "999\x0B", "\x0C999", "999\x0C"] as $value) {
+            foreach (['integer', 'integer|max:4', 'integer|between:1,4', 'integer|size:4', 'integer|lt:bar', 'integer|lte:bar', 'integer|not_in:999', 'numeric|max:4', 'decimal:0|max:4', 'digits:3'] as $rule) {
+                $data[] = [['foo' => $value, 'bar' => '5'], $rule];
+            }
+
+            // The compared field holds the number: it must not be measured by its length either.
+            foreach (['integer|gt:bar', 'integer|gte:bar', 'numeric|gt:bar'] as $rule) {
+                $data[] = [['foo' => '6', 'bar' => $value], $rule];
+            }
+        }
+
+        return $data;
+    }
+
+    public function testVerticalTabNumberFailsWithoutTrimStringsMiddleware()
+    {
+        // Livewire updates, queued jobs and console input skip TrimStrings.
+        $factory = new \Illuminate\Validation\Factory($this->getIlluminateArrayTranslator());
+
+        $this->expectException(ValidationException::class);
+
+        $factory->make(['amount' => "\x0B999"], ['amount' => 'required|integer|between:1,4'])->validate();
+    }
+
+    #[DataProvider('ordinaryWhitespaceNumbers')]
+    public function testNumericRulesKeepAcceptingOrdinaryWhitespaceAroundNumbers($value)
+    {
+        $trans = $this->getIlluminateArrayTranslator();
+
+        foreach (['integer|size:5', 'integer|between:5,5', 'numeric|max:5', 'numeric|min:5'] as $rule) {
+            $this->assertTrue((new Validator($trans, ['foo' => $value], ['foo' => $rule]))->passes(), $rule);
+        }
+
+        $this->assertFalse((new Validator($trans, ['foo' => $value], ['foo' => 'integer|max:4']))->passes());
+    }
+
+    public static function ordinaryWhitespaceNumbers()
+    {
+        return [[' 5'], ['5 '], ["\t5"], ["5\n"]];
+    }
+
     #[DataProvider('outsideRangeExponents')]
     public function testItLimitsLengthOfScientificNotationExponent($value)
     {

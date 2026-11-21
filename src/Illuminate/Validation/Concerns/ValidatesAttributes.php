@@ -1643,7 +1643,7 @@ trait ValidatesAttributes
             return is_int($value);
         }
 
-        return filter_var($value, FILTER_VALIDATE_INT) !== false;
+        return filter_var($value, FILTER_VALIDATE_INT) !== false && (! is_string($value) || $this->isNumeric($value));
     }
 
     /**
@@ -2839,6 +2839,9 @@ trait ValidatesAttributes
         // entire length of the string will be considered the attribute size.
         if ($this->isNumeric($value) && $hasNumeric) {
             return (string) $this->ensureExponentWithinAllowedRange($attribute, $this->trim($value));
+        } elseif ($hasNumeric && is_numeric($value)) {
+            // Fledge: never measure a "\v"/"\f" number by its length; BigNumber rejects it as is.
+            return $value;
         } elseif (is_array($value)) {
             return count($value);
         } elseif ($value instanceof File) {
@@ -2958,6 +2961,11 @@ trait ValidatesAttributes
 
     /**
      * Determine if a value is numeric without vertical tab or form feed whitespace.
+     *
+     * Fledge: this is the one definition of a number for validation. integer,
+     * numeric, decimal and getSize() all agree with it, so a string that PHP
+     * still reads as a number (such as "\v999") is never accepted by integer
+     * and then measured by its string length.
      *
      * @param  mixed  $value
      * @return bool
