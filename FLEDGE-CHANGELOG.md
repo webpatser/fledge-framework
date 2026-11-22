@@ -2,7 +2,7 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
-## v13.43.0.3 - 2026-11-21
+## v13.43.0.3 - 2026-11-22
 
 ### Changed
 - PHP 8.6 is required: `"php": "^8.6"` in the root `composer.json` and in all 37 `src/Illuminate/*/composer.json`. CI runs PHP 8.6 only, with `zend.assertions=1` and `assert.exception=1` in the test jobs. `rector.php` targets the PHP 8.6 sets.
@@ -23,8 +23,7 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 
 ### Stock files diverged from upstream (check at the next sync)
 - `src/Illuminate/Collections/Collection.php` (`use Collator;`, the docblock, the `$collator` setup and the locale branch in `sortByMany()`): differs from upstream's PHP 8.6 change (no `version_compare()` guard, `LC_COLLATE` locale, one collator per sort, strcmp() fallback without intl); keep ours when upstream's version arrives.
-- `src/Illuminate/Validation/Concerns/ValidatesAttributes.php`: upstream's `isNumeric()` change plus Fledge additions, marked `Fledge:` in comments; keep them when upstream's version arrives: `validateInteger`, `getSize`, `shouldBeNumeric` (back to `is_numeric()`), `validateGt`, `validateGte`, `validateLt`, `validateLte` (each calls the new `hasUntrimmableNumber()`), and the `isNumeric` docblock.
-- `tests/Validation/ValidationValidatorTest.php`: Fledge tests after upstream's untrimmable-whitespace tests (`testNumericRulesAgreeOnVerticalTabAndFormFeedNumbers`, `testVerticalTabNumberFailsWithoutTrimStringsMiddleware`, `testNumericRulesKeepAcceptingOrdinaryWhitespaceAroundNumbers`, `testFieldComparisonsNeverPassAgainstTheCastValue`, `testFieldComparisonsPassForNumbersAndFailClosedOnVerticalTabOrFormFeed`).
+- `src/Illuminate/Validation/Concerns/ValidatesAttributes.php` and `tests/Validation/ValidationValidatorTest.php`: upstream's `isNumeric()` change plus Fledge additions, marked `Fledge:` in comments, so the field comparison rules `gt`, `gte`, `lt`, `lte` share the numeric check used by the other numeric rules, with matching tests; keep them when upstream's version arrives.
 - `src/Illuminate/Concurrency/composer.json` (fledge-fiber and fledge-loop).
 - `tests/Broadcasting/Ably2BroadcasterTest.php`, `tests/Foundation/Cloud/ExceptionReportingTest.php`, `tests/Http/HttpRequestTest.php`, `tests/Redis/RedisEventsTest.php`, `tests/Support/SupportCollectionTest.php`: upstream's PHP 8.6 test changes verbatim (ably deprecations ignored, no constructor return, no object values through `http_build_query()`, skip without ext-redis, `Collator` expectations).
 - `src/Illuminate/Cache/composer.json` (fledge-loop instead of revolt/event-loop), `src/Illuminate/Queue/composer.json` and `src/Illuminate/Support/composer.json` (fledge-loop), `src/Illuminate/Collections/composer.json` (no polyfill-php86, ext-intl suggested), the `php` floor in all 37 component `composer.json`, `rector.php` (`php86: true`), `.github/actions/setup-php-project/action.yml` (default 8.6) and `.github/workflows/{tests,queues,databases-extra}.yml`.
