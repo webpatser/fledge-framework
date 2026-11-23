@@ -323,6 +323,8 @@ php artisan serve
 
 This framework supports only the latest stable PHP release. When a new PHP version is released, the next release of this framework requires it and support for the previous PHP version ends. Currently: PHP 8.6.
 
+Still on PHP 8.5? The last release that supports it is `v13.43.0.2`. Pin it with `composer require "webpatser/fledge-framework:13.43.0.2" -W`; it receives no further updates. `v13.43.0.3` and later require PHP 8.6.
+
 ## How This Project Works
 
 Fledge tracks Laravel's `13.x` branch. When Laravel releases a new version:
