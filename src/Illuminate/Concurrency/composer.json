@@ -21,7 +21,7 @@
         "illuminate/contracts": "^13.0",
         "illuminate/process": "^13.0",
         "illuminate/support": "^13.0",
-        "laravel/serializable-closure": "^2.0.10"
+        "laravel/serializable-closure": "^2.1.0"
     },
     "minimum-stability": "dev",
     "autoload": {
