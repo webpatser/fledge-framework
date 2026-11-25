@@ -42,12 +42,6 @@ class MatchesEnum implements ValidationRule
 
         $value = DistinctArrayItems::normalize($value);
 
-        foreach ($this->values as $allowed) {
-            if (is_array($allowed) && DistinctArrayItems::normalize($allowed) === $value) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any($this->values, fn (mixed $allowed) => is_array($allowed) && DistinctArrayItems::normalize($allowed) === $value);
     }
 }

@@ -23,6 +23,7 @@ class LineFormatter extends BaseFormatter
     /**
      * {@inheritdoc}
      */
+    #[\Override]
     public function format(LogRecord $record): string
     {
         $formatted = parent::format($record);

@@ -146,7 +146,7 @@ class PredisConnection extends Connection implements ConnectionContract
         }
 
         // Only the EXEC reply holds the results of the commands in a transaction...
-        return $atomic ? end($results) : $results;
+        return $atomic ? array_last($results) : $results;
     }
 
     /**

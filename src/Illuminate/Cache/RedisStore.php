@@ -300,14 +300,8 @@ class RedisStore extends TaggableStore implements CanFlushLocks, LockProvider
             return false;
         }
 
-        foreach ($results as $result) {
-            // Predis returns errors inside a transaction instead of throwing them...
-            if (! $result || $result instanceof ErrorInterface) {
-                return false;
-            }
-        }
-
-        return true;
+        // Predis returns errors inside a transaction instead of throwing them...
+        return ! array_any($results, fn ($result) => ! $result || $result instanceof ErrorInterface);
     }
 
     /**
