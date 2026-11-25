@@ -2,6 +2,26 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.44.1.2 - 2026-11-25
+
+### Changed
+- PHP 8.6 optimizations on code that arrived with v13.44.1. No behavior change.
+- `Redis/Connections/PhpRedisConnection` and `PredisConnection`: `idempotentPipeline()` uses `array_last()` instead of `end()`.
+- `#[\Override]` on `Foundation\Cloud\LineFormatter::format()`.
+- `Cache/RedisStore::putManyViaPipeline()` and `JsonSchema/Rules/MatchesEnum::matches()`: the native `array_any()` replaces a hand-rolled loop.
+
+## v13.44.1.1 - 2026-11-25
+
+### Synced
+- Synced with Laravel v13.44.0 and v13.44.1 (91 upstream files).
+- Fledge code kept through conflicts:
+  - `Collections/Collection.php`: kept `sortByMany()`, dropped upstream's PHP 8.6 workaround variables.
+  - `Validation/Concerns/ValidatesAttributes.php`: merged the `hasUntrimmableNumber()` guards and Fledge checks with upstream's reworked numeric and size rules.
+  - `Cache/RedisStore.php`: kept `putManyConcurrent()` next to upstream's new `putManyViaPipeline()`, `foreverMany()` and `forgetManyKeys()`.
+  - `JsonSchema/Rules/DistinctArrayItems.php`: the loop now uses upstream's `normalize()` with strict comparison.
+- CI: new `pgsql_19` database job on PHP 8.6; the tests matrix stays PHP 8.6 only.
+- New dev dependency `jasonmccreary/double ^1.2.1`.
+
 ## v13.43.0.3 - 2026-11-22
 
 ### Changed

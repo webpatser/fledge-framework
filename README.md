@@ -263,17 +263,17 @@ That is why the canonical install line targets `webpatser/fledge-framework` dire
 
 ### Constraint compatibility
 
-All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.42.0.2` as of 2026-11-11):
+All standard Composer constraint patterns resolve to the latest Fledge tag (`v13.44.1.2` as of 2026-11-25):
 
 | Constraint | Resolves to | Notes |
 |------------|------------|-------|
-| `^13.3` | v13.42.0.2 | Recommended, accepts any 13.x release |
-| `^13.42` | v13.42.0.2 | Pins to current minor |
-| `~13.42.0` | v13.42.0.2 | Pins to 13.42.x patches and Fledge revisions |
-| `13.42.*` | v13.42.0.2 | Wildcard, identical resolution |
-| `^13.42.0.1` | v13.42.0.2 | Pin to a specific Fledge revision |
-| `~13.42.0.1` | v13.42.0.2 | Same, accepts higher Fledge patches |
-| `>=13.0` | v13.42.0.2 | Open-ended |
+| `^13.3` | v13.44.1.2 | Recommended, accepts any 13.x release |
+| `^13.44` | v13.44.1.2 | Pins to current minor |
+| `~13.44.0` | v13.44.1.2 | Pins to 13.44.x patches and Fledge revisions |
+| `13.44.*` | v13.44.1.2 | Wildcard, identical resolution |
+| `^13.44.1.2` | v13.44.1.2 | Pin to a specific Fledge revision |
+| `~13.44.1.2` | v13.44.1.2 | Same, accepts higher Fledge patches |
+| `>=13.0` | v13.44.1.2 | Open-ended |
 | `dev-fledge-13` | (does not resolve cleanly) | Dev branches need a `branch-alias` to satisfy `^13.0` constraints from other Laravel packages |
 
 Use `^13.7` in production. The 4-segment `v13.X.Y.N` versioning is fully Composer-compatible: the resolver treats the fourth segment as a regular patch component.
