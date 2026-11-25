@@ -76,7 +76,7 @@
         "aws/aws-sdk-php": "^3.322.9",
         "fakerphp/faker": "^1.24",
         "intervention/image": "^4.2",
-        "jasonmccreary/double": "^1.1",
+        "jasonmccreary/double": "^1.2.1",
         "laravel/pao": "^1.0.6",
         "laravel/pint": "^1.18",
         "league/flysystem-aws-s3-v3": "^3.25.1",

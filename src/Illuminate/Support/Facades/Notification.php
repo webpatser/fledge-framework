@@ -26,6 +26,8 @@ use Illuminate\Support\Testing\Fakes\NotificationFake;
  * @method static \Illuminate\Contracts\Container\Container getContainer()
  * @method static \Illuminate\Notifications\ChannelManager setContainer(\Illuminate\Contracts\Container\Container $container)
  * @method static \Illuminate\Notifications\ChannelManager forgetDrivers()
+ * @method static \Illuminate\Notifications\ChannelManager|mixed when(\Closure|mixed|null $value = null, callable|null $callback = null, callable|null $default = null)
+ * @method static \Illuminate\Notifications\ChannelManager|mixed unless(\Closure|mixed|null $value = null, callable|null $callback = null, callable|null $default = null)
  * @method static void assertSentOnDemand(string|\Closure $notification, callable|null $callback = null)
  * @method static void assertSentTo(mixed $notifiable, string|\Closure $notification, callable|array|null $callback = null)
  * @method static void assertSentOnDemandTimes(string $notification, int $times = 1)

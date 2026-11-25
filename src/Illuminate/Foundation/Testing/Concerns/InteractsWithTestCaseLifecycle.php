@@ -48,6 +48,7 @@ use Illuminate\View\Component;
 use Laravel\Prompts\Prompt;
 use Mockery;
 use Mockery\Exception\InvalidCountException;
+use Mockery\LegacyMockInterface;
 use PHPUnit\Metadata\Annotation\Parser\Registry as PHPUnitRegistry;
 use ReflectionClass;
 use Throwable;
@@ -240,7 +241,7 @@ trait InteractsWithTestCaseLifecycle
 
         $database = $this->app->make('db');
 
-        if (! $database instanceof DatabaseManager) {
+        if (! $database instanceof DatabaseManager || $database instanceof LegacyMockInterface) {
             return;
         }
 

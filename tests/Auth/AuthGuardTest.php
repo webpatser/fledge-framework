@@ -283,6 +283,21 @@ class AuthGuardTest extends TestCase
         $this->assertFalse($session->has('password_hash_default'));
     }
 
+    public function testLoginWithUserWithoutPasswordRemovesPreviousPasswordHash()
+    {
+        [, $provider, $request] = $this->getMocks();
+        $session = new Store('test', new ArraySessionHandler(10));
+        $guard = new SessionGuard('default', $provider, $session, $request);
+
+        $guard->login(new GenericUser(['id' => 'foo', 'password' => 'bar']));
+        $this->assertTrue($session->has('password_hash_default'));
+
+        $guard->login(new GenericUser(['id' => 'baz', 'password' => null]));
+
+        $this->assertSame('baz', $session->get($guard->getName()));
+        $this->assertFalse($session->has('password_hash_default'));
+    }
+
     public function testSessionGuardIsMacroable()
     {
         $guard = $this->getGuard();

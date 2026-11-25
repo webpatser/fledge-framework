@@ -24,7 +24,9 @@ class DistinctArrayItems implements ValidationRule
                 continue;
             }
 
-            if (in_array($item, $seen)) {
+            $item = static::normalize($item);
+
+            if (in_array($item, $seen, true)) {
                 $fail('validation.distinct')->translate();
 
                 return;
@@ -32,5 +34,23 @@ class DistinctArrayItems implements ValidationRule
 
             $seen[] = $item;
         }
+    }
+
+    /**
+     * Sort the keys of every object in the value so that key order does not affect strict comparison.
+     */
+    public static function normalize(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        $value = array_map(static::normalize(...), $value);
+
+        if (! array_is_list($value)) {
+            ksort($value, SORT_STRING);
+        }
+
+        return $value;
     }
 }

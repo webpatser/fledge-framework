@@ -1939,6 +1939,13 @@ class DatabaseQueryBuilderTest extends TestCase
         $this->assertSame('select * from "users" where (to_tsvector(\'greek\', "body")) @@ plainto_tsquery(\'greek\', ?)', $builder->toSql());
         $this->assertEquals(['Hello World'], $builder->getBindings());
 
+        foreach (['esperanto', 'estonian', 'polish'] as $language) {
+            $builder = $this->getPostgresBuilderWithProcessor();
+            $builder->select('*')->from('users')->whereFullText('body', 'Hello World', ['language' => $language]);
+            $this->assertSame('select * from "users" where (to_tsvector(\''.$language.'\', "body")) @@ plainto_tsquery(\''.$language.'\', ?)', $builder->toSql());
+            $this->assertEquals(['Hello World'], $builder->getBindings());
+        }
+
         $builder = $this->getPostgresBuilderWithProcessor();
         $builder->select('*')->from('users')->whereFullText('body', 'Hello World', ['mode' => 'plain']);
         $this->assertSame('select * from "users" where (to_tsvector(\'english\', "body")) @@ plainto_tsquery(\'english\', ?)', $builder->toSql());
@@ -2392,28 +2399,28 @@ class DatabaseQueryBuilderTest extends TestCase
     {
         $builder = $this->getMySqlBuilder();
         $builder->select('*')->from('users')->whereNull('items->id');
-        $this->assertSame('select * from `users` where (json_extract(`items`, \'$."id"\') is null OR json_type(json_extract(`items`, \'$."id"\')) = \'NULL\')', $builder->toSql());
+        $this->assertSame('select * from `users` where (json_extract(`items`, \'$."id"\') is null OR json_type(json_extract(`items`, \'$."id"\')) = json_type(\'null\'))', $builder->toSql());
     }
 
     public function testJsonWhereNotNullMysql()
     {
         $builder = $this->getMySqlBuilder();
         $builder->select('*')->from('users')->whereNotNull('items->id');
-        $this->assertSame('select * from `users` where (json_extract(`items`, \'$."id"\') is not null AND json_type(json_extract(`items`, \'$."id"\')) != \'NULL\')', $builder->toSql());
+        $this->assertSame('select * from `users` where (json_extract(`items`, \'$."id"\') is not null AND json_type(json_extract(`items`, \'$."id"\')) != json_type(\'null\'))', $builder->toSql());
     }
 
     public function testJsonWhereNullExpressionMysql()
     {
         $builder = $this->getMySqlBuilder();
         $builder->select('*')->from('users')->whereNull(new Raw('items->id'));
-        $this->assertSame('select * from `users` where (json_extract(`items`, \'$."id"\') is null OR json_type(json_extract(`items`, \'$."id"\')) = \'NULL\')', $builder->toSql());
+        $this->assertSame('select * from `users` where (json_extract(`items`, \'$."id"\') is null OR json_type(json_extract(`items`, \'$."id"\')) = json_type(\'null\'))', $builder->toSql());
     }
 
     public function testJsonWhereNotNullExpressionMysql()
     {
         $builder = $this->getMySqlBuilder();
         $builder->select('*')->from('users')->whereNotNull(new Raw('items->id'));
-        $this->assertSame('select * from `users` where (json_extract(`items`, \'$."id"\') is not null AND json_type(json_extract(`items`, \'$."id"\')) != \'NULL\')', $builder->toSql());
+        $this->assertSame('select * from `users` where (json_extract(`items`, \'$."id"\') is not null AND json_type(json_extract(`items`, \'$."id"\')) != json_type(\'null\'))', $builder->toSql());
     }
 
     public function testArrayWhereNulls()
@@ -6064,6 +6071,11 @@ SQL;
         $builder->select('*')->from('foo')->where('bar', '=', 'baz')->lock('lock in share mode');
         $this->assertSame('select * from `foo` where `bar` = ? lock in share mode', $builder->toSql());
         $this->assertEquals(['baz'], $builder->getBindings());
+
+        $builder = $this->getMySqlBuilder();
+        $builder->select('*')->from('foo')->where('bar', '=', 'baz')->lockForNoKeyUpdate();
+        $this->assertSame('select * from `foo` where `bar` = ? for update', $builder->toSql());
+        $this->assertEquals(['baz'], $builder->getBindings());
     }
 
     public function testPostgresLock()
@@ -6082,6 +6094,11 @@ SQL;
         $builder->select('*')->from('foo')->where('bar', '=', 'baz')->lock('for key share');
         $this->assertSame('select * from "foo" where "bar" = ? for key share', $builder->toSql());
         $this->assertEquals(['baz'], $builder->getBindings());
+
+        $builder = $this->getPostgresBuilder();
+        $builder->select('*')->from('foo')->where('bar', '=', 'baz')->lockForNoKeyUpdate();
+        $this->assertSame('select * from "foo" where "bar" = ? for no key update', $builder->toSql());
+        $this->assertEquals(['baz'], $builder->getBindings());
     }
 
     public function testSqlServerLock()
@@ -6099,6 +6116,11 @@ SQL;
         $builder = $this->getSqlServerBuilder();
         $builder->select('*')->from('foo')->where('bar', '=', 'baz')->lock('with(holdlock)');
         $this->assertSame('select * from [foo] with(holdlock) where [bar] = ?', $builder->toSql());
+        $this->assertEquals(['baz'], $builder->getBindings());
+
+        $builder = $this->getSqlServerBuilder();
+        $builder->select('*')->from('foo')->where('bar', '=', 'baz')->lockForNoKeyUpdate();
+        $this->assertSame('select * from [foo] with(rowlock,updlock,holdlock) where [bar] = ?', $builder->toSql());
         $this->assertEquals(['baz'], $builder->getBindings());
     }
 
