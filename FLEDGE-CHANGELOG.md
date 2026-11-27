@@ -2,6 +2,12 @@
 
 All Fledge-specific changes on top of Laravel upstream. For Laravel's own changelog, see [CHANGELOG.md](CHANGELOG.md).
 
+## v13.44.1.4 - 2026-11-27
+
+### Changed
+- The 22 forwarder closures that v13.44.1.3 kept as closures are partial application again (`f(?, $x)`), in `Collections/Arr`, `Collections/Traits/EnumeratesValues`, `Console/Scheduling/CronExpressionTimezoneConverter`, `Database/Concerns/ParsesSearchPath`, `Database/Connectors/PostgresConnector`, `Database/Eloquent/Builder`, `Database/Query/Builder`, `Mail/Transport/SesTransport` and `SesV2Transport`, `Routing/Route`, `Routing/RouteSignatureParameters`, `Support/Number`, `Support/Str`, `Support/Traits/InteractsWithData` and `Validation/Concerns/ReplacesAttributes`.
+- The "Source Code" leg of the `static analysis` workflow is disabled until PHPStan can analyse the `?` placeholder. The "Types" leg and `fledge static analysis` still run.
+
 ## v13.44.1.3 - 2026-11-27
 
 ### Changed

@@ -33,7 +33,7 @@ class RouteSignatureParameters
             : (new ReflectionFunction($callback))->getParameters();
 
         return match (true) {
-            ! empty($conditions['subClass']) => array_filter($parameters, fn ($p) => Reflector::isParameterSubclassOf($p, $conditions['subClass'])),
+            ! empty($conditions['subClass']) => array_filter($parameters, Reflector::isParameterSubclassOf(?, $conditions['subClass'])),
             ! empty($conditions['backedEnum']) => array_filter($parameters, Reflector::isParameterBackedEnumWithStringBackingType(...)),
             default => $parameters,
         };

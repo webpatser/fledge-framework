@@ -92,9 +92,9 @@ class PostgresConnector extends Connector implements ConnectorInterface
         }
 
         return $dsn
-            |> (fn ($dsn) => $this->addSslOptions($dsn, $config))
-            |> (fn ($dsn) => $this->addKeepaliveOptions($dsn, $config))
-            |> (fn ($dsn) => $this->addServerOptions($dsn, $config));
+            |> $this->addSslOptions(?, $config)
+            |> $this->addKeepaliveOptions(?, $config)
+            |> $this->addServerOptions(?, $config);
     }
 
     /**

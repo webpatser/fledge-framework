@@ -1211,7 +1211,7 @@ trait EnumeratesValues
             return $value;
         }
 
-        return fn ($item) => data_get($item, $value);
+        return data_get(?, $value);
     }
 
     /**
