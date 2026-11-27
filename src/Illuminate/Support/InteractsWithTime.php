@@ -41,11 +41,15 @@ trait InteractsWithTime
     /**
      * If the given value is an interval, convert it to a DateTime instance.
      *
-     * @param  \DateTimeInterface|\DateInterval|int  $delay
+     * @param  \DateTimeInterface|\DateInterval|\Time\Duration|int  $delay
      * @return \DateTimeInterface|int
      */
     protected function parseDateInterval($delay)
     {
+        if ($delay instanceof \Time\Duration) {
+            return $delay->negative ? 0 : $delay->seconds + ($delay->nanoseconds > 0 ? 1 : 0);
+        }
+
         if ($delay instanceof DateInterval) {
             $delay = Carbon::now()->add($delay);
         }
