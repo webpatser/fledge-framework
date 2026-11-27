@@ -1583,7 +1583,7 @@ class Str
     {
         $parts = preg_split('/\s+/u', $value, -1, PREG_SPLIT_NO_EMPTY);
 
-        $parts = array_map(fn ($part) => mb_substr($part, 0, 1), $parts);
+        $parts = array_map(mb_substr(?, 0, 1), $parts);
 
         $initials = implode('', $parts);
 
@@ -1849,7 +1849,7 @@ class Str
 
         $words = preg_split('/\s+/u', static::replace(['-', '_'], ' ', $value), -1, PREG_SPLIT_NO_EMPTY);
 
-        $studlyWords = array_map(fn ($word) => static::ucfirst($word), $words);
+        $studlyWords = array_map(static::ucfirst(...), $words);
 
         return static::$studlyCache[$key] = implode('', $studlyWords);
     }

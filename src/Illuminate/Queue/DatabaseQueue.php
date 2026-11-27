@@ -15,6 +15,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 use Illuminate\Support\Stringable;
 use PDO;
+use SortDirection;
 use Throwable;
 
 use function Illuminate\Support\enum_value;
@@ -512,7 +513,7 @@ class DatabaseQueue extends Queue implements QueueContract, ClearableQueue
                 $this->isAvailable($query);
                 $this->isReservedButExpired($query);
             })
-            ->orderBy('id', 'asc')
+            ->orderBy('id', SortDirection::Ascending)
             ->first();
 
         return $job ? new DatabaseJobRecord((object) $job) : null;

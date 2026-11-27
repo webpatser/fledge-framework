@@ -54,9 +54,7 @@ class AsEnumCollection implements Castable
             public function set($model, $key, $value, $attributes)
             {
                 $value = $value !== null
-                    ? Json::encode((new Collection($value))->map(function ($enum) {
-                        return $this->getStorableEnumValue($enum);
-                    })->jsonSerialize())
+                    ? Json::encode((new Collection($value))->map($this->getStorableEnumValue(...))->jsonSerialize())
                     : null;
 
                 return [$key => $value];
@@ -65,7 +63,7 @@ class AsEnumCollection implements Castable
             public function serialize($model, string $key, $value, array $attributes)
             {
                 return (new Collection($value))
-                    ->map(fn ($enum) => $this->getStorableEnumValue($enum))
+                    ->map($this->getStorableEnumValue(...))
                     ->toArray();
             }
 

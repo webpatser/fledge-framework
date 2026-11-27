@@ -13,6 +13,7 @@ use JMac\Testing\Double;
 use JMac\Testing\Integrations\PHPUnit\VerifiesDoubles;
 use JMac\Testing\Matching\Argument;
 use PHPUnit\Framework\TestCase;
+use SortDirection;
 
 class DatabaseMigrationRepositoryTest extends TestCase
 {
@@ -24,8 +25,8 @@ class DatabaseMigrationRepositoryTest extends TestCase
         $connectionMock = Double::for(Connection::class);
         $repo = $this->getRepository($connectionMock);
         $connectionMock->expects('table')->with('migrations')->returns($query);
-        $query->expects('orderBy')->with('batch', 'asc')->returns($query);
-        $query->expects('orderBy')->with('migration', 'asc')->returns($query);
+        $query->expects('orderBy')->with('batch', SortDirection::Ascending)->returns($query);
+        $query->expects('orderBy')->with('migration', SortDirection::Ascending)->returns($query);
         $query->expects('pluck')->with('migration')->returns(new Collection(['bar']));
         $query->expects('useWritePdo')->returns($query);
 
@@ -42,7 +43,7 @@ class DatabaseMigrationRepositoryTest extends TestCase
         $query = Double::for(QueryBuilder::class);
         $connectionMock->expects('table')->with('migrations')->returns($query);
         $query->expects('where')->with('batch', 1)->returns($query);
-        $query->expects('orderBy')->with('migration', 'desc')->returns($query);
+        $query->expects('orderBy')->with('migration', SortDirection::Descending)->returns($query);
         $query->expects('get')->returns(new Collection(['foo']));
         $query->expects('useWritePdo')->returns($query);
 

@@ -5,6 +5,7 @@ namespace Illuminate\Queue\Failed;
 use DateTimeInterface;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Support\Facades\Date;
+use SortDirection;
 
 class DatabaseUuidFailedJobProvider implements CountableFailedJobProvider, FailedJobProviderInterface, PrunableFailedJobProvider
 {
@@ -76,7 +77,7 @@ class DatabaseUuidFailedJobProvider implements CountableFailedJobProvider, Faile
     {
         return $this->getTable()
             ->when(! is_null($queue), fn ($query) => $query->where('queue', $queue))
-            ->orderBy('id', 'desc')
+            ->orderBy('id', SortDirection::Descending)
             ->pluck('uuid')
             ->all();
     }
@@ -88,7 +89,7 @@ class DatabaseUuidFailedJobProvider implements CountableFailedJobProvider, Faile
      */
     public function all()
     {
-        return $this->getTable()->orderBy('id', 'desc')->get()->map(function ($record) {
+        return $this->getTable()->orderBy('id', SortDirection::Descending)->get()->map(function ($record) {
             $record->id = $record->uuid;
             unset($record->uuid);
 

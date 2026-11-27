@@ -176,7 +176,7 @@ class Image implements Responsable, Stringable
      */
     public function blur(int $amount = 5): static
     {
-        return $this->transform(new Blur(max(0, min(100, $amount))));
+        return $this->transform(new Blur(clamp($amount, 0, 100)));
     }
 
     /**
@@ -194,7 +194,7 @@ class Image implements Responsable, Stringable
      */
     public function sharpen(int $amount = 10): static
     {
-        return $this->transform(new Sharpen(max(0, min(100, $amount))));
+        return $this->transform(new Sharpen(clamp($amount, 0, 100)));
     }
 
     /**
@@ -254,7 +254,7 @@ class Image implements Responsable, Stringable
      */
     public function quality(int $quality): static
     {
-        return $this->withOutput(fn (ImageOutputOptions $output) => $output->quality = max(1, min(100, $quality)));
+        return $this->withOutput(fn (ImageOutputOptions $output) => $output->quality = clamp($quality, 1, 100));
     }
 
     /**

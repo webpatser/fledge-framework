@@ -57,7 +57,7 @@ trait InteractsWithData
 
         $data = $this->all();
 
-        return array_all($keys, fn ($value) => Arr::has($data, $value));
+        return array_all($keys, Arr::has($data, ?));
     }
 
     /**
@@ -122,7 +122,7 @@ trait InteractsWithData
     {
         $keys = is_array($key) ? $key : func_get_args();
 
-        return array_all($keys, fn ($value) => $this->isEmptyString($value));
+        return array_all($keys, $this->isEmptyString(...));
     }
 
     /**

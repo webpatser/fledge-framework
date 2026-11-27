@@ -3773,7 +3773,7 @@ class Builder implements BuilderContract
         $orders = ! empty($this->unionOrders) ? $this->unionOrders : $this->orders;
 
         return (new Collection($orders))
-            ->filter(fn ($order) => Arr::has($order, 'direction'))
+            ->filter(Arr::has(?, 'direction'))
             ->values();
     }
 
@@ -4646,7 +4646,7 @@ class Builder implements BuilderContract
     public function getColumns()
     {
         return ! is_null($this->columns)
-            ? array_map(fn ($column) => $this->grammar->getValue($column), $this->columns)
+            ? array_map($this->grammar->getValue(...), $this->columns)
             : [];
     }
 

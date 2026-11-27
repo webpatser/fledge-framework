@@ -199,9 +199,7 @@ class DatabaseTransactionsManager
         // There may be multiple deeply nested transactions that have already committed that we
         // also need to remove. We will recurse down the children of all removed transaction
         // instances until there are no more deeply nested child transactions for removal.
-        $removedTransactions->each(
-            fn ($transaction) => $this->removeCommittedTransactionsThatAreChildrenOf($transaction)
-        );
+        $removedTransactions->each($this->removeCommittedTransactionsThatAreChildrenOf(...));
 
         $removedTransactions->each(fn ($transaction) => $transaction->executeCallbacksForRollback());
     }

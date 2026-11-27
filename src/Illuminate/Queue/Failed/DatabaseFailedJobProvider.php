@@ -5,6 +5,7 @@ namespace Illuminate\Queue\Failed;
 use DateTimeInterface;
 use Illuminate\Database\ConnectionResolverInterface;
 use Illuminate\Support\Facades\Date;
+use SortDirection;
 
 class DatabaseFailedJobProvider implements CountableFailedJobProvider, FailedJobProviderInterface, PrunableFailedJobProvider
 {
@@ -73,7 +74,7 @@ class DatabaseFailedJobProvider implements CountableFailedJobProvider, FailedJob
     {
         return $this->getTable()
             ->when(! is_null($queue), fn ($query) => $query->where('queue', $queue))
-            ->orderBy('id', 'desc')
+            ->orderBy('id', SortDirection::Descending)
             ->pluck('id')
             ->map(fn ($id) => is_int($id) ? $id : (string) $id)
             ->all();
@@ -86,7 +87,7 @@ class DatabaseFailedJobProvider implements CountableFailedJobProvider, FailedJob
      */
     public function all()
     {
-        return $this->getTable()->orderBy('id', 'desc')->get()->all();
+        return $this->getTable()->orderBy('id', SortDirection::Descending)->get()->all();
     }
 
     /**

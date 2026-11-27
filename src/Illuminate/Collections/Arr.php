@@ -572,7 +572,7 @@ class Arr
             return false;
         }
 
-        return array_all($keys, fn ($key) => static::has($array, $key));
+        return array_all($keys, static::has($array, ?));
     }
 
     /**
@@ -594,7 +594,7 @@ class Arr
             return false;
         }
 
-        return array_any($keys, fn ($key) => static::has($array, $key));
+        return array_any($keys, static::has($array, ?));
     }
 
     /**

@@ -1819,7 +1819,7 @@ class LazyCollection implements CanBeEscapedWhenCastToString, Enumerable
 
         return new static(function () use ($iterables) {
             $iterators = (new Collection($iterables))
-                ->map(fn ($iterable) => $this->makeIterator($iterable))
+                ->map($this->makeIterator(...))
                 ->prepend($this->getIterator());
 
             while ($iterators->contains->valid()) {

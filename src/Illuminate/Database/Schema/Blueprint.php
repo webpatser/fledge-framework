@@ -1179,7 +1179,7 @@ class Blueprint
      */
     public function enum($column, array $allowed)
     {
-        $allowed = array_map(fn ($value) => enum_value($value), $allowed);
+        $allowed = array_map(enum_value(...), $allowed);
 
         return $this->addColumn('enum', $column, ['allowed' => $allowed]);
     }

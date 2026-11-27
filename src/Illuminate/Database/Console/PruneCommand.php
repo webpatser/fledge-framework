@@ -141,7 +141,7 @@ class PruneCommand extends Command
                 );
             })
             ->when(! empty($except), fn ($models) => $models->reject(fn ($model) => in_array($model, $except)))
-            ->filter(fn ($model) => $this->isPrunable($model))
+            ->filter($this->isPrunable(...))
             ->values();
     }
 
@@ -154,7 +154,7 @@ class PruneCommand extends Command
     {
         if (! empty($path = $this->option('path'))) {
             return (new Collection($path))
-                ->map(fn ($path) => base_path($path))
+                ->map(base_path(...))
                 ->all();
         }
 
