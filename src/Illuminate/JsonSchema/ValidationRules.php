@@ -39,7 +39,7 @@ class ValidationRules
      */
     protected function properties(array $schema, ?string $prefix = null): array
     {
-        $required = array_map('strval', $schema['required'] ?? []);
+        $required = array_map(strval(...), $schema['required'] ?? []);
 
         $rules = [];
 
@@ -247,13 +247,13 @@ class ValidationRules
         $rules = ['array'];
 
         if (($schema['additionalProperties'] ?? null) === false) {
-            $keys = array_map('strval', array_keys($schema['properties'] ?? []));
+            $keys = array_map(strval(...), array_keys($schema['properties'] ?? []));
 
             $rules = $keys === [] ? ['array', 'max:0'] : ['array:'.$this->parameters($keys)];
         }
 
         if (! empty($schema['required'])) {
-            $rules[] = 'required_array_keys:'.$this->parameters(array_map('strval', $schema['required']));
+            $rules[] = 'required_array_keys:'.$this->parameters(array_map(strval(...), $schema['required']));
         }
 
         return $rules;

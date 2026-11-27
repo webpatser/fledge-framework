@@ -80,7 +80,7 @@ class Serializer
                 unset($attributes['properties']);
             } else {
                 $required = array_map(
-                    'strval',
+                    strval(...),
                     array_keys(array_filter(
                         $attributes['properties'],
                         static fn (Types\Type $property) => static::isRequired($property),

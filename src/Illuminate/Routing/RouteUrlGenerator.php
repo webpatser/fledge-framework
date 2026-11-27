@@ -455,7 +455,7 @@ class RouteUrlGenerator
      */
     protected function getStringParameters(array $parameters)
     {
-        return array_filter($parameters, 'is_string', ARRAY_FILTER_USE_KEY);
+        return array_filter($parameters, is_string(...), ARRAY_FILTER_USE_KEY);
     }
 
     /**
@@ -466,7 +466,7 @@ class RouteUrlGenerator
      */
     protected function getNumericParameters(array $parameters)
     {
-        return array_filter($parameters, 'is_numeric', ARRAY_FILTER_USE_KEY);
+        return array_filter($parameters, is_numeric(...), ARRAY_FILTER_USE_KEY);
     }
 
     /**

@@ -179,7 +179,7 @@ class SQLiteGrammar extends Grammar
             return '';
         }
 
-        $indexes = array_map('trim', explode(',', $indexHint->index));
+        $indexes = array_map(trim(...), explode(',', $indexHint->index));
 
         foreach ($indexes as $index) {
             if (! preg_match('/^[a-zA-Z0-9_$]+$/', $index)) {
