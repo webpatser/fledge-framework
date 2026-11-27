@@ -280,7 +280,7 @@ class CronExpressionTimezoneConverter
             $groups = [0 => static::mergeGroups($groups)];
         }
 
-        return array_map(static::collapse(?, $min, $max), $groups);
+        return array_map(fn ($group) => static::collapse($group, $min, $max), $groups);
     }
 
     /**

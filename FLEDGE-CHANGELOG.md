@@ -8,7 +8,7 @@ All Fledge-specific changes on top of Laravel upstream. For Laravel's own change
 - PHP 8.6 idioms. No behavior change.
 - Native `clamp()` replaces `max($lo, min($hi, $value))` where the bounds are literals: `Image/Image::blur()`, `sharpen()` and `quality()`. `Number::clamp()` keeps `min(max())`, because native `clamp()` throws a `ValueError` when `$min > $max`.
 - `SortDirection` replaces the internal `'asc'`/`'desc'` string arguments to `orderBy()` in `Database/Migrations/DatabaseMigrationRepository`, `Queue/DatabaseQueue` and `Queue/Failed/DatabaseFailedJobProvider` / `DatabaseUuidFailedJobProvider`. The compiled SQL is unchanged; the `orders` arrays and grammars keep their `'asc'`/`'desc'` strings.
-- Partial application and first-class callable syntax replace closures that only forward their arguments to a single call.
+- Partial application and first-class callable syntax replace closures that only forward their arguments to a single call. Partials with a `?` placeholder are not used because PHPStan cannot analyse them yet (it crashes on any call into a method that contains one), so those forwarders stay closures.
 - `Time\Duration` is accepted wherever a delay or TTL goes through `Illuminate\Support\InteractsWithTime` (cache TTLs, queue delays): it becomes whole seconds rounded up, a negated Duration becomes 0. This is one Fledge hunk in an upstream file, `Illuminate\Support\InteractsWithTime::parseDateInterval()` (with its `@param` docblock); keep it on the next sync. Requires `webpatser/fledge-fiber ^13.44.1.2` and `webpatser/fledge-loop ^0.1.1`.
 
 ## v13.44.1.2 - 2026-11-25

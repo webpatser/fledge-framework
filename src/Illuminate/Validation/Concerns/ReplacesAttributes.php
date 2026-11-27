@@ -384,7 +384,7 @@ trait ReplacesAttributes
             : [];
 
         $unexpected = array_map(
-            $this->getDisplayableValue($attribute, ?),
+            fn ($key) => $this->getDisplayableValue($attribute, $key),
             $unexpected,
         );
 

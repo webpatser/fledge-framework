@@ -3773,7 +3773,7 @@ class Builder implements BuilderContract
         $orders = ! empty($this->unionOrders) ? $this->unionOrders : $this->orders;
 
         return (new Collection($orders))
-            ->filter(Arr::has(?, 'direction'))
+            ->filter(fn ($order) => Arr::has($order, 'direction'))
             ->values();
     }
 

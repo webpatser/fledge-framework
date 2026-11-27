@@ -195,7 +195,7 @@ class Number
         $currency = ! empty($in) ? $in : static::$currency;
 
         return $formatter->formatCurrency(
-            static::withoutNegativeZero($number, $formatter->formatCurrency(?, $currency)),
+            static::withoutNegativeZero($number, fn ($number) => $formatter->formatCurrency($number, $currency)),
             $currency,
         );
     }
